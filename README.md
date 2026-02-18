@@ -112,8 +112,8 @@ catchit/
 ### 1. Clone the repository
 
 ```bash
-git clone <repository-url>
-cd projeto-ea/catchit
+git clone git@github.com:xaloftal/projeto-EA.git
+cd projeto-EA/catchit
 ```
 
 ### 2. Install dependencies
