@@ -113,7 +113,7 @@ catchit/
 
 ```bash
 git clone <repository-url>
-cd catchit
+cd projeto-ea/catchit
 ```
 
 ### 2. Install dependencies
