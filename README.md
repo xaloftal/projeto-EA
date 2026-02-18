@@ -1,3 +1,7 @@
 # projeto-EA
 
-Bomdia
+## Estrutura Recomendada
+
+```
+
+```
