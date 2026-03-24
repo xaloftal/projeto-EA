@@ -3,3 +3,7 @@ venv
 .env
 env
 data
+
+*vpp.lck
+*.vpp.bak*
+
