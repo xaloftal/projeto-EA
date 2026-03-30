@@ -7,3 +7,6 @@ data
 *vpp.lck
 *.vpp.bak*
 
+tmp
+.lock
+.vpprefdata
