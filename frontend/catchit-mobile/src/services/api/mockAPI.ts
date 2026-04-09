@@ -85,46 +85,45 @@ const mockTickets: Ticket[] = [
 ]
 
 const mockCards: Card[] = [
-  {
-    id: 'card_1',
-    userID: 'user_1',
-    name: 'TUB Card',
-    price: 20.0,
-    description: 'Travel card for TUB Transportes',
-  },
-  {
-    id: 'card_2',
-    userID: 'user_1',
-    name: 'FlixBus Card',
-    price: 15.0,
-    description: 'Travel card for FlixBus',
-  },
+  // Start with no owned card so the UI shows all plans as purchasable.
 ]
 
 const mockTravelCards: TravelCard[] = [
   {
-    id: 'travel_card_1',
-    userID: '',
-    name: 'Travel Card 1',
+    id: 'travel_card_weekly',
+    userID: 'user_1',
+    name: 'Weekly',
+    price: 8,
+    monthlyPrice: 8,
+    annualPrice: 96,
+    description: 'Best for short-term travel',
+    validFrom: new Date('2024-11-01'),
+    validUntil: new Date('2024-12-01'),
+    tier: 'weekly',
+  },
+  {
+    id: 'travel_card_monthly',
+    userID: 'user_1',
+    name: 'Monthly',
     price: 20,
     monthlyPrice: 20,
     annualPrice: 200,
+    description: 'Best for regular riders',
+    validFrom: new Date('2024-11-01'),
+    validUntil: new Date('2024-12-01'),
+    tier: 'monthly',
   },
   {
-    id: 'travel_card_2',
-    userID: '',
-    name: 'Travel Card 2',
-    price: 30,
-    monthlyPrice: 30,
-    annualPrice: 300,
-  },
-  {
-    id: 'travel_card_3',
-    userID: '',
-    name: 'Travel Card 3',
-    price: 50,
-    monthlyPrice: 50,
-    annualPrice: 500,
+    id: 'travel_card_yearly',
+    userID: 'user_1',
+    name: 'Yearly',
+    price: 200,
+    monthlyPrice: 200,
+    annualPrice: 200,
+    description: 'Best value for frequent riders',
+    validFrom: new Date('2024-11-01'),
+    validUntil: new Date('2025-11-01'),
+    tier: 'yearly',
   },
 ]
 
@@ -351,10 +350,9 @@ class MockAPIService {
    */
   async getUserCards(userId: string): Promise<APIResponse<Card[]>> {
     await this.delay()
-    void userId
     return {
       success: true,
-      data: mockCards,
+      data: mockCards.filter((card) => card.userID === userId),
     }
   }
 
@@ -377,7 +375,7 @@ class MockAPIService {
   async purchaseCard(data: {
     userId: string
     cardId: string
-    type: 'monthly' | 'annual'
+    tier: 'weekly' | 'monthly' | 'yearly'
   }): Promise<APIResponse<Card>> {
     await this.delay()
     const travelCard = mockTravelCards.find((c) => c.id === data.cardId)
@@ -391,7 +389,11 @@ class MockAPIService {
       id: `card_${Date.now()}`,
       userID: data.userId,
       name: travelCard.name,
-      price: data.type === 'monthly' ? travelCard.monthlyPrice : travelCard.annualPrice,
+      price: travelCard.price,
+      description: travelCard.description,
+      validFrom: travelCard.validFrom,
+      validUntil: travelCard.validUntil,
+      tier: data.tier,
     }
     return {
       success: true,

@@ -1,6 +1,6 @@
 import { ref, computed } from 'vue'
 import { mockAPI } from '../services/api/mockAPI'
-import type { User, Ticket, Card, PaymentMethod, Stop, Vehicle } from '../models'
+import type { User, Ticket, Card, CardTier, TravelCard, PaymentMethod, Stop, Vehicle } from '../models'
 
 type RouteSearchResult = {
   routeId: string
@@ -175,7 +175,7 @@ export function useTicketViewModel() {
  */
 export function useCardViewModel() {
   const userCards = ref<Card[]>([])
-  const availableCards = ref<Card[]>([])
+  const availableCards = ref<TravelCard[]>([])
   const isLoading = ref(false)
   const error = ref<string>('')
 
@@ -204,14 +204,14 @@ export function useCardViewModel() {
     }
   }
 
-  const purchaseCard = async (cardId: string, type: 'monthly' | 'annual') => {
+  const purchaseCard = async (cardId: string, tier: CardTier) => {
     if (!currentUser.value) return false
     isLoading.value = true
     try {
       const response = await mockAPI.purchaseCard({
         userId: currentUser.value.id,
         cardId,
-        type,
+        tier,
       })
       if (response.success && response.data) {
         userCards.value.push(response.data)

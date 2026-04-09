@@ -44,7 +44,7 @@
     <!-- Bottom Navigation -->
     <nav class="bottom-nav">
       <router-link to="/home" class="nav-item"><House class="nav-icon" /></router-link>
-      <router-link to="/search-tickets" class="nav-item"><Search class="nav-icon" /></router-link>
+      <router-link to="/search-tickets" class="nav-item"><Map class="nav-icon" /></router-link>
       <router-link to="/cart" class="nav-item"><ShoppingCart class="nav-icon" /></router-link>
       <router-link to="/notifications" class="nav-item"><Bell class="nav-icon" /></router-link>
       <router-link to="/profile" class="nav-item active"><User class="nav-icon" /></router-link>
@@ -53,7 +53,7 @@
 </template>
 
 <script setup lang="ts">
-import { ArrowLeft, Bell, Bus, ChevronRight, CircleHelp, House, LogOut, Pencil, Search, Settings, ShoppingCart, User } from 'lucide-vue-next'
+import { ArrowLeft, Bell, Bus, ChevronRight, CircleHelp, House, LogOut, Pencil, Map, Settings, ShoppingCart, User } from 'lucide-vue-next'
 import { useRouter } from 'vue-router'
 import { useAuthViewModel, useProfileViewModel } from '../viewmodels'
 

@@ -68,7 +68,7 @@
     <!-- Bottom Navigation -->
     <nav class="bottom-nav">
       <router-link to="/home" class="nav-item"><House class="nav-icon" /></router-link>
-      <router-link to="/search-tickets" class="nav-item"><Search class="nav-icon" /></router-link>
+      <router-link to="/search-tickets" class="nav-item"><Map class="nav-icon" /></router-link>
       <router-link to="/cart" class="nav-item"><ShoppingCart class="nav-icon" /></router-link>
       <router-link to="/notifications" class="nav-item"><Bell class="nav-icon" /></router-link>
       <router-link to="/profile" class="nav-item"><User class="nav-icon" /></router-link>
@@ -77,7 +77,7 @@
 </template>
 
 <script setup lang="ts">
-import { Bell, House, MapPin, Search, ShoppingCart, User } from 'lucide-vue-next'
+import { Bell, House, MapPin, Map, ShoppingCart, User } from 'lucide-vue-next'
 </script>
 
 <style scoped>

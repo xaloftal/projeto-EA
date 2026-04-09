@@ -1,7 +1,9 @@
 <template>
   <div class="auth-container">
     <div class="auth-card">
-      <h1>CatchIt</h1>
+      <h1>        
+        <img src="../assets/app-logo.png" alt="CatchIt " class="logo" /> 
+      </h1>
       <p class="auth-subtitle">Access your account</p>
 
       <form @submit.prevent="handleLogin" class="auth-form">
@@ -44,14 +46,15 @@
       <!-- Divider -->
       <div class="divider">or</div>
 
-      <!-- Social Login -->
-      <button class="btn-social btn-google">
-        <Chrome class="icon-sm" /> Continue with Google
-      </button>
-      <button class="btn-social btn-apple">
-        <Apple class="icon-sm" /> Continue with Apple
-      </button>
-
+      <div class="login-options">
+        <!-- Social Login -->
+        <button class="btn-social btn-google">
+          <Chrome class="icon-sm" /> Continue with Google
+        </button>
+        <button class="btn-social btn-apple">
+          <Apple class="icon-sm" /> Continue with Apple
+        </button>
+      </div>
       <!-- Terms -->
       <p class="terms">
         By clicking continue, you agree to our
@@ -113,8 +116,21 @@ const handleLogin = async () => {
 h1 {
   font-size: 2rem;
   text-align: center;
-  margin-bottom: 0.5rem;
+  margin-bottom: -4dvh;
   color: #333;
+}
+
+.logo {
+  width: 70%;
+  height: auto;
+  margin: -2rem auto 0;
+}
+
+.login-options{
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-bottom: 1.5rem;
 }
 
 .auth-subtitle {
@@ -284,7 +300,7 @@ h1 {
 
 .auth-link {
   text-align: center;
-  font-size: 0.95rem;
+  font-size: 0.90rem;
   color: #666;
 }
 </style>

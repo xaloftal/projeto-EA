@@ -126,12 +126,17 @@ export interface Store {
 }
 
 // Card related types
+export type CardTier = 'weekly' | 'monthly' | 'yearly'
+
 export interface Card {
   id: string
   userID: string
   name: string
   price: number
   description?: string
+  validFrom: Date
+  validUntil: Date
+  tier?: CardTier
 }
 
 export interface TravelCard extends Card {

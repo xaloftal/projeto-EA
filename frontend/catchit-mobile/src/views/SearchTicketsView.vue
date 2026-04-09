@@ -1,436 +1,821 @@
 <template>
-  <div class="search-container">
-    <!-- Header -->
-    <header class="app-header">
-      <router-link to="/home" class="back-btn" aria-label="Back">
-        <ArrowLeft class="icon-md" />
-      </router-link>
-      <h1>Buy Tickets</h1>
-      <div style="width: 2rem"></div>
-    </header>
+  <div class="search-container" :style="containerStyle">
+    <div ref="mapContainer" class="map" :style="mapStyle"></div>
 
-    <!-- Search Form -->
-    <div class="search-form">
-      <div class="tabs">
-        <button :class="['tab', { active: activeTab === 'tickets' }]" @click="activeTab = 'tickets'">
-          Buy Tickets
-        </button>
-        <button :class="['tab', { active: activeTab === 'cards' }]" @click="activeTab = 'cards'">
-          Buy Cards
-        </button>
+    <section ref="topOverlayRef" class="top-overlay">
+      <div class="search-box">
+        <Search class="icon-sm" />
+        <input
+          v-model="stopQuery"
+          type="text"
+          class="search-input"
+          placeholder="Search stops"
+          @focus="onSearchFocus"
+          @input="onSearchInput"
+          @keyup.enter="focusFirstMatch"
+        />
       </div>
 
-      <!-- Ticket Search Tab -->
-      <div v-if="activeTab === 'tickets'" class="tab-content">
-        <div class="form-group">
-          <label>From</label>
-          <input v-model="searchForm.from" type="text" placeholder="Vila Nova de Famalicão" class="form-input" />
-        </div>
+      <ul v-if="visibleSuggestions" class="suggestions-list">
+        <li v-for="stop in filteredStops" :key="stop.id" class="suggestion-item">
+          <button type="button" class="suggestion-btn" @click="focusStop(stop.id)">
+            <span>{{ stop.name }}</span>
+            <small>{{ stop.id }}</small>
+          </button>
+        </li>
+      </ul>
 
-        <div class="form-group">
-          <label>To</label>
-          <input v-model="searchForm.to" type="text" placeholder="Lisboa" class="form-input" />
-        </div>
-
-        <div class="form-group">
-          <label>Departure</label>
-          <input v-model="searchForm.departure" type="date" class="form-input" />
-        </div>
-
-        <div class="form-group">
-          <label>Arrival</label>
-          <input v-model="searchForm.arrival" type="date" class="form-input" />
-        </div>
-
-        <button @click="searchTickets" class="btn-primary">
-          {{ isLoading ? 'Searching...' : 'Search' }}
-        </button>
-
-        <!-- Search Results -->
-        <div v-if="(searchResults as any).length > 0" class="results">
-          <h3>Results - 99 results</h3>
-          <div class="filter-buttons">
-            <button class="filter-btn active">Filter</button>
-            <button class="filter-btn">Sort</button>
-          </div>
-
-          <div v-for="result in (searchResults as any)" :key="(result as any).routeId" class="result-item">
-            <div class="result-header">
-              <div class="route">
-                <p class="location">{{ ((result as any).fromStop.name) }}</p>
-                <p class="time">{{ ((result as any).departureTime) }}</p>
-              </div>
-              <div class="arrow"><ArrowRight class="icon-sm" /></div>
-              <div class="route">
-                <p class="location">{{ ((result as any).toStop.name) }}</p>
-                <p class="time">{{ ((result as any).arrivalTime) }}</p>
-              </div>
-            </div>
-            <div class="result-details">
-              <span class="provider">TUB</span>
-              <span class="price">€{{ ((result as any).price.toFixed(2)) }}</span>
-            </div>
-            <button @click="selectRoute(result)" class="btn-select">Select</button>
-          </div>
-        </div>
+      <div class="chip-row">
+        <button class="chip-btn">Filter</button>
+        <button class="chip-btn">Sort</button>
+        <p class="results-count">{{ resultCount }} results</p>
       </div>
 
-      <!-- Card Search Tab -->
-      <div v-if="activeTab === 'cards'" class="tab-content">
-        <div class="cards-list">
-          <div v-for="card in (cardViewModel.availableCards as any)" :key="(card as any).id" class="card-option">
-            <div class="card-info">
-              <h3>{{ ((card as any).name) }}</h3>
-              <p class="description">{{ ((card as any).description) }}</p>
-            </div>
-            <div class="card-prices">
-              <button class="price-btn">
-                <span class="label">Monthly</span>
-                <span class="price">€{{ ((card as any).monthlyPrice) }}</span>
-              </button>
-              <button class="price-btn">
-                <span class="label">Annual</span>
-                <span class="price">€{{ ((card as any).annualPrice) }}</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    </section>
 
-    <!-- Bottom Navigation -->
+    <section
+      v-if="stops.length > 0"
+      ref="bottomSheetRef"
+      class="bottom-sheet"
+      :class="{ 'is-dragging': isDragging }"
+      :style="bottomSheetStyle"
+      @pointerdown="onSheetPointerDown"
+    >
+      <div class="drag-handle"></div>
+
+      <div v-if="sheetMode === 'stop' && selectedStop" class="sheet-header">
+        <h2>{{ selectedStop.name }}</h2>
+        <span class="provider-badge">TUB</span>
+      </div>
+
+      <template v-if="sheetMode === 'stop' && selectedStop">
+        <p class="line-name">Bus stop information</p>
+        <p class="ids-line">Stop ID: {{ selectedStop.id }}</p>
+        <p class="next-stop">Next Stop: {{ nextStopName }}</p>
+
+        <h3 class="route-title">Routes at this stop</h3>
+        <div
+          v-for="route in stopRouteInfo"
+          :key="route.routeId"
+          class="route-item"
+        >
+          <span>{{ route.lineLabel }} ({{ route.busId }})</span>
+          <span>{{ route.nextTime }}</span>
+        </div>
+      </template>
+
+      <template v-else-if="sheetMode === 'bus' && selectedBus">
+        <div class="sheet-header">
+          <h2>Bus {{ selectedBus.lineLabel }}</h2>
+          <span class="provider-badge">TUB</span>
+        </div>
+
+        <p class="line-name">Bus information</p>
+        <p class="ids-line">Bus ID: {{ selectedBus.busId }}</p>
+        <p class="next-stop">Next Stop: {{ selectedBus.nextStopName }}</p>
+
+        <h3 class="route-title">Arrival Estimate</h3>
+        <div class="route-item">
+          <span>{{ selectedBus.nextStopName }}</span>
+          <span>{{ selectedBus.etaLabel }}</span>
+        </div>
+      </template>
+
+    </section>
+
     <nav class="bottom-nav">
-      <router-link to="/home" class="nav-item"><House class="nav-icon" /></router-link>
-      <router-link to="/search-tickets" class="nav-item active"><Search class="nav-icon" /></router-link>
-      <router-link to="/cart" class="nav-item"><ShoppingCart class="nav-icon" /></router-link>
-      <router-link to="/notifications" class="nav-item"><Bell class="nav-icon" /></router-link>
-      <router-link to="/profile" class="nav-item"><User class="nav-icon" /></router-link>
+      <router-link to="/home" class="nav-item"><House /></router-link>
+      <router-link to="/search-tickets" class="nav-item active"><MapIcon /></router-link>
+      <router-link to="/cards" class="nav-item"><ShoppingCart /></router-link>
+      <router-link to="/notifications" class="nav-item"><Bell /></router-link>
+      <router-link to="/profile" class="nav-item"><User /></router-link>
     </nav>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { ArrowLeft, ArrowRight, Bell, House, Search, ShoppingCart, User } from 'lucide-vue-next'
-import { useRouter } from 'vue-router'
-import { useTravelViewModel, useCardViewModel } from '../viewmodels'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { Bell, House, Map as MapIcon, Search, ShoppingCart, User } from 'lucide-vue-next'
+import L from 'leaflet'
+import 'leaflet/dist/leaflet.css'
 
-const router = useRouter()
-const travelViewModel = useTravelViewModel()
-const cardViewModel = useCardViewModel()
+type StopFeature = {
+  id: string
+  name: string
+  latitude: number
+  longitude: number
+  code: string
+}
 
-const activeTab = ref<'tickets' | 'cards'>('tickets')
-const searchForm = ref({
-  from: '',
-  to: '',
-  departure: '',
-  arrival: '',
+type RouteDefinition = {
+  routeId: string
+  lineLabel: string
+  busId: string
+  stopIds: string[]
+  firstDeparture: string
+  intervalMinutes: number
+  travelBetweenStopsMinutes: number
+}
+
+type ActiveBus = {
+  busId: string
+  lineLabel: string
+  routeId: string
+  latitude: number
+  longitude: number
+  nextStopId: string
+  nextStopName: string
+  etaMinutes: number
+  etaLabel: string
+}
+
+const mapContainer = ref<HTMLElement | null>(null)
+const topOverlayRef = ref<HTMLElement | null>(null)
+const bottomSheetRef = ref<HTMLElement | null>(null)
+const stopQuery = ref('')
+const showSuggestions = ref(false)
+const stops = ref<StopFeature[]>([])
+const selectedStopId = ref<string>('')
+const selectedBusId = ref<string>('')
+const sheetMode = ref<'stop' | 'bus'>('stop')
+const isDragging = ref(false)
+const isSheetExpanded = ref(false)
+const sheetHeight = ref(0)
+const topOverlayHeight = ref(0)
+const dragOffset = ref(0)
+const dragStartY = ref(0)
+const dragStartOffset = ref(0)
+const nowTick = ref(Date.now())
+
+let map: L.Map | null = null
+let stopMarkersLayer: L.LayerGroup | null = null
+let busMarkersLayer: L.LayerGroup | null = null
+let tickIntervalId: number | null = null
+const stopMarkers = new Map<string, L.Marker>()
+const busMarkers = new Map<string, L.Marker>()
+
+const routeDefinitions: RouteDefinition[] = [
+  {
+    routeId: 'route_43',
+    lineLabel: '43',
+    busId: 'bus_43',
+    stopIds: ['stop_1', 'stop_6', 'stop_7', 'stop_3'],
+    firstDeparture: '06:35',
+    intervalMinutes: 30,
+    travelBetweenStopsMinutes: 6,
+  },
+  {
+    routeId: 'route_22',
+    lineLabel: '22',
+    busId: 'bus_22',
+    stopIds: ['stop_2', 'stop_5', 'stop_4'],
+    firstDeparture: '06:20',
+    intervalMinutes: 40,
+    travelBetweenStopsMinutes: 8,
+  },
+  {
+    routeId: 'route_68',
+    lineLabel: '68',
+    busId: 'bus_68',
+    stopIds: ['stop_4', 'stop_3'],
+    firstDeparture: '06:10',
+    intervalMinutes: 35,
+    travelBetweenStopsMinutes: 10,
+  },
+]
+
+const filteredStops = computed(() => {
+  const query = stopQuery.value.trim().toLowerCase()
+  if (!query) return []
+  return stops.value
+    .filter((stop) => stop.name.toLowerCase().includes(query))
+    .slice(0, 8)
 })
-const searchResults = ref<unknown[]>([])
-const isLoading = ref(false)
 
-onMounted(async () => {
-  await cardViewModel.fetchAvailableCards()
+const selectedStop = computed(() =>
+  stops.value.find((stop) => stop.id === selectedStopId.value) ?? null
+)
+
+const stopById = computed(() => {
+  const byId = new Map<string, StopFeature>()
+  for (const stop of stops.value) {
+    byId.set(stop.id, stop)
+  }
+  return byId
 })
 
-const searchTickets = async () => {
-  isLoading.value = true
-  try {
-    const results = await travelViewModel.searchRoutes(
-      'stop_1',
-      'stop_3',
-      searchForm.value.departure
+const toMinutes = (time: string) => {
+  const [hours, minutes] = time.split(':').map((part) => Number(part))
+  return hours * 60 + minutes
+}
+
+const toClock = (valueInMinutes: number) => {
+  const normalized = ((valueInMinutes % 1440) + 1440) % 1440
+  const hours = Math.floor(normalized / 60)
+  const minutes = normalized % 60
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`
+}
+
+const nowMinutes = computed(() => {
+  const now = new Date(nowTick.value)
+  return now.getHours() * 60 + now.getMinutes()
+})
+
+const stopRouteInfo = computed(() => {
+  if (!selectedStop.value) return [] as Array<{ routeId: string; lineLabel: string; busId: string; nextTime: string }>
+
+  const selectedId = selectedStop.value.id
+  const nowMin = nowMinutes.value
+
+  return routeDefinitions
+    .filter((route) => route.stopIds.includes(selectedId))
+    .map((route) => {
+      const stopIndex = route.stopIds.indexOf(selectedId)
+      const firstAtStop = toMinutes(route.firstDeparture) + stopIndex * route.travelBetweenStopsMinutes
+
+      let next = firstAtStop
+      while (next < nowMin) {
+        next += route.intervalMinutes
+      }
+
+      return {
+        routeId: route.routeId,
+        lineLabel: route.lineLabel,
+        busId: route.busId,
+        nextTime: toClock(next),
+      }
+    })
+})
+
+const activeBuses = computed(() => {
+  const nowMin = nowMinutes.value
+  const active: ActiveBus[] = []
+
+  for (const route of routeDefinitions) {
+    const routeDuration = (route.stopIds.length - 1) * route.travelBetweenStopsMinutes
+    const firstStart = toMinutes(route.firstDeparture)
+
+    let start = firstStart
+    while (start + routeDuration < nowMin) {
+      start += route.intervalMinutes
+    }
+
+    if (nowMin < start || nowMin > start + routeDuration) {
+      continue
+    }
+
+    const elapsed = nowMin - start
+    const segmentIndex = Math.min(
+      Math.floor(elapsed / route.travelBetweenStopsMinutes),
+      route.stopIds.length - 2
     )
-    searchResults.value = results
-  } finally {
-    isLoading.value = false
+    const withinSegment = elapsed - segmentIndex * route.travelBetweenStopsMinutes
+    const fraction = Math.min(Math.max(withinSegment / route.travelBetweenStopsMinutes, 0), 1)
+
+    const fromStop = stopById.value.get(route.stopIds[segmentIndex])
+    const toStop = stopById.value.get(route.stopIds[segmentIndex + 1])
+    if (!fromStop || !toStop) continue
+
+    const latitude = fromStop.latitude + (toStop.latitude - fromStop.latitude) * fraction
+    const longitude = fromStop.longitude + (toStop.longitude - fromStop.longitude) * fraction
+    const etaMinutes = Math.max(1, Math.ceil((1 - fraction) * route.travelBetweenStopsMinutes))
+
+    active.push({
+      busId: route.busId,
+      lineLabel: route.lineLabel,
+      routeId: route.routeId,
+      latitude,
+      longitude,
+      nextStopId: toStop.id,
+      nextStopName: toStop.name,
+      etaMinutes,
+      etaLabel: `${etaMinutes} min`,
+    })
+  }
+
+  return active
+})
+
+const selectedBus = computed(() =>
+  activeBuses.value.find((bus) => bus.busId === selectedBusId.value) ?? null
+)
+
+const nextStopName = computed(() => {
+  if (!selectedStop.value || stops.value.length < 2) return 'No next stop available'
+  const selectedIndex = stops.value.findIndex((stop) => stop.id === selectedStop.value?.id)
+  const nextIndex = (selectedIndex + 1) % stops.value.length
+  return stops.value[nextIndex]?.name ?? 'No next stop available'
+})
+
+const resultCount = computed(() =>
+  stopQuery.value.trim() ? filteredStops.value.length : stops.value.length
+)
+
+const visibleSuggestions = computed(() =>
+  showSuggestions.value && stopQuery.value.trim().length > 0 && filteredStops.value.length > 0
+)
+
+const collapsedPeek = 88
+const minimumAnimatedSheetHeight = 300
+
+const effectiveSheetHeight = computed(() =>
+  Math.max(sheetHeight.value, minimumAnimatedSheetHeight)
+)
+
+const collapsedOffset = computed(() =>
+  Math.max(0, effectiveSheetHeight.value - collapsedPeek)
+)
+
+const settledOffset = computed(() =>
+  isSheetExpanded.value ? 0 : collapsedOffset.value
+)
+
+const bottomSheetOffset = computed(() => {
+  if (!isDragging.value) return settledOffset.value
+  return Math.min(Math.max(dragOffset.value, 0), collapsedOffset.value)
+})
+
+const bottomSheetStyle = computed(() => ({
+  transform: `translateY(${bottomSheetOffset.value}px)`,
+}))
+
+const visibleSheetHeight = computed(() =>
+  Math.max(0, sheetHeight.value - bottomSheetOffset.value)
+)
+
+const leafletControlsBottom = computed(() =>
+  Math.max(68, 68 + visibleSheetHeight.value - 12)
+)
+
+const containerStyle = computed(() => ({
+  '--leaflet-controls-bottom': `${leafletControlsBottom.value}px`,
+}))
+
+const mapStyle = computed(() => ({
+  top: `${topOverlayHeight.value}px`,
+  bottom: '68px',
+}))
+
+const measureSheetHeight = () => {
+  if (!bottomSheetRef.value) return
+  sheetHeight.value = bottomSheetRef.value.offsetHeight
+}
+
+const measureTopOverlayHeight = () => {
+  if (!topOverlayRef.value) return
+  const bounds = topOverlayRef.value.getBoundingClientRect()
+  topOverlayHeight.value = Math.ceil(bounds.bottom + 8)
+}
+
+const onSheetPointerMove = (event: PointerEvent) => {
+  if (!isDragging.value) return
+  const deltaY = event.clientY - dragStartY.value
+  dragOffset.value = dragStartOffset.value + deltaY
+}
+
+const stopDragging = () => {
+  if (!isDragging.value) return
+  const snapThreshold = collapsedOffset.value * 0.45
+  isSheetExpanded.value = bottomSheetOffset.value < snapThreshold
+
+  if (!isSheetExpanded.value) {
+    selectedStopId.value = ''
+    selectedBusId.value = ''
+    sheetMode.value = 'stop'
+  }
+
+  isDragging.value = false
+
+  window.removeEventListener('pointermove', onSheetPointerMove)
+  window.removeEventListener('pointerup', stopDragging)
+  window.removeEventListener('pointercancel', stopDragging)
+}
+
+const onSheetPointerDown = (event: PointerEvent) => {
+  if (event.button !== 0) return
+
+  isDragging.value = true
+  dragStartY.value = event.clientY
+  dragStartOffset.value = settledOffset.value
+  dragOffset.value = settledOffset.value
+
+  window.addEventListener('pointermove', onSheetPointerMove)
+  window.addEventListener('pointerup', stopDragging)
+  window.addEventListener('pointercancel', stopDragging)
+}
+
+const openSheetWithAnimation = async () => {
+  isSheetExpanded.value = false
+  await nextTick()
+  measureSheetHeight()
+
+  // Force one collapsed frame first, then expand on the next frame for a reliable slide-up transition.
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      isSheetExpanded.value = true
+    })
+  })
+}
+
+const stopMarkerIcon = (code: string, isActive: boolean) =>
+  L.divIcon({
+    className: '',
+    html: `<span class="stop-sign${isActive ? ' is-active' : ''}"><span class="stop-sign-top">${code}</span><span class="stop-sign-pole"></span></span>`,
+    iconSize: [34, 52],
+    iconAnchor: [17, 44],
+  })
+
+const busMarkerIcon = (lineLabel: string, isActive: boolean) =>
+  L.divIcon({
+    className: '',
+    html: `<span class="bus-pill${isActive ? ' is-active' : ''}">BUS ${lineLabel}</span>`,
+    iconSize: [66, 28],
+    iconAnchor: [33, 14],
+  })
+
+const drawStopMarkers = () => {
+  if (!map || !stopMarkersLayer) return
+
+  stopMarkersLayer.clearLayers()
+  stopMarkers.clear()
+
+  for (const stop of stops.value) {
+    const isActive = stop.id === selectedStopId.value
+    const marker = L.marker([stop.latitude, stop.longitude], {
+      icon: stopMarkerIcon(stop.code, isActive),
+    })
+      .on('click', async () => {
+        sheetMode.value = 'stop'
+        selectedStopId.value = stop.id
+        selectedBusId.value = ''
+        await openSheetWithAnimation()
+      })
+      .addTo(stopMarkersLayer)
+    stopMarkers.set(stop.id, marker)
   }
 }
 
-const selectRoute = (route: unknown) => {
-  // Store selected route and navigate to confirmation
-  sessionStorage.setItem('selectedRoute', JSON.stringify(route))
-  void router.push('/ticket-confirmation')
+const drawBusMarkers = () => {
+  if (!map || !busMarkersLayer) return
+
+  busMarkersLayer.clearLayers()
+  busMarkers.clear()
+
+  for (const bus of activeBuses.value) {
+    const isActive = bus.busId === selectedBusId.value
+    const marker = L.marker([bus.latitude, bus.longitude], {
+      icon: busMarkerIcon(bus.lineLabel, isActive),
+      zIndexOffset: 300,
+    })
+      .on('click', async () => {
+        sheetMode.value = 'bus'
+        selectedBusId.value = bus.busId
+        selectedStopId.value = bus.nextStopId
+        await openSheetWithAnimation()
+      })
+      .addTo(busMarkersLayer)
+    busMarkers.set(bus.busId, marker)
+  }
 }
+
+const focusStop = async (stopId: string) => {
+  if (!map) return
+  const stop = stops.value.find((item) => item.id === stopId)
+  if (!stop) return
+
+  sheetMode.value = 'stop'
+  selectedStopId.value = stop.id
+  selectedBusId.value = ''
+  stopQuery.value = stop.name
+  showSuggestions.value = false
+  await openSheetWithAnimation()
+  map.setView([stop.latitude, stop.longitude], 15, { animate: true })
+}
+
+const focusFirstMatch = async () => {
+  if (filteredStops.value.length === 0) return
+  await focusStop(filteredStops.value[0].id)
+}
+
+const onSearchFocus = () => {
+  if (stopQuery.value.trim()) {
+    showSuggestions.value = true
+  }
+}
+
+const onSearchInput = () => {
+  showSuggestions.value = true
+}
+
+const loadGeoJsonStops = async () => {
+  const response = await fetch('/geo/stops.geojson')
+  const geoJson = (await response.json()) as {
+    type: 'FeatureCollection'
+    features: Array<{
+      type: 'Feature'
+      geometry: { type: 'Point'; coordinates: [number, number] }
+      properties: { id: string; name: string }
+    }>
+  }
+
+  stops.value = geoJson.features.map((feature) => {
+    const numericCode = feature.properties.name.match(/\d{1,4}/)?.[0] ?? feature.properties.id.replace('stop_', '')
+    return {
+      id: feature.properties.id,
+      name: feature.properties.name,
+      latitude: feature.geometry.coordinates[1],
+      longitude: feature.geometry.coordinates[0],
+      code: numericCode,
+    }
+  })
+
+  selectedStopId.value = ''
+  drawStopMarkers()
+  drawBusMarkers()
+}
+
+watch(selectedStopId, () => {
+  drawStopMarkers()
+})
+
+watch(activeBuses, () => {
+  drawBusMarkers()
+}, { deep: true })
+
+watch(selectedBusId, () => {
+  drawBusMarkers()
+})
+
+watch(selectedStop, async () => {
+  await nextTick()
+  measureSheetHeight()
+})
+
+watch(visibleSuggestions, async () => {
+  await nextTick()
+  measureTopOverlayHeight()
+})
+
+onMounted(async () => {
+  await nextTick()
+  if (!mapContainer.value) return
+
+  measureTopOverlayHeight()
+
+  map = L.map(mapContainer.value, {
+    zoomControl: false,
+  }).setView([41.4057, -8.5332], 13)
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors',
+  }).addTo(map)
+  L.control.zoom({ position: 'bottomleft' }).addTo(map)
+
+  stopMarkersLayer = L.layerGroup().addTo(map)
+  busMarkersLayer = L.layerGroup().addTo(map)
+  await loadGeoJsonStops()
+  await nextTick()
+  measureSheetHeight()
+  measureTopOverlayHeight()
+  window.addEventListener('resize', measureSheetHeight)
+  window.addEventListener('resize', measureTopOverlayHeight)
+
+  tickIntervalId = window.setInterval(() => {
+    nowTick.value = Date.now()
+  }, 30000)
+})
+
+onUnmounted(() => {
+  stopDragging()
+  window.removeEventListener('resize', measureSheetHeight)
+  window.removeEventListener('resize', measureTopOverlayHeight)
+  if (tickIntervalId) {
+    window.clearInterval(tickIntervalId)
+    tickIntervalId = null
+  }
+  map?.remove()
+  map = null
+  stopMarkersLayer = null
+  busMarkersLayer = null
+  stopMarkers.clear()
+  busMarkers.clear()
+})
+
 </script>
 
 <style scoped>
 .search-container {
-  display: flex;
-  flex-direction: column;
+  position: relative;
   height: 100vh;
-  background: #f5f5f5;
+  background: #eef1f5;
+  overflow: hidden;
 }
 
-.app-header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  padding: 1rem;
+.map {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 68px;
+  left: 0;
+}
+
+.top-overlay {
+  position: absolute;
+  top: 2rem;
+  left: 0.75rem;
+  right: 0.75rem;
+  z-index: 700;
+}
+
+.search-box {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  gap: 0.6rem;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  padding: 0.7rem 0.8rem;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
 }
 
-.app-header h1 {
-  font-size: 1.2rem;
-  margin: 0;
-  flex: 1;
-  text-align: center;
-}
-
-.back-btn {
-  cursor: pointer;
-  text-decoration: none;
-  color: white;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.search-form {
-  flex: 1;
-  overflow-y: auto;
-}
-
-.tabs {
-  display: flex;
-  background: white;
-  border-bottom: 2px solid #e0e0e0;
-}
-
-.tab {
-  flex: 1;
-  padding: 1rem;
-  background: none;
+.search-input {
   border: none;
-  border-bottom: 3px solid transparent;
-  cursor: pointer;
-  font-weight: 600;
-  color: #999;
-  transition: all 0.3s;
-}
-
-.tab.active {
-  border-bottom-color: #667eea;
-  color: #667eea;
-}
-
-.tab-content {
-  padding: 1rem;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
-}
-
-.form-group label {
-  font-weight: 600;
-  color: #333;
-  font-size: 0.9rem;
-}
-
-.form-input {
-  padding: 0.75rem;
-  border: 1px solid #e0e0e0;
-  border-radius: 6px;
+  width: 100%;
   font-size: 1rem;
+  background: transparent;
+  color: #111827;
 }
 
-.form-input:focus {
+.search-input:focus {
   outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
-.btn-primary {
+.suggestions-list {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12);
+  overflow: hidden;
+}
+
+.suggestion-item + .suggestion-item {
+  border-top: 1px solid #f3f4f6;
+}
+
+.suggestion-btn {
   width: 100%;
-  padding: 0.75rem;
-  background: #000;
-  color: white;
   border: none;
+  background: transparent;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.62rem 0.8rem;
+  text-align: left;
+  color: #111827;
+}
+
+.suggestion-btn small {
+  color: #6b7280;
+  font-size: 0.76rem;
+}
+
+.suggestion-btn:active {
+  background: #f3f4f6;
+}
+
+.chip-row {
+  margin-top: 0.55rem;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.chip-btn {
+  border: 1px solid #d1d5db;
+  background: rgba(255, 255, 255, 0.92);
   border-radius: 8px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.3s;
+  padding: 0.45rem 0.65rem;
+  font-size: 0.86rem;
+  color: #111827;
 }
 
-.btn-primary:hover {
-  background: #333;
+.results-count {
+  margin: 0 0 0 auto;
+  font-size: 0.95rem;
+  color: #374151;
 }
 
-.results {
-  margin-top: 2rem;
+.bottom-sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 68px;
+  background: rgba(255, 255, 255, 0.97);
+  border-radius: 16px 16px 0 0;
+  padding: 0.6rem 1rem 1rem;
+  box-shadow: 0 -8px 18px rgba(15, 23, 42, 0.12);
+  z-index: 650;
+  transition: transform 0.22s ease;
+  touch-action: none;
 }
 
-.results h3 {
-  margin: 0 0 1rem 0;
-  color: #333;
+.bottom-sheet.is-dragging {
+  transition: none;
 }
 
-.filter-buttons {
+.drag-handle {
+  width: 42px;
+  height: 4px;
+  border-radius: 999px;
+  background: #d1d5db;
+  margin: 0.2rem auto 0.8rem;
+}
+
+.sheet-header {
   display: flex;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
 }
 
-.filter-btn {
-  padding: 0.5rem 1rem;
-  background: #e8e8e8;
-  border: none;
-  border-radius: 20px;
-  cursor: pointer;
+.sheet-header h2 {
+  margin: 0;
+  font-size: 1.95rem;
+  font-weight: 700;
+  color: #111827;
+}
+
+.provider-badge {
+  border-radius: 999px;
+  padding: 0.35rem 0.9rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  background: #e5e7eb;
+  color: #4b5563;
+}
+
+.line-name,
+.next-stop {
+  margin: 0.4rem 0;
+  color: #6b7280;
+}
+
+.ids-line {
+  margin: 0.2rem 0 0.35rem;
+  color: #374151;
   font-weight: 600;
+  font-size: 0.9rem;
 }
 
-.filter-btn.active {
-  background: #000;
-  color: white;
+.route-title {
+  margin: 0.85rem 0 0.5rem;
+  font-size: 1.1rem;
+  color: #111827;
 }
 
-.result-item {
-  background: white;
-  border-radius: 12px;
-  padding: 1rem;
-  margin-bottom: 1rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-}
-
-.result-header {
+.route-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 0.75rem;
+  padding: 0.45rem 0;
+  color: #111827;
 }
 
-.route {
-  flex: 1;
-}
-
-.location {
-  margin: 0;
-  font-weight: 600;
-  font-size: 0.9rem;
-}
-
-.time {
-  margin: 0.25rem 0 0 0;
-  color: #999;
-  font-size: 0.85rem;
-}
-
-.arrow {
-  margin: 0 0.5rem;
-  color: #999;
-}
-
-.result-details {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin: 0.75rem 0;
-  font-size: 0.9rem;
-}
-
-.provider {
-  background: #f0f0f0;
-  padding: 0.25rem 0.75rem;
-  border-radius: 4px;
-}
-
-.price {
-  font-weight: 600;
-  font-size: 1.1rem;
-}
-
-.btn-select {
-  width: 100%;
-  padding: 0.5rem;
-  background: #667eea;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 600;
-}
-
-.cards-list {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.card-option {
-  background: white;
-  border-radius: 12px;
-  padding: 1rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-}
-
-.card-info h3 {
-  margin: 0 0 0.25rem 0;
-}
-
-.description {
-  color: #999;
-  font-size: 0.9rem;
-  margin: 0;
-}
-
-.card-prices {
-  display: flex;
-  gap: 0.5rem;
-  margin-top: 1rem;
-}
-
-.price-btn {
-  flex: 1;
-  padding: 0.75rem;
-  background: #f0f0f0;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.25rem;
-}
-
-.price-btn .label {
-  font-size: 0.75rem;
-  color: #999;
-}
-
-.price-btn .price {
-  font-weight: 600;
-  font-size: 1.1rem;
+.route-item-light {
+  color: #4b5563;
 }
 
 .bottom-nav {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
   display: flex;
   justify-content: space-around;
   background: white;
   border-top: 1px solid #e0e0e0;
   padding: 0.5rem 0;
-  margin-top: auto;
+  z-index: 800;
 }
 
 .nav-item {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
+  gap: 0.25rem;
+  padding: 0.75rem;
   padding: 0.75rem 1.5rem;
   text-decoration: none;
   color: #999;
+  font-size: 1.5rem;
   transition: color 0.3s;
 }
 
-.icon-md {
-  width: 1.25rem;
-  height: 1.25rem;
+.nav-item.active {
+  color: #667eea;
 }
 
 .icon-sm {
@@ -438,11 +823,67 @@ const selectRoute = (route: unknown) => {
   height: 1rem;
 }
 
-.nav-item.active {
-  color: #667eea;
+:global(.stop-sign) {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
 }
 
-.nav-item:hover {
-  color: #667eea;
+:global(.stop-sign-top) {
+  min-width: 28px;
+  height: 24px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.35rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.98);
+  color: #111827;
+  border: 1px solid #cbd5e1;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
+}
+
+:global(.stop-sign-pole) {
+  width: 2px;
+  height: 16px;
+  background: #64748b;
+}
+
+:global(.stop-sign.is-active .stop-sign-top) {
+  background: #111827;
+  color: #fff;
+  border-color: #111827;
+}
+
+:global(.bus-pill) {
+  height: 26px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  background: #f8fafc;
+  color: #111827;
+  border: 1px solid #cbd5e1;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.15);
+}
+
+:global(.bus-pill.is-active) {
+  background: #0f172a;
+  color: #fff;
+  border-color: #0f172a;
+}
+
+:global(.leaflet-bottom) {
+  bottom: var(--leaflet-controls-bottom, 88px);
+}
+
+:global(.leaflet-bottom .leaflet-control) {
+  margin-bottom: -40px;
 }
 </style>

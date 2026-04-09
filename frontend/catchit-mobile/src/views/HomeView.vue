@@ -2,7 +2,10 @@
   <div class="home-container">
     <!-- Header -->
     <header class="app-header">
-      <h1>CatchIt</h1>
+      <h1>
+        <img src="../assets/app-logo-wt.png" alt="CatchIt" class="logo" /> 
+
+      </h1>
       <router-link to="/profile" class="profile-icon" aria-label="Profile">
         <User class="icon-md" />
       </router-link>
@@ -26,52 +29,48 @@
 
     <!-- My Cards Tab -->
     <div v-if="activeTab === 'cards'" class="tab-content">
-      <div v-if="(cardViewModel.userCards as any).value?.length === 0" class="empty-state">
-        <p><CreditCard class="empty-icon" /> No cards yet</p>
-        <router-link to="/cards" class="btn-primary">Browse Cards</router-link>
-      </div>
-
-      <div v-else class="cards-grid">
-        <div v-for="card in (cardViewModel.userCards as any)" :key="(card as any).id" class="card-item">
-          <div class="card-content">
-            <h3>{{ (card as any).name }}</h3>
-            <p class="card-price">€{{ ((card as any).price)?.toFixed(2) || '0.00' }}/mo</p>
-          </div>
-          <button class="btn-renew">Renew</button>
-        </div>
-      </div>
-
       <div class="card-display">
-        <div class="card-visual">
-          <div class="card-logo">TUB</div>
+        <div v-if="currentCard" class="card-visual">
+          <div class="card-logo">{{ currentCard.name }}</div>
           <div class="card-details">
-            <p>TUB Card</p>
-            <p class="date">Expires on 12/02/2026</p>
+            <p>{{ currentCard.description || 'Your active CatchIt plan' }}</p>
+            <p class="date">Valid until {{ formatDate(currentCard.validUntil) }}</p>
           </div>
         </div>
-        <button class="btn-qr"><QrCode class="icon-sm" /> View QR Code</button>
+
+        <div v-else class="card-visual card-visual-empty">
+          <div class="card-logo">My Card</div>
+          <div class="card-details">
+            <p>No CatchIt card yet</p>
+            <p class="date">Buy one to unlock full access</p>
+          </div>
+        </div>
+
+        <p class="manage-hint">
+          <router-link to="/cards" class="btn-primary">Buy a Card</router-link>
+        </p>
       </div>
     </div>
 
     <!-- My Tickets Tab -->
     <div v-if="activeTab === 'tickets'" class="tab-content">
-      <div v-if="(ticketViewModel.tickets as any).value?.length === 0" class="empty-state">
+      <div v-if="tickets.length === 0" class="empty-state">
         <p><Ticket class="empty-icon" /> No tickets yet</p>
         <router-link to="/search-tickets" class="btn-primary">Buy Tickets</router-link>
       </div>
 
       <div v-else>
-        <div v-for="ticket in (ticketViewModel.tickets as any)" :key="(ticket as any).id" class="ticket-item">
+        <div v-for="ticket in tickets" :key="ticket.id" class="ticket-item">
           <div class="ticket-header">
             <h3>TUB Ticket</h3>
-            <span class="status-badge" :class="((ticket as any).status).toLowerCase()">
-              {{ formatStatus((ticket as any).status) }}
+            <span class="status-badge" :class="ticket.status.toLowerCase()">
+              {{ formatStatus(ticket.status) }}
             </span>
           </div>
-          <p class="expiry">Expires on {{ formatDate((ticket as any).validUntil) }}</p>
+          <p class="expiry">Expires on {{ formatDate(ticket.validUntil) }}</p>
           <div class="ticket-stops">
-            <p><MapPin class="icon-sm" /> {{ ((ticket as any).trip?.stops?.[0]?.name) || 'Stop 1' }}</p>
-            <p><MapPin class="icon-sm" /> {{ ((ticket as any).trip?.stops?.at(-1)?.name) || 'Stop 2' }}</p>
+            <p><MapPin class="icon-sm" /> {{ (ticket.trip?.stops?.[0]?.name) || 'Stop 1' }}</p>
+            <p><MapPin class="icon-sm" /> {{ (ticket.trip?.stops?.at(-1)?.name) || 'Stop 2' }}</p>
           </div>
           <div class="qr-code"><QrCode class="icon-md" /></div>
         </div>
@@ -84,9 +83,9 @@
         <House class="nav-icon" />
       </router-link>
       <router-link to="/search-tickets" class="nav-item">
-        <Search class="nav-icon" />
+        <Map class="nav-icon" />
       </router-link>
-      <router-link to="/cart" class="nav-item">
+      <router-link to="/cards" class="nav-item">
         <ShoppingCart class="nav-icon" />
       </router-link>
       <router-link to="/notifications" class="nav-item">
@@ -100,13 +99,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { Bell, CreditCard, House, MapPin, QrCode, Search, ShoppingCart, Ticket, User } from 'lucide-vue-next'
+import { computed, ref, onMounted } from 'vue'
+import { Bell, House, MapPin, QrCode, Map, ShoppingCart, Ticket, User } from 'lucide-vue-next'
 import { useTicketViewModel, useCardViewModel } from '../viewmodels'
 
 const activeTab = ref<'cards' | 'tickets'>('cards')
 const ticketViewModel = useTicketViewModel()
 const cardViewModel = useCardViewModel()
+const tickets = computed(() => ticketViewModel.tickets.value)
+const userCards = computed(() => cardViewModel.userCards.value)
+const currentCard = computed(() => userCards.value[0] ?? null)
 
 onMounted(async () => {
   await ticketViewModel.fetchUserTickets()
@@ -148,11 +150,18 @@ const formatStatus = (status: string) => {
   justify-content: space-between;
   align-items: center;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  padding-top: 2rem;
 }
 
 .app-header h1 {
   font-size: 1.5rem;
   margin: 0;
+}
+
+.logo {
+  width: 50%;
+  height: auto;
+  display: block;
 }
 
 .profile-icon {
@@ -233,22 +242,6 @@ const formatStatus = (status: string) => {
   background: #5568d3;
 }
 
-.cards-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 1rem;
-  margin-bottom: 2rem;
-}
-
-.card-item {
-  background: white;
-  border-radius: 12px;
-  padding: 1rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
 .icon-md {
   width: 1.25rem;
   height: 1.25rem;
@@ -276,25 +269,27 @@ const formatStatus = (status: string) => {
   justify-content: center;
 }
 
-.card-content h3 {
-  margin: 0 0 0.25rem 0;
-  font-size: 1.1rem;
-}
-
-.card-price {
-  color: #667eea;
-  margin: 0;
-  font-weight: 600;
-}
-
-.btn-renew {
-  background: #667eea;
-  color: white;
+.btn-qr {
+  width: 100%;
+  padding: 0.75rem;
+  background: #e8e8e8;
   border: none;
-  padding: 0.5rem 1rem;
   border-radius: 6px;
   cursor: pointer;
   font-weight: 600;
+  text-decoration: none;
+  color: inherit;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.manage-hint {
+  margin: 0;
+  color: #5b6475;
+  font-size: 0.9rem;
+  text-align: center;
 }
 
 .card-display {
@@ -302,6 +297,7 @@ const formatStatus = (status: string) => {
   border-radius: 12px;
   padding: 1.5rem;
   margin-top: 1rem;
+  margin-bottom: 1.5rem;
 }
 
 .card-visual {
@@ -328,14 +324,8 @@ const formatStatus = (status: string) => {
   opacity: 0.9;
 }
 
-.btn-qr {
-  width: 100%;
-  padding: 0.75rem;
-  background: #e8e8e8;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 600;
+.card-visual-empty {
+  background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%);
 }
 
 .ticket-item {
@@ -431,4 +421,6 @@ const formatStatus = (status: string) => {
 .nav-item:hover {
   color: #667eea;
 }
+
+
 </style>

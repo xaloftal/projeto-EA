@@ -1,0 +1,82 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "stop_1",
+        "name": "Vila Nova de Famalicao (Estacao de Autocarros)"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-8.5332, 41.4057]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "stop_2",
+        "name": "Covilha"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-7.5004, 40.2806]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "stop_3",
+        "name": "Lisboa (Oriente)"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-9.0951, 38.7613]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "stop_4",
+        "name": "Cascais"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-9.4218, 38.6926]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "stop_5",
+        "name": "Sintra"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-9.3899, 38.8038]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "stop_6",
+        "name": "1722 Rotunda Estacao II"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-9.1, 38.7]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "stop_7",
+        "name": "0042 Caires"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-9.15, 38.65]
+      }
+    }
+  ]
+}
