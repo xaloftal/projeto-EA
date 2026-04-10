@@ -3,7 +3,7 @@
     <header class="app-header">
       <router-link to="/home" class="back-btn" aria-label="Back"><ArrowLeft class="icon-md" /></router-link>
       <h1>Shopping Cart</h1>
-      <div style="width: 2rem"></div>
+      <div style="width: 1rem"></div>
     </header>
 
     <div class="tabs">
@@ -56,25 +56,73 @@
       <article class="ticket-option">
         <div class="ticket-head">
           <Ticket class="ticket-icon" />
-          <h2>Buy by Route</h2>
+          <h2>Search Tickets</h2>
         </div>
-        <p>Select departure and destination stops on the map to buy your next ticket.</p>
-        <router-link to="/search-tickets" class="ticket-btn">Go to Ticket Search</router-link>
+
+        <div class="ticket-form">
+          <label>
+            <span>From</span>
+            <select v-model="fromStopId" class="ticket-select">
+              <option disabled value="">Select origin</option>
+              <option v-for="stop in availableStops" :key="stop.id" :value="stop.id">
+                {{ stop.name }}
+              </option>
+            </select>
+          </label>
+
+          <label>
+            <span>To</span>
+            <select v-model="toStopId" class="ticket-select">
+              <option disabled value="">Select destination</option>
+              <option v-for="stop in availableStops" :key="stop.id" :value="stop.id">
+                {{ stop.name }}
+              </option>
+            </select>
+          </label>
+
+          <label>
+            <span>Date</span>
+            <input v-model="departureDate" type="date" class="ticket-select" />
+          </label>
+
+          <button
+            class="ticket-btn"
+            :disabled="!canSearchTickets || travelViewModel.isLoading.value"
+            @click="searchTickets"
+          >
+            {{ travelViewModel.isLoading.value ? 'Searching...' : 'Search Routes' }}
+          </button>
+        </div>
+
+        <p v-if="ticketMessage" class="ticket-message">{{ ticketMessage }}</p>
+
+        <div v-if="searchResults.length > 0" class="route-results">
+          <article v-for="result in searchResults" :key="result.routeId" class="route-result-item">
+            <div>
+              <p class="route-name">{{ result.fromStop.name }} → {{ result.toStop.name }}</p>
+              <p class="route-meta">{{ result.departureTime }} - {{ result.arrivalTime }}</p>
+            </div>
+            <div class="route-actions">
+              <p class="route-price">€{{ result.price.toFixed(2) }}</p>
+              <button class="ticket-buy-btn" @click="buyTicket(result)">Buy Ticket</button>
+            </div>
+          </article>
+        </div>
       </article>
 
       <article class="ticket-option ticket-option-muted">
         <div class="ticket-head">
           <MapPin class="ticket-icon" />
-          <h2>Live Stop Search</h2>
+          <h2>Map Search</h2>
         </div>
-        <p>Use stop search and route timing to pick the best option before purchasing.</p>
-        <router-link to="/search-tickets" class="ticket-btn">Open Map</router-link>
+        <p>Prefer visual stop search? Use the map screen for stop-based route exploration.</p>
+        <router-link to="/map" class="ticket-btn">Open Map</router-link>
       </article>
     </div>
 
     <nav class="bottom-nav">
       <router-link to="/home" class="nav-item"><House class="nav-icon" /></router-link>
-      <router-link to="/search-tickets" class="nav-item"><Map class="nav-icon" /></router-link>
+      <router-link to="/map" class="nav-item"><Map class="nav-icon" /></router-link>
       <router-link to="/cards" class="nav-item active"><ShoppingCart class="nav-icon" /></router-link>
       <router-link to="/notifications" class="nav-item"><Bell class="nav-icon" /></router-link>
       <router-link to="/profile" class="nav-item"><User class="nav-icon" /></router-link>
@@ -85,11 +133,29 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { ArrowLeft, Bell, House, Map, MapPin, ShoppingCart, Ticket, User } from 'lucide-vue-next'
-import { useCardViewModel } from '../viewmodels'
-import type { CardTier } from '../models'
+import { useCardViewModel, useTicketViewModel, useTravelViewModel } from '../viewmodels'
+import { mockAPI } from '../services/api/mockAPI'
+import type { CardTier, Stop, Vehicle } from '../models'
+
+type RouteResult = {
+  routeId: string
+  fromStop: Stop
+  toStop: Stop
+  departureTime: string
+  arrivalTime: string
+  price: number
+  vehicle: Vehicle
+}
 
 const cardViewModel = useCardViewModel()
+const ticketViewModel = useTicketViewModel()
+const travelViewModel = useTravelViewModel()
 const activeTab = ref<'cards' | 'tickets'>('cards')
+const availableStops = ref<Stop[]>([])
+const fromStopId = ref('')
+const toStopId = ref('')
+const departureDate = ref(new Date().toISOString().split('T')[0])
+const ticketMessage = ref('')
 
 const tierOrder: CardTier[] = ['weekly', 'monthly', 'yearly']
 
@@ -126,9 +192,41 @@ const cardClass = (tier?: CardTier) => ({
   'card-option-disabled': !!tier && !!currentTier.value && tierIndex(tier) < tierIndex(currentTier.value),
 })
 
+const canSearchTickets = computed(() =>
+  !!fromStopId.value && !!toStopId.value && fromStopId.value !== toStopId.value && !!departureDate.value
+)
+
+const searchResults = computed(() => travelViewModel.searchResults.value as RouteResult[])
+
+const searchTickets = async () => {
+  if (!canSearchTickets.value) {
+    ticketMessage.value = 'Please select different origin and destination stops.'
+    return
+  }
+
+  ticketMessage.value = ''
+  const results = await travelViewModel.searchRoutes(fromStopId.value, toStopId.value, departureDate.value)
+  if (!results.length) {
+    ticketMessage.value = 'No routes found for your selection.'
+  }
+}
+
+const buyTicket = async (result: RouteResult) => {
+  ticketMessage.value = ''
+  const bookedTrip = await travelViewModel.bookTravel(result.routeId, `trip_${Date.now()}`)
+  const tripId = bookedTrip?.id ?? `trip_${Date.now()}`
+  const success = await ticketViewModel.purchaseTickets(tripId, 1, result.price)
+  ticketMessage.value = success ? 'Ticket purchased successfully.' : 'Unable to complete ticket purchase.'
+}
+
 onMounted(async () => {
   await cardViewModel.fetchUserCards()
   await cardViewModel.fetchAvailableCards()
+
+  const stopsResponse = await mockAPI.getStops()
+  if (stopsResponse.success && stopsResponse.data) {
+    availableStops.value = stopsResponse.data
+  }
 })
 
 const purchasePlan = async (cardId: string, tier?: CardTier) => {
@@ -335,6 +433,31 @@ const purchasePlan = async (cardId: string, tier?: CardTier) => {
   font-size: 0.92rem;
 }
 
+.ticket-form {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.ticket-form label {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.ticket-form span {
+  font-size: 0.82rem;
+  color: #4b5563;
+  font-weight: 600;
+}
+
+.ticket-select {
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 0.55rem 0.65rem;
+  background: #fff;
+  color: #111827;
+  width: 100%;
+}
+
 .ticket-btn {
   display: inline-flex;
   align-items: center;
@@ -345,6 +468,73 @@ const purchasePlan = async (cardId: string, tier?: CardTier) => {
   font-weight: 600;
   background: #667eea;
   color: #fff;
+  border: none;
+  cursor: pointer;
+}
+
+.ticket-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.ticket-message {
+  margin: 0.75rem 0 0;
+  color: #334155;
+  font-weight: 600;
+  font-size: 0.86rem;
+}
+
+.route-results {
+  margin-top: 0.85rem;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.route-result-item {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fff;
+  padding: 0.65rem 0.75rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.route-name {
+  margin: 0;
+  color: #111827;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.route-meta {
+  margin: 0.2rem 0 0;
+  color: #6b7280;
+  font-size: 0.8rem;
+}
+
+.route-actions {
+  display: grid;
+  justify-items: end;
+  gap: 0.35rem;
+}
+
+.route-price {
+  margin: 0;
+  color: #111827;
+  font-weight: 700;
+}
+
+.ticket-buy-btn {
+  border: none;
+  border-radius: 7px;
+  background: #111827;
+  color: #fff;
+  padding: 0.45rem 0.6rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
 }
 
 .bottom-nav {

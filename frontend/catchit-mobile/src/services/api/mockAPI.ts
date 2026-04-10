@@ -59,30 +59,7 @@ const mockStops: Stop[] = [
   },
 ]
 
-const mockTickets: Ticket[] = [
-  {
-    id: 'ticket_1',
-    userID: 'user_1',
-    createdAt: new Date('2024-11-01'),
-    validFrom: new Date('2025-12-02'),
-    validUntil: new Date('2026-12-02'),
-    price: 45.0,
-    qrCode: 'TUB_2025_001',
-    status: TicketStatus.Valid,
-    tripID: 'trip_1',
-  },
-  {
-    id: 'ticket_2',
-    userID: 'user_1',
-    createdAt: new Date('2024-10-15'),
-    validFrom: new Date('2025-01-01'),
-    validUntil: new Date('2026-01-01'),
-    price: 125.0,
-    qrCode: 'TUB_2025_002',
-    status: TicketStatus.Valid,
-    tripID: 'trip_2',
-  },
-]
+const mockTickets: Ticket[] = []
 
 const mockCards: Card[] = [
   // Start with no owned card so the UI shows all plans as purchasable.
@@ -253,10 +230,9 @@ class MockAPIService {
    */
   async getUserTickets(userId: string): Promise<APIResponse<Ticket[]>> {
     await this.delay()
-    void userId
     return {
       success: true,
-      data: mockTickets,
+      data: mockTickets.filter((ticket) => ticket.userID === userId),
     }
   }
 
@@ -304,6 +280,14 @@ class MockAPIService {
         tripID: data.tripID,
       })
     )
+
+    // Persist purchases so they appear in user ticket lists after refresh/navigation.
+    mockTickets.push(...newTickets)
+
+    if (mockCurrentUser.id === data.userID) {
+      mockCurrentUser.tickets = [...mockCurrentUser.tickets, ...newTickets]
+    }
+
     return {
       success: true,
       data: newTickets,
@@ -385,16 +369,30 @@ class MockAPIService {
         error: 'Card not found',
       }
     }
+
+    const validFrom = new Date()
+    const validUntil = new Date(validFrom)
+    if (data.tier === 'weekly') {
+      validUntil.setDate(validUntil.getDate() + 7)
+    } else if (data.tier === 'monthly') {
+      validUntil.setMonth(validUntil.getMonth() + 1)
+    } else {
+      validUntil.setFullYear(validUntil.getFullYear() + 1)
+    }
+
     const newCard: Card = {
       id: `card_${Date.now()}`,
       userID: data.userId,
       name: travelCard.name,
       price: travelCard.price,
       description: travelCard.description,
-      validFrom: travelCard.validFrom,
-      validUntil: travelCard.validUntil,
+      validFrom,
+      validUntil,
       tier: data.tier,
     }
+
+    mockCards.push(newCard)
+
     return {
       success: true,
       data: newCard,

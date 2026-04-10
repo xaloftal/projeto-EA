@@ -2,7 +2,7 @@
   <div class="checkout-container">
     <!-- Header -->
     <header class="app-header">
-      <router-link to="/search-tickets" class="back-btn" aria-label="Back"><ArrowLeft class="icon-md" /></router-link>
+      <router-link to="/map" class="back-btn" aria-label="Back"><ArrowLeft class="icon-md" /></router-link>
       <h1>Checkout</h1>
       <div style="width: 2rem"></div>
     </header>
@@ -114,8 +114,8 @@
     <!-- Bottom Navigation -->
     <nav class="bottom-nav">
       <router-link to="/home" class="nav-item"><House class="nav-icon" /></router-link>
-      <router-link to="/search-tickets" class="nav-item"><Map class="nav-icon" /></router-link>
-      <router-link to="/cart" class="nav-item active"><ShoppingCart class="nav-icon" /></router-link>
+      <router-link to="/map" class="nav-item"><Map class="nav-icon" /></router-link>
+      <router-link to="/cards" class="nav-item active"><ShoppingCart class="nav-icon" /></router-link>
       <router-link to="/notifications" class="nav-item"><Bell class="nav-icon" /></router-link>
       <router-link to="/profile" class="nav-item"><User class="nav-icon" /></router-link>
     </nav>

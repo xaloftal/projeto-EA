@@ -24,20 +24,15 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
 
-    // ========== TICKET & SEARCH ROUTES ==========
+    // ========== MAP ROUTE ==========
     {
-      path: '/search-tickets',
-      name: 'search-tickets',
+      path: '/map',
+      name: 'map',
       component: () => import('../views/SearchTicketsView.vue'),
       meta: { requiresAuth: true },
     },
 
-    {
-      path: '/ticket-confirmation',
-      name: 'ticket-confirmation',
-      component: () => import('../views/SearchTicketsView.vue'),
-      meta: { requiresAuth: true },
-    },
+
 
     // ========== CARD ROUTES ==========
     {

@@ -44,8 +44,8 @@
     <!-- Bottom Navigation -->
     <nav class="bottom-nav">
       <router-link to="/home" class="nav-item"><House class="nav-icon" /></router-link>
-      <router-link to="/search-tickets" class="nav-item"><Map class="nav-icon" /></router-link>
-      <router-link to="/cart" class="nav-item"><ShoppingCart class="nav-icon" /></router-link>
+      <router-link to="/map" class="nav-item"><Map class="nav-icon" /></router-link>
+      <router-link to="/cards" class="nav-item"><ShoppingCart class="nav-icon" /></router-link>
       <router-link to="/notifications" class="nav-item"><Bell class="nav-icon" /></router-link>
       <router-link to="/profile" class="nav-item active"><User class="nav-icon" /></router-link>
     </nav>

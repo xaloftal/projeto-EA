@@ -1,8 +1,8 @@
 {
-  "name": "games-quasar",
+  "name": "catchit-mobile",
   "version": "0.0.1",
-  "description": "A Quasar Project",
-  "author": "rafael.b.costa <rafael.b.costa@inesctec.pt>",
+  "description": "Application Engineering Project",
+  "author": " xaloftal <dianaacdinis@gmail.com>",
   "private": true,
   "dependencies": {
     "@capacitor-community/sqlite": "^8.0.1",

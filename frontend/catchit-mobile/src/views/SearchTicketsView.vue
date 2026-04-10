@@ -60,7 +60,10 @@
           class="route-item"
         >
           <span>{{ route.lineLabel }} ({{ route.busId }})</span>
-          <span>{{ route.nextTime }}</span>
+          <span class="route-time">
+            {{ route.nextTime }}
+            <small class="route-eta">{{ route.etaLabel }}</small>
+          </span>
         </div>
       </template>
 
@@ -85,7 +88,7 @@
 
     <nav class="bottom-nav">
       <router-link to="/home" class="nav-item"><House /></router-link>
-      <router-link to="/search-tickets" class="nav-item active"><MapIcon /></router-link>
+      <router-link to="/map" class="nav-item active"><MapIcon /></router-link>
       <router-link to="/cards" class="nav-item"><ShoppingCart /></router-link>
       <router-link to="/notifications" class="nav-item"><Bell /></router-link>
       <router-link to="/profile" class="nav-item"><User /></router-link>
@@ -222,7 +225,15 @@ const nowMinutes = computed(() => {
 })
 
 const stopRouteInfo = computed(() => {
-  if (!selectedStop.value) return [] as Array<{ routeId: string; lineLabel: string; busId: string; nextTime: string }>
+  if (!selectedStop.value) {
+    return [] as Array<{
+      routeId: string
+      lineLabel: string
+      busId: string
+      nextTime: string
+      etaLabel: string
+    }>
+  }
 
   const selectedId = selectedStop.value.id
   const nowMin = nowMinutes.value
@@ -238,11 +249,15 @@ const stopRouteInfo = computed(() => {
         next += route.intervalMinutes
       }
 
+      const etaMinutes = next - nowMin
+      const etaLabel = etaMinutes <= 0 ? 'due now' : `in ${etaMinutes} min`
+
       return {
         routeId: route.routeId,
         lineLabel: route.lineLabel,
         busId: route.busId,
         nextTime: toClock(next),
+        etaLabel,
       }
     })
 })
@@ -782,6 +797,20 @@ onUnmounted(() => {
   align-items: center;
   padding: 0.45rem 0;
   color: #111827;
+}
+
+.route-time {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.1;
+}
+
+.route-eta {
+  margin-top: 0.2rem;
+  color: #6b7280;
+  font-size: 0.72rem;
+  font-weight: 600;
 }
 
 .route-item-light {

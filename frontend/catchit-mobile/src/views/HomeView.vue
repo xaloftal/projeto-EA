@@ -46,9 +46,12 @@
           </div>
         </div>
 
-        <p class="manage-hint">
-          <router-link to="/cards" class="btn-primary">Buy a Card</router-link>
-        </p>
+        <div class="card-bottom">
+          <router-link to="/cards" class="btn-primary card-action-btn">{{ currentCard ? 'Renew' : 'Buy Card' }}</router-link>
+          <div v-if="currentCard" class="card-qr">
+            <QrCode class="card-qr-icon" />
+          </div>
+        </div>
       </div>
     </div>
 
@@ -56,13 +59,13 @@
     <div v-if="activeTab === 'tickets'" class="tab-content">
       <div v-if="tickets.length === 0" class="empty-state">
         <p><Ticket class="empty-icon" /> No tickets yet</p>
-        <router-link to="/search-tickets" class="btn-primary">Buy Tickets</router-link>
+        <router-link to="/cards" class="btn-primary">Buy Tickets</router-link>
       </div>
 
       <div v-else>
         <div v-for="ticket in tickets" :key="ticket.id" class="ticket-item">
           <div class="ticket-header">
-            <h3>TUB Ticket</h3>
+            <h3>Ticket</h3>
             <span class="status-badge" :class="ticket.status.toLowerCase()">
               {{ formatStatus(ticket.status) }}
             </span>
@@ -82,7 +85,7 @@
       <router-link to="/home" class="nav-item active">
         <House class="nav-icon" />
       </router-link>
-      <router-link to="/search-tickets" class="nav-item">
+      <router-link to="/map" class="nav-item">
         <Map class="nav-icon" />
       </router-link>
       <router-link to="/cards" class="nav-item">
@@ -204,6 +207,9 @@ const formatStatus = (status: string) => {
   flex: 1;
   overflow-y: auto;
   padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .empty-state {
@@ -285,19 +291,47 @@ const formatStatus = (status: string) => {
   gap: 0.5rem;
 }
 
-.manage-hint {
-  margin: 0;
-  color: #5b6475;
-  font-size: 0.9rem;
-  text-align: center;
+.card-bottom {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.card-action-btn {
+  background: #667eea;
+  border-radius: 8px;
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.card-action-btn:hover {
+  background: #5568d3;
+}
+
+.card-qr {
+  border-radius: 6px;
+  border: 1px solid #d4d4d8;
+  background: #ededed;
+  min-height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.9rem;
+}
+
+.card-qr-icon {
+  width: 10.5rem;
+  height: 10.5rem;
+  color: #0b0b0b;
 }
 
 .card-display {
   background: white;
   border-radius: 12px;
   padding: 1.5rem;
-  margin-top: 1rem;
-  margin-bottom: 1.5rem;
+  margin: 0;
 }
 
 .card-visual {
