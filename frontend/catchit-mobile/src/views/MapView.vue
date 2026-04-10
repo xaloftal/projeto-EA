@@ -2,18 +2,24 @@
   <div class="search-container" :style="containerStyle">
     <div ref="mapContainer" class="map" :style="mapStyle"></div>
 
-    <section ref="topOverlayRef" class="top-overlay">
-      <div class="search-box">
-        <Search class="icon-sm" />
-        <input
-          v-model="stopQuery"
-          type="text"
-          class="search-input"
-          placeholder="Search stops"
-          @focus="onSearchFocus"
-          @input="onSearchInput"
-          @keyup.enter="focusFirstMatch"
-        />
+    <header ref="topOverlayRef" class="app-header map-search-header">
+      <div class="map-toolbar">
+        <div class="search-box">
+          <Search class="icon-sm" />
+          <input
+            v-model="stopQuery"
+            type="text"
+            class="search-input"
+            placeholder="Search stops"
+            @focus="onSearchFocus"
+            @input="onSearchInput"
+            @keyup.enter="focusFirstMatch"
+          />
+        </div>
+
+        <button class="chip-btn">Filter</button>
+        <button class="chip-btn">Sort</button>
+        <p class="results-count">{{ resultCount }} results</p>
       </div>
 
       <ul v-if="visibleSuggestions" class="suggestions-list">
@@ -25,13 +31,7 @@
         </li>
       </ul>
 
-      <div class="chip-row">
-        <button class="chip-btn">Filter</button>
-        <button class="chip-btn">Sort</button>
-        <p class="results-count">{{ resultCount }} results</p>
-      </div>
-
-    </section>
+    </header>
 
     <section
       v-if="stops.length > 0"
@@ -89,8 +89,8 @@
     <nav class="bottom-nav">
       <router-link to="/home" class="nav-item"><House /></router-link>
       <router-link to="/map" class="nav-item active"><MapIcon /></router-link>
-      <router-link to="/cards" class="nav-item"><ShoppingCart /></router-link>
-      <router-link to="/notifications" class="nav-item"><Bell /></router-link>
+      <router-link to="/cart" class="nav-item"><ShoppingCart /></router-link>
+      <router-link to="/cards" class="nav-item"><Ticket /></router-link>
       <router-link to="/profile" class="nav-item"><User /></router-link>
     </nav>
   </div>
@@ -98,7 +98,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
-import { Bell, House, Map as MapIcon, Search, ShoppingCart, User } from 'lucide-vue-next'
+import { House, Map as MapIcon, Search, ShoppingCart, User, Ticket } from 'lucide-vue-next'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 
@@ -379,7 +379,7 @@ const measureSheetHeight = () => {
 const measureTopOverlayHeight = () => {
   if (!topOverlayRef.value) return
   const bounds = topOverlayRef.value.getBoundingClientRect()
-  topOverlayHeight.value = Math.ceil(bounds.bottom + 8)
+  topOverlayHeight.value = Math.ceil(bounds.bottom)
 }
 
 const onSheetPointerMove = (event: PointerEvent) => {
@@ -633,43 +633,65 @@ onUnmounted(() => {
   left: 0;
 }
 
-.top-overlay {
+.map-search-header {
   position: absolute;
-  top: 2rem;
-  left: 0.75rem;
-  right: 0.75rem;
+  top: 0;
+  left: 0;
+  right: 0;
   z-index: 700;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  box-sizing: border-box;
+  height: var(--header-height);
+  min-height: var(--header-height);
+  padding: 0.7rem 0.75rem 0.65rem;
+}
+
+.map-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
 }
 
 .search-box {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 12px;
-  border: 1px solid #e5e7eb;
-  padding: 0.7rem 0.8rem;
-  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+  gap: 0.45rem;
+  flex: 1;
+  min-width: 0;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  padding: 0.52rem 0.65rem;
 }
 
 .search-input {
   border: none;
   width: 100%;
-  font-size: 1rem;
+  font-size: 0.98rem;
   background: transparent;
-  color: #111827;
+  color: #f8fafc;
 }
 
 .search-input:focus {
   outline: none;
 }
 
+.search-input::placeholder {
+  color: rgba(248, 250, 252, 0.82);
+}
+
 .suggestions-list {
   list-style: none;
-  margin: 0.5rem 0 0;
+  position: absolute;
+  left: 0.75rem;
+  right: 0.75rem;
+  top: calc(var(--header-height) - 0.25rem);
+  margin: 0;
   padding: 0;
-  background: rgba(255, 255, 255, 0.96);
-  border: 1px solid #e5e7eb;
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid #dbe2f0;
   border-radius: 12px;
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12);
   overflow: hidden;
@@ -701,26 +723,20 @@ onUnmounted(() => {
   background: #f3f4f6;
 }
 
-.chip-row {
-  margin-top: 0.55rem;
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-}
-
 .chip-btn {
-  border: 1px solid #d1d5db;
-  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  background: rgba(255, 255, 255, 0.2);
   border-radius: 8px;
-  padding: 0.45rem 0.65rem;
-  font-size: 0.86rem;
-  color: #111827;
+  padding: 0.5rem 0.68rem;
+  font-size: 0.84rem;
+  color: #f8fafc;
 }
 
 .results-count {
   margin: 0 0 0 auto;
-  font-size: 0.95rem;
-  color: #374151;
+  font-size: 0.88rem;
+  color: rgba(248, 250, 252, 0.9);
+  white-space: nowrap;
 }
 
 .bottom-sheet {
@@ -822,29 +838,15 @@ onUnmounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  display: flex;
-  justify-content: space-around;
-  background: white;
-  border-top: 1px solid #e0e0e0;
-  padding: 0.5rem 0;
   z-index: 800;
 }
 
 .nav-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.25rem;
   padding: 0.75rem;
-  padding: 0.75rem 1.5rem;
-  text-decoration: none;
-  color: #999;
-  font-size: 1.5rem;
-  transition: color 0.3s;
 }
 
 .nav-item.active {
-  color: #667eea;
+  color: var(--color-brand);
 }
 
 .icon-sm {

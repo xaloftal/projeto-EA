@@ -1,8 +1,8 @@
 <template>
-  <div class="container">
+  <div class="container app-screen">
     <header class="app-header">
       <router-link to="/home" class="back-btn" aria-label="Back"><ArrowLeft class="icon-md" /></router-link>
-      <h1>Shopping Cart</h1>
+      <h1>Store</h1>
       <div style="width: 1rem"></div>
     </header>
 
@@ -54,12 +54,8 @@
                 <p v-else-if="!currentTier" class="status status-buy">Available to buy</p>
                 <p v-else class="status status-hidden">Not available from your current tier</p>
 
-                <button
-                  v-if="actionLabel(card.tier)"
-                  class="price-btn"
-                  @click="purchasePlan(card.id, card.tier)"
-                >
-                  {{ actionLabel(card.tier) }}
+                <button v-if="actionLabel(card.tier)" class="price-btn" @click="addCardToCart(card)">
+                  Add to cart
                 </button>
               </div>
             </article>
@@ -119,7 +115,7 @@
                   </div>
                   <div class="route-actions">
                     <p class="route-price">€{{ result.price.toFixed(2) }}</p>
-                    <button class="ticket-buy-btn" @click="buyTicket(result)">Buy Ticket</button>
+                    <button class="ticket-buy-btn" @click="addTicketToCart(result)">Add to cart</button>
                   </div>
                 </article>
               </div>
@@ -141,8 +137,8 @@
     <nav class="bottom-nav">
       <router-link to="/home" class="nav-item"><House class="nav-icon" /></router-link>
       <router-link to="/map" class="nav-item"><Map class="nav-icon" /></router-link>
-      <router-link to="/cards" class="nav-item active"><ShoppingCart class="nav-icon" /></router-link>
-      <router-link to="/notifications" class="nav-item"><Bell class="nav-icon" /></router-link>
+      <router-link to="/cart" class="nav-item "><ShoppingCart class="nav-icon" /></router-link>
+      <router-link to="/cards" class="nav-item active"><Ticket class="nav-icon" /></router-link>
       <router-link to="/profile" class="nav-item"><User class="nav-icon" /></router-link>
     </nav>
   </div>
@@ -150,8 +146,8 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { ArrowLeft, Bell, House, Map, MapPin, ShoppingCart, Ticket, User } from 'lucide-vue-next'
-import { useCardViewModel, useTicketViewModel, useTravelViewModel } from '../viewmodels'
+import { ArrowLeft, House, Map, MapPin, ShoppingCart, Ticket, User } from 'lucide-vue-next'
+import { useCardViewModel, useCheckoutViewModel, useTravelViewModel } from '../viewmodels'
 import { mockAPI } from '../services/api/mockAPI'
 import type { CardTier, Stop, Vehicle } from '../models'
 
@@ -166,8 +162,8 @@ type RouteResult = {
 }
 
 const cardViewModel = useCardViewModel()
-const ticketViewModel = useTicketViewModel()
 const travelViewModel = useTravelViewModel()
+const checkoutViewModel = useCheckoutViewModel()
 const activeTab = ref<'cards' | 'tickets'>('cards')
 const swipeViewport = ref<HTMLElement | null>(null)
 const viewportWidth = ref(0)
@@ -330,12 +326,14 @@ const searchTickets = async () => {
   }
 }
 
-const buyTicket = async (result: RouteResult) => {
+const addCardToCart = (card: { id: string; name: string; price: number; description?: string; tier?: CardTier }) => {
+  checkoutViewModel.addCardToCart(card as any)
   ticketMessage.value = ''
-  const bookedTrip = await travelViewModel.bookTravel(result.routeId, `trip_${Date.now()}`)
-  const tripId = bookedTrip?.id ?? `trip_${Date.now()}`
-  const success = await ticketViewModel.purchaseTickets(tripId, 1, result.price)
-  ticketMessage.value = success ? 'Ticket purchased successfully.' : 'Unable to complete ticket purchase.'
+}
+
+const addTicketToCart = (result: RouteResult) => {
+  checkoutViewModel.addTicketToCart(result)
+  ticketMessage.value = 'Added to cart.'
 }
 
 onMounted(async () => {
@@ -355,52 +353,15 @@ onBeforeUnmount(() => {
   window.removeEventListener('resize', updateViewportWidth)
 })
 
-const purchasePlan = async (cardId: string, tier?: CardTier) => {
-  if (!tier) return
-  const success = await cardViewModel.purchaseCard(cardId, tier)
-  if (success) {
-    await cardViewModel.fetchUserCards()
-  }
-}
 </script>
 
 <style scoped>
-.container {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  background: #f5f5f5;
-}
 
-.app-header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  padding: 1rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.app-header h1 {
-  font-size: 1.2rem;
-  margin: 0;
-  flex: 1;
-  text-align: center;
-}
-
-.back-btn {
-  cursor: pointer;
-  text-decoration: none;
-  color: white;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
 
 .tabs {
   display: flex;
-  background: white;
-  border-bottom: 2px solid #e0e0e0;
+  background: var(--color-surface);
+  border-bottom: 2px solid var(--color-border);
   padding: 0 1rem;
   position: relative;
 }
@@ -413,13 +374,13 @@ const purchasePlan = async (cardId: string, tier?: CardTier) => {
   cursor: pointer;
   font-size: 0.95rem;
   font-weight: 600;
-  color: #999;
+  color: var(--color-text-subtle);
   transition: color 0.25s ease;
   z-index: 1;
 }
 
 .tab.active {
-  color: #667eea;
+  color: var(--color-brand);
 }
 
 .tab-indicator {
@@ -428,7 +389,7 @@ const purchasePlan = async (cardId: string, tier?: CardTier) => {
   left: 0;
   width: 50%;
   height: 3px;
-  background: #667eea;
+  background: var(--color-brand);
   transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
@@ -465,10 +426,10 @@ const purchasePlan = async (cardId: string, tier?: CardTier) => {
 }
 
 .card-option {
-  background: white;
+  background: var(--color-surface);
   border-radius: 12px;
   padding: 1.5rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--shadow-card);
   border: 1px solid transparent;
 }
 
@@ -493,7 +454,7 @@ const purchasePlan = async (cardId: string, tier?: CardTier) => {
   font-size: 0.85rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #667eea;
+  color: var(--color-brand);
   font-weight: 700;
 }
 
@@ -518,8 +479,8 @@ const purchasePlan = async (cardId: string, tier?: CardTier) => {
 .price-btn {
   width: 100%;
   padding: 0.75rem;
-  background: #667eea;
-  color: white;
+  background: var(--color-brand);
+  color: var(--color-on-brand);
   border: none;
   border-radius: 6px;
   cursor: pointer;
@@ -540,7 +501,7 @@ const purchasePlan = async (cardId: string, tier?: CardTier) => {
 }
 
 .status-buy {
-  color: #667eea;
+  color: var(--color-brand);
 }
 
 .status-hidden {
@@ -556,10 +517,10 @@ const purchasePlan = async (cardId: string, tier?: CardTier) => {
 }
 
 .ticket-option {
-  background: white;
+  background: var(--color-surface);
   border-radius: 12px;
   padding: 1.25rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--shadow-card);
 }
 
 .ticket-option-muted {
@@ -582,7 +543,7 @@ const purchasePlan = async (cardId: string, tier?: CardTier) => {
 .ticket-icon {
   width: 1rem;
   height: 1rem;
-  color: #667eea;
+  color: var(--color-brand);
 }
 
 .ticket-option p {
@@ -624,8 +585,8 @@ const purchasePlan = async (cardId: string, tier?: CardTier) => {
   border-radius: 8px;
   text-decoration: none;
   font-weight: 600;
-  background: #667eea;
-  color: #fff;
+  background: var(--color-brand);
+  color: var(--color-on-brand);
   border: none;
   cursor: pointer;
 }
@@ -696,32 +657,8 @@ const purchasePlan = async (cardId: string, tier?: CardTier) => {
 }
 
 .bottom-nav {
-  display: flex;
-  justify-content: space-around;
-  background: white;
-  border-top: 1px solid #e0e0e0;
-  padding: 0.5rem 0;
   margin-top: auto;
 }
 
-.nav-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.75rem 1.5rem;
-  text-decoration: none;
-  color: #999;
-  font-size: 1.5rem;
-  transition: color 0.3s;
-}
 
-.icon-md {
-  width: 1.25rem;
-  height: 1.25rem;
-}
-
-.nav-item.active {
-  color: #667eea;
-}
 </style>

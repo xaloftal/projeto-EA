@@ -183,23 +183,13 @@ h1 {
   border-radius: 4px;
 }
 
-.btn-primary {
-  background: #000;
-  color: white;
+.auth-form .btn-primary {
+  width: 100%;
   padding: 12px;
-  border: none;
-  border-radius: 8px;
   font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.3s;
 }
 
-.btn-primary:hover:not(:disabled) {
-  background: #333;
-}
-
-.btn-primary:disabled {
+.auth-form .btn-primary:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }

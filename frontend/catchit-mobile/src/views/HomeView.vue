@@ -1,13 +1,13 @@
 <template>
-  <div class="home-container">
+  <div class="home-container app-screen">
     <!-- Header -->
     <header class="app-header">
       <h1>
         <img src="../assets/app-logo-wt.png" alt="CatchIt" class="logo" /> 
 
       </h1>
-      <router-link to="/profile" class="profile-icon" aria-label="Profile">
-        <User class="icon-md" />
+      <router-link to="/notifications" class="profile-icon" aria-label="Profile">
+        <Bell class="icon-md" />
       </router-link>
     </header>
 
@@ -104,11 +104,11 @@
       <router-link to="/map" class="nav-item">
         <Map class="nav-icon" />
       </router-link>
-      <router-link to="/cards" class="nav-item">
+      <router-link to="/cart" class="nav-item">
         <ShoppingCart class="nav-icon" />
       </router-link>
-      <router-link to="/notifications" class="nav-item">
-        <Bell class="nav-icon" />
+      <router-link to="/cards" class="nav-item">
+        <Ticket class="nav-icon" />
       </router-link>
       <router-link to="/profile" class="nav-item">
         <User class="nav-icon" />
@@ -262,32 +262,17 @@ const formatStatus = (status: string) => {
 </script>
 
 <style scoped>
-.home-container {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  background: #f5f5f5;
-}
 
-.app-header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  padding: 1rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  padding-top: 2rem;
-}
 
-.app-header h1 {
-  font-size: 1.5rem;
-  margin: 0;
+.home-container .app-header h1 {
+  display: flex;
+  align-items: left;
+  justify-content: left;
 }
 
 .logo {
-  width: 50%;
-  height: auto;
+  width: auto;
+  height: 2.25rem;
   display: block;
 }
 
@@ -388,28 +373,6 @@ const formatStatus = (status: string) => {
   gap: 0.5rem;
 }
 
-.btn-primary {
-  display: inline-block;
-  background: #667eea;
-  color: white;
-  padding: 0.75rem 1.5rem;
-  border-radius: 8px;
-  text-decoration: none;
-  border: none;
-  cursor: pointer;
-  font-weight: 600;
-  transition: background 0.3s;
-}
-
-.btn-primary:hover {
-  background: #5568d3;
-}
-
-.icon-md {
-  width: 1.25rem;
-  height: 1.25rem;
-}
-
 .icon-sm {
   width: 1rem;
   height: 1rem;
@@ -455,16 +418,11 @@ const formatStatus = (status: string) => {
 }
 
 .card-action-btn {
-  background: #667eea;
   border-radius: 8px;
   width: 100%;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-}
-
-.card-action-btn:hover {
-  background: #5568d3;
 }
 
 .card-qr {
@@ -585,32 +543,7 @@ const formatStatus = (status: string) => {
 }
 
 .bottom-nav {
-  display: flex;
-  justify-content: space-around;
-  background: white;
-  border-top: 1px solid #e0e0e0;
-  padding: 0.5rem 0;
   margin-top: auto;
-}
-
-.nav-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.75rem 1.5rem;
-  text-decoration: none;
-  color: #999;
-  font-size: 1.5rem;
-  transition: color 0.3s;
-}
-
-.nav-item.active {
-  color: #667eea;
-}
-
-.nav-item:hover {
-  color: #667eea;
 }
 
 

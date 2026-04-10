@@ -28,7 +28,7 @@ const router = createRouter({
     {
       path: '/map',
       name: 'map',
-      component: () => import('../views/SearchTicketsView.vue'),
+      component: () => import('../views/MapView.vue'),
       meta: { requiresAuth: true },
     },
 
@@ -38,7 +38,7 @@ const router = createRouter({
     {
       path: '/cards',
       name: 'cards',
-      component: () => import('../views/CardsView.vue'),
+      component: () => import('../views/StoreView.vue'),
       meta: { requiresAuth: true },
     },
 
@@ -46,6 +46,13 @@ const router = createRouter({
     {
       path: '/cart',
       name: 'cart',
+      component: () => import('../views/CartView.vue'),
+      meta: { requiresAuth: true },
+    },
+
+    {
+      path: '/checkout',
+      name: 'checkout',
       component: () => import('../views/CheckoutView.vue'),
       meta: { requiresAuth: true },
     },

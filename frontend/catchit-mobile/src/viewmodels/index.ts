@@ -2,7 +2,7 @@ import { ref, computed } from 'vue'
 import { mockAPI } from '../services/api/mockAPI'
 import type { User, Ticket, Card, CardTier, TravelCard, PaymentMethod, Stop, Vehicle } from '../models'
 
-type RouteSearchResult = {
+export type RouteSearchResult = {
   routeId: string
   fromStop: Stop
   toStop: Stop
@@ -12,12 +12,43 @@ type RouteSearchResult = {
   vehicle: Vehicle
 }
 
-type CartEntry = {
+type CardCartEntry = {
   id: string
-  item: Ticket | Card
+  kind: 'card'
+  title: string
+  description: string
   quantity: number
-  price: number
+  unitPrice: number
+  totalPrice: number
+  source: {
+    cardId: string
+    tier: CardTier
+  }
 }
+
+type TicketCartEntry = {
+  id: string
+  kind: 'ticket'
+  title: string
+  description: string
+  quantity: number
+  unitPrice: number
+  totalPrice: number
+  source: {
+    routeId: string
+    fromStop: string
+    toStop: string
+    departureTime: string
+    arrivalTime: string
+  }
+}
+
+export type CartEntry = CardCartEntry | TicketCartEntry
+
+const cartItems = ref<CartEntry[]>([])
+const subtotal = computed(() => cartItems.value.reduce((sum, item) => sum + item.totalPrice, 0))
+const taxes = computed(() => subtotal.value * 0.1)
+const total = computed(() => subtotal.value + taxes.value)
 
 // Global state for the current user
 export const currentUser = ref<User | null>(null)
@@ -300,33 +331,70 @@ export function useTravelViewModel() {
  * Handles shopping cart and payment process
  */
 export function useCheckoutViewModel() {
-  const cartItems = ref<CartEntry[]>([])
-  const subtotal = ref(0)
-  const taxes = ref(0)
-  const total = ref(0)
   const isLoading = ref(false)
   const error = ref<string>('')
   const paymentMethods = ref<PaymentMethod[]>([])
 
-  const addToCart = (item: Ticket | Card, quantity: number = 1) => {
+  const addCardToCart = (item: TravelCard | Card, quantity: number = 1) => {
+    const existing = cartItems.value.find((entry) => entry.kind === 'card' && entry.source.cardId === item.id)
+
+    if (existing && existing.kind === 'card') {
+      existing.quantity = Math.max(existing.quantity, quantity)
+      existing.unitPrice = item.price
+      existing.totalPrice = existing.unitPrice * existing.quantity
+      return
+    }
+
     cartItems.value.push({
-      id: Date.now().toString(),
-      item,
+      id: `card_${item.id}`,
+      kind: 'card',
+      title: item.name,
+      description: item.description || 'Travel card',
       quantity,
-      price: item.price * quantity,
+      unitPrice: item.price,
+      totalPrice: item.price * quantity,
+      source: {
+        cardId: item.id,
+        tier: item.tier || 'weekly',
+      },
     })
-    calculateTotals()
+  }
+
+  const addTicketToCart = (route: RouteSearchResult, quantity: number = 1) => {
+    const existing = cartItems.value.find(
+      (entry) => entry.kind === 'ticket' && entry.source.routeId === route.routeId
+    )
+
+    if (existing && existing.kind === 'ticket') {
+      existing.quantity += quantity
+      existing.totalPrice = existing.unitPrice * existing.quantity
+      return
+    }
+
+    cartItems.value.push({
+      id: `ticket_${route.routeId}`,
+      kind: 'ticket',
+      title: `${route.fromStop.name} → ${route.toStop.name}`,
+      description: `${route.departureTime} - ${route.arrivalTime}`,
+      quantity,
+      unitPrice: route.price,
+      totalPrice: route.price * quantity,
+      source: {
+        routeId: route.routeId,
+        fromStop: route.fromStop.name,
+        toStop: route.toStop.name,
+        departureTime: route.departureTime,
+        arrivalTime: route.arrivalTime,
+      },
+    })
   }
 
   const removeFromCart = (itemId: string) => {
     cartItems.value = cartItems.value.filter((item) => item.id !== itemId)
-    calculateTotals()
   }
 
-  const calculateTotals = () => {
-    subtotal.value = cartItems.value.reduce((sum, item) => sum + item.price, 0)
-    taxes.value = subtotal.value * 0.1
-    total.value = subtotal.value + taxes.value
+  const clearCart = () => {
+    cartItems.value = []
   }
 
   const fetchPaymentMethods = async () => {
@@ -349,8 +417,8 @@ export function useCheckoutViewModel() {
       const response = await mockAPI.createCheckoutSession({
         userId: currentUser.value.id,
         items: cartItems.value.map((item) => ({
-          type: 'tripID' in item.item ? 'ticket' : 'card',
-          itemId: item.item.id,
+          type: item.kind,
+          itemId: item.kind === 'card' ? item.source.cardId : item.source.routeId,
           quantity: item.quantity,
         })),
       })
@@ -363,17 +431,67 @@ export function useCheckoutViewModel() {
     }
   }
 
-  const confirmCheckout = async (sessionId: string, paymentMethodId: string) => {
+  const confirmCheckout = async (paymentMethodId: string) => {
+    if (!currentUser.value) return null
+    if (!cartItems.value.length) {
+      error.value = 'Cart is empty'
+      return null
+    }
+
     isLoading.value = true
     error.value = ''
     try {
+      const sessionId = await createCheckoutSession()
+      if (!sessionId) {
+        error.value = 'Unable to create checkout session'
+        return null
+      }
+
       const response = await mockAPI.confirmCheckout({
         sessionId,
         paymentMethodId,
       })
       if (response.success && response.data) {
-        cartItems.value = []
-        calculateTotals()
+        for (const item of cartItems.value) {
+          if (item.kind === 'card') {
+            const cardResponse = await mockAPI.purchaseCard({
+              userId: currentUser.value.id,
+              cardId: item.source.cardId,
+              tier: item.source.tier,
+            })
+
+            if (!cardResponse.success) {
+              error.value = cardResponse.error || 'Card purchase failed'
+              return null
+            }
+          } else {
+            const tripId = `trip_${Date.now()}_${item.id}`
+            const tripResponse = await mockAPI.bookTravel({
+              userId: currentUser.value.id,
+              routeId: item.source.routeId,
+              tripId,
+            })
+
+            if (!tripResponse.success || !tripResponse.data) {
+              error.value = tripResponse.error || 'Trip booking failed'
+              return null
+            }
+
+            const ticketResponse = await mockAPI.purchaseTickets({
+              userID: currentUser.value.id,
+              tripID: tripResponse.data.id,
+              quantity: item.quantity,
+              price: item.unitPrice,
+            })
+
+            if (!ticketResponse.success) {
+              error.value = ticketResponse.error || 'Ticket purchase failed'
+              return null
+            }
+          }
+        }
+
+        clearCart()
         return response.data
       }
       error.value = response.error || 'Checkout failed'
@@ -391,8 +509,10 @@ export function useCheckoutViewModel() {
     paymentMethods,
     isLoading,
     error,
-    addToCart,
+    addCardToCart,
+    addTicketToCart,
     removeFromCart,
+    clearCart,
     fetchPaymentMethods,
     createCheckoutSession,
     confirmCheckout,

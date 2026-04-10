@@ -1,121 +1,71 @@
 <template>
-  <div class="checkout-container">
-    <!-- Header -->
+  <div class="checkout-container app-screen">
     <header class="app-header">
-      <router-link to="/map" class="back-btn" aria-label="Back"><ArrowLeft class="icon-md" /></router-link>
+      <router-link to="/cart" class="back-btn" aria-label="Back"><ArrowLeft class="icon-md" /></router-link>
       <h1>Checkout</h1>
-      <div style="width: 2rem"></div>
+      <div style="width: 1rem"></div>
     </header>
 
-    <div class="checkout-content">
-      <!-- Payment Section -->
-      <div class="section">
-        <h2>PAYMENT</h2>
-        <p>Choose your payment method</p>
+    <div v-if="cartItems.length === 0" class="checkout-empty">
+      <ShoppingCart class="empty-icon" />
+      <h2>No items to pay for</h2>
+      <p>Add items in the cart first.</p>
+      <router-link to="/cards" class="btn-secondary">Go to store</router-link>
+    </div>
+
+    <div v-else class="checkout-content">
+      <section class="section">
+        <h2>PAYMENT METHOD</h2>
+        <p>Select how you want to pay</p>
 
         <div class="payment-methods">
-          <label class="payment-option">
-            <input v-model="selectedPayment" value="mbway" type="radio" />
+          <label v-for="method in paymentMethods" :key="method.id" class="payment-option">
+            <input v-model="selectedPaymentMethodId" type="radio" :value="method.id" />
             <span class="payment-label">
-              <span class="payment-icon"><CreditCard class="icon-sm" /></span>
-              <span>MB Way</span>
-            </span>
-          </label>
-
-          <label class="payment-option">
-            <input v-model="selectedPayment" value="card" type="radio" checked />
-            <span class="payment-label">
-              <span class="payment-icon"><CreditCard class="icon-sm" /></span>
-              <span>Credit Card</span>
+              <CreditCard class="icon-sm" />
+              <span>{{ labelPaymentMethod(method) }}</span>
             </span>
           </label>
         </div>
+      </section>
 
-        <!-- Card Form (shown when Credit Card selected) -->
-        <div v-if="selectedPayment === 'card'" class="card-form">
-          <div class="form-group">
-            <label>Card Number</label>
-            <input v-model="cardForm.number" type="text" placeholder="1234 1234 1234 1234" class="form-input" />
+      <section class="section">
+        <h2>ORDER SUMMARY</h2>
+        <div v-for="item in cartItems" :key="item.id" class="summary-item">
+          <div>
+            <p class="summary-title">{{ item.title }}</p>
+            <p class="summary-meta">{{ item.description }} · Qty {{ item.quantity }}</p>
           </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label>Expiration Date</label>
-              <input v-model="cardForm.expiration" type="text" placeholder="MM/YY" class="form-input" />
-            </div>
-            <div class="form-group">
-              <label>CVV</label>
-              <input v-model="cardForm.cvv" type="text" placeholder="123" class="form-input" />
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label>Card Owner</label>
-            <input v-model="cardForm.owner" type="text" placeholder="Owner Name" class="form-input" />
-          </div>
+          <strong>€{{ item.totalPrice.toFixed(2) }}</strong>
         </div>
-      </div>
+      </section>
 
-      <!-- Reservation Details -->
-      <div class="section">
-        <h2>RESERVATION DETAILS</h2>
-        <a href="#" class="see-details">See final reservation details ></a>
-
-        <div class="reservation-item">
-          <span class="day">Thursday, 11/02/2026</span>
-          <span class="provider">TUB</span>
-        </div>
-
-        <div class="route-info">
-          <div class="stop">
-            <span class="stop-icon"><MapPin class="icon-sm" /></span>
-            <span>Vila Nova de Famalicão (Estação de Autocarros)</span>
-          </div>
-          <span class="time">06:35</span>
-        </div>
-
-        <div class="route-info">
-          <div class="stop">
-            <span class="stop-icon"><MapPin class="icon-sm" /></span>
-            <span>Lisboa (Oriente)</span>
-          </div>
-          <span class="time">10:30</span>
-        </div>
-
-        <div class="quantity">
-          <span>Quantity: 01</span>
-        </div>
-      </div>
-
-      <!-- Pricing Summary -->
-      <div class="pricing-summary">
+      <section class="pricing-summary">
         <div class="price-row">
           <span>Subtotal</span>
-          <span>€{{ (checkoutViewModel.subtotal as any).toFixed(2) }}</span>
+          <span>€{{ subtotal.toFixed(2) }}</span>
         </div>
         <div class="price-row">
           <span>Taxes</span>
-          <span>€{{ (checkoutViewModel.taxes as any).toFixed(2) }}</span>
+          <span>€{{ taxes.toFixed(2) }}</span>
         </div>
         <div class="price-row total">
           <span>Total</span>
-          <span>€{{ (checkoutViewModel.total as any).toFixed(2) }}</span>
+          <span>€{{ total.toFixed(2) }}</span>
         </div>
-      </div>
+      </section>
     </div>
 
-    <!-- Confirm Button -->
-    <div class="checkout-footer">
-      <button @click="confirmCheckout" class="btn-confirm">
-        {{ isProcessing ? 'Processing...' : 'Checkout' }}
+    <div v-if="cartItems.length > 0" class="checkout-footer">
+      <button class="btn-confirm" :disabled="isProcessing || !selectedPaymentMethodId" @click="confirmCheckout">
+        {{ isProcessing ? 'Processing...' : 'Pay now' }}
       </button>
     </div>
 
-    <!-- Bottom Navigation -->
     <nav class="bottom-nav">
       <router-link to="/home" class="nav-item"><House class="nav-icon" /></router-link>
       <router-link to="/map" class="nav-item"><Map class="nav-icon" /></router-link>
-      <router-link to="/cards" class="nav-item active"><ShoppingCart class="nav-icon" /></router-link>
+      <router-link to="/cart" class="nav-item active"><ShoppingCart class="nav-icon" /></router-link>
       <router-link to="/notifications" class="nav-item"><Bell class="nav-icon" /></router-link>
       <router-link to="/profile" class="nav-item"><User class="nav-icon" /></router-link>
     </nav>
@@ -123,39 +73,53 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
-import { ArrowLeft, Bell, CreditCard, House, MapPin, Map, ShoppingCart, User } from 'lucide-vue-next'
+import { computed, onMounted, ref } from 'vue'
+import { ArrowLeft, Bell, CreditCard, House, Map, ShoppingCart, User } from 'lucide-vue-next'
 import { useRouter } from 'vue-router'
 import { useCheckoutViewModel } from '../viewmodels'
 
 const router = useRouter()
 const checkoutViewModel = useCheckoutViewModel()
+const { cartItems, subtotal, taxes, total, paymentMethods } = checkoutViewModel
 
-const selectedPayment = ref('card')
+const selectedPaymentMethodId = ref('')
 const isProcessing = ref(false)
 
-const cardForm = ref({
-  number: '',
-  expiration: '',
-  cvv: '',
-  owner: '',
+const selectedPaymentMethod = computed(
+  () => paymentMethods.value.find((method) => method.id === selectedPaymentMethodId.value) ?? null
+)
+
+const labelPaymentMethod = (method: { type: string; cardLast4?: string }) => {
+  if (method.type === 'credit_card' && method.cardLast4) {
+    return `Card ending ${method.cardLast4}`
+  }
+  if (method.type === 'debit_card' && method.cardLast4) {
+    return `Debit card ending ${method.cardLast4}`
+  }
+  return 'Digital wallet'
+}
+
+onMounted(async () => {
+  await checkoutViewModel.fetchPaymentMethods()
+  selectedPaymentMethodId.value = paymentMethods.value.find((method) => method.isDefault)?.id ?? paymentMethods.value[0]?.id ?? ''
 })
 
 const confirmCheckout = async () => {
+  if (!selectedPaymentMethodId.value) return
+
   isProcessing.value = true
   try {
-    // Create checkout session and then confirm
-    const sessionId = await checkoutViewModel.createCheckoutSession()
-    if (sessionId) {
-      // Use first payment method or create one
-      const paymentMethodId = 'payment_1'
-      const result = await checkoutViewModel.confirmCheckout(sessionId, paymentMethodId)
-      if (result) {
-        void router.push({
-          name: 'checkout-success',
-          params: { orderId: result.orderId },
-        })
-      }
+    const result = await checkoutViewModel.confirmCheckout(selectedPaymentMethodId.value)
+    if (result) {
+      void router.push({
+        name: 'checkout-success',
+        params: { orderId: result.orderId },
+        query: {
+          total: total.value.toFixed(2),
+          items: String(cartItems.value.length),
+          payment: selectedPaymentMethod.value ? labelPaymentMethod(selectedPaymentMethod.value) : 'Payment method',
+        },
+      })
     }
   } finally {
     isProcessing.value = false
@@ -165,49 +129,51 @@ const confirmCheckout = async () => {
 
 <style scoped>
 .checkout-container {
+  background: var(--color-screen-bg);
+}
+
+.checkout-empty {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  height: 100vh;
-  background: #f5f5f5;
-}
-
-.app-header {
-  background: #667eea;
-  color: white;
-  padding: 1rem;
-  display: flex;
-  justify-content: space-between;
   align-items: center;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.app-header h1 {
-  font-size: 1.2rem;
-  margin: 0;
-  flex: 1;
+  justify-content: center;
+  gap: 0.75rem;
   text-align: center;
+  padding: 1rem;
 }
 
-.back-btn {
-  cursor: pointer;
-  text-decoration: none;
-  color: white;
+.empty-icon {
+  width: 3rem;
+  height: 3rem;
+  color: var(--color-brand);
+}
+
+.btn-secondary {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  background: var(--color-text-strong);
+  color: var(--color-on-brand);
+  padding: 0.75rem 1.25rem;
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  font-weight: 600;
 }
 
 .checkout-content {
   flex: 1;
   overflow-y: auto;
   padding: 1rem;
+  display: grid;
+  gap: 1rem;
 }
 
-.section {
-  background: white;
-  border-radius: 12px;
+.section,
+.pricing-summary {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
   padding: 1rem;
-  margin-bottom: 1rem;
 }
 
 .section h2 {
@@ -219,15 +185,13 @@ const confirmCheckout = async () => {
 
 .section > p {
   margin: 0 0 1rem 0;
-  color: #999;
+  color: var(--color-text-muted);
   font-size: 0.9rem;
 }
 
 .payment-methods {
-  display: flex;
-  flex-direction: column;
+  display: grid;
   gap: 0.5rem;
-  margin-bottom: 1rem;
 }
 
 .payment-option {
@@ -235,18 +199,8 @@ const confirmCheckout = async () => {
   align-items: center;
   gap: 0.75rem;
   padding: 0.75rem;
-  border: 1px solid #e0e0e0;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: border-color 0.3s;
-}
-
-.payment-option:hover {
-  border-color: #667eea;
-}
-
-.payment-option input {
-  cursor: pointer;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
 }
 
 .payment-label {
@@ -255,123 +209,40 @@ const confirmCheckout = async () => {
   gap: 0.5rem;
 }
 
-.payment-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.card-form {
-  margin-top: 1rem;
-  padding: 1rem;
-  background: #f9f9f9;
-  border-radius: 6px;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  margin-bottom: 0.75rem;
-}
-
-.form-group label {
-  font-weight: 600;
-  font-size: 0.85rem;
-  color: #333;
-}
-
-.form-input {
-  padding: 0.75rem;
-  border: 1px solid #e0e0e0;
-  border-radius: 4px;
-  font-size: 0.95rem;
-}
-
-.form-input:focus {
-  outline: none;
-  border-color: #667eea;
-}
-
-.form-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.75rem;
-}
-
-.see-details {
-  display: block;
-  margin-bottom: 1rem;
-  color: #667eea;
-  text-decoration: none;
-  font-size: 0.9rem;
-  font-weight: 600;
-}
-
-.reservation-item {
+.summary-item {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  padding: 0.75rem;
-  background: #f9f9f9;
-  border-radius: 6px;
-  margin-bottom: 1rem;
-  font-size: 0.9rem;
+  gap: 1rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid #f0f0f0;
 }
 
-.day {
-  font-weight: 600;
+.summary-item:last-child {
+  border-bottom: none;
 }
 
-.provider {
-  background: #e8e8e8;
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
-  font-size: 0.75rem;
+.summary-title {
+  margin: 0;
+  font-weight: 700;
+  color: var(--color-text-strong);
 }
 
-.route-info {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.75rem;
-  margin-bottom: 0.5rem;
-  font-size: 0.85rem;
-}
-
-.stop {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.stop-icon {
-  font-size: 1rem;
-}
-
-.time {
-  color: #999;
-}
-
-.quantity {
-  padding: 0.75rem;
-  background: #f9f9f9;
-  border-radius: 6px;
+.summary-meta {
+  margin: 0.25rem 0 0;
+  color: var(--color-text-muted);
   font-size: 0.9rem;
 }
 
 .pricing-summary {
-  background: white;
-  border-radius: 12px;
-  padding: 1rem;
-  margin-bottom: 1rem;
+  display: grid;
+  gap: 0.25rem;
 }
 
 .price-row {
   display: flex;
   justify-content: space-between;
   padding: 0.5rem 0;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   border-bottom: 1px solid #f0f0f0;
 }
 
@@ -380,66 +251,34 @@ const confirmCheckout = async () => {
   border-top: 2px solid #e0e0e0;
   margin-top: 0.5rem;
   padding-top: 0.75rem;
-  font-weight: 600;
-  font-size: 1.1rem;
+  font-weight: 700;
+  font-size: 1.05rem;
 }
 
 .checkout-footer {
   padding: 1rem;
-  border-top: 1px solid #e0e0e0;
-  background: white;
+  border-top: 1px solid var(--color-border-strong);
+  background: var(--color-surface);
 }
 
 .btn-confirm {
   width: 100%;
-  padding: 0.75rem;
-  background: #000;
-  color: white;
+  padding: 0.85rem;
+  background: var(--color-text-strong);
+  color: var(--color-on-brand);
   border: none;
-  border-radius: 8px;
-  font-weight: 600;
-  font-size: 1rem;
+  border-radius: 10px;
+  font-weight: 700;
   cursor: pointer;
-  transition: background 0.3s;
 }
 
-.btn-confirm:hover {
-  background: #333;
-}
-
-.bottom-nav {
-  display: flex;
-  justify-content: space-around;
-  background: white;
-  border-top: 1px solid #e0e0e0;
-  padding: 0.5rem 0;
-}
-
-.nav-item {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.75rem 1.5rem;
-  text-decoration: none;
-  color: #999;
-  transition: color 0.3s;
-}
-
-.icon-md {
-  width: 1.25rem;
-  height: 1.25rem;
+.btn-confirm:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .icon-sm {
-  width: 1rem;
-  height: 1rem;
-}
-
-.nav-item.active {
-  color: #667eea;
-}
-
-.nav-item:hover {
-  color: #667eea;
+  width: 1.25rem;
+  height: 1.25rem;
 }
 </style>
