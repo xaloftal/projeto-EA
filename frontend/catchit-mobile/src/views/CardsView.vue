@@ -9,115 +9,133 @@
     <div class="tabs">
       <button
         :class="['tab', { active: activeTab === 'cards' }]"
-        @click="activeTab = 'cards'"
+        :style="{ color: cardsTabColor }"
+        @click="setActiveTab('cards')"
       >
         Buy Cards
       </button>
       <button
         :class="['tab', { active: activeTab === 'tickets' }]"
-        @click="activeTab = 'tickets'"
+        :style="{ color: ticketsTabColor }"
+        @click="setActiveTab('tickets')"
       >
         Buy Tickets
       </button>
+      <span class="tab-indicator" :style="tabIndicatorStyle"></span>
     </div>
 
-    <div v-if="activeTab === 'cards'" class="cards-list">
-      <article
-        v-for="card in sortedPlans"
-        :key="card.id"
-        class="card-option"
-        :class="cardClass(card.tier)"
-      >
-        <div class="card-content">
-          <div class="card-head">
-            <p class="card-tier">{{ card.name }}</p>
-            <p class="price">€{{ card.price.toFixed(2) }}</p>
+    <div
+      ref="swipeViewport"
+      class="swipe-viewport"
+      @touchstart="onTouchStart"
+      @touchmove="onTouchMove"
+      @touchend="onTouchEnd"
+      @touchcancel="onTouchEnd"
+    >
+      <div class="swipe-track" :class="{ 'is-dragging': isDragging }" :style="swipeTrackStyle">
+        <div class="swipe-pane cards-pane">
+          <div class="cards-list">
+            <article
+              v-for="card in sortedPlans"
+              :key="card.id"
+              class="card-option"
+              :class="cardClass(card.tier)"
+            >
+              <div class="card-content">
+                <div class="card-head">
+                  <p class="card-tier">{{ card.name }}</p>
+                  <p class="price">€{{ card.price.toFixed(2) }}</p>
+                </div>
+
+                <p>{{ card.description }}</p>
+
+                <p v-if="currentTier === card.tier" class="status status-owned">Current plan</p>
+                <p v-else-if="canUpgrade(card.tier)" class="status status-upgrade">Upgrade available</p>
+                <p v-else-if="!currentTier" class="status status-buy">Available to buy</p>
+                <p v-else class="status status-hidden">Not available from your current tier</p>
+
+                <button
+                  v-if="actionLabel(card.tier)"
+                  class="price-btn"
+                  @click="purchasePlan(card.id, card.tier)"
+                >
+                  {{ actionLabel(card.tier) }}
+                </button>
+              </div>
+            </article>
           </div>
-
-          <p>{{ card.description }}</p>
-
-          <p v-if="currentTier === card.tier" class="status status-owned">Current plan</p>
-          <p v-else-if="canUpgrade(card.tier)" class="status status-upgrade">Upgrade available</p>
-          <p v-else-if="!currentTier" class="status status-buy">Available to buy</p>
-          <p v-else class="status status-hidden">Not available from your current tier</p>
-
-          <button
-            v-if="actionLabel(card.tier)"
-            class="price-btn"
-            @click="purchasePlan(card.id, card.tier)"
-          >
-            {{ actionLabel(card.tier) }}
-          </button>
-        </div>
-      </article>
-    </div>
-
-    <div v-else class="tickets-section">
-      <article class="ticket-option">
-        <div class="ticket-head">
-          <Ticket class="ticket-icon" />
-          <h2>Search Tickets</h2>
         </div>
 
-        <div class="ticket-form">
-          <label>
-            <span>From</span>
-            <select v-model="fromStopId" class="ticket-select">
-              <option disabled value="">Select origin</option>
-              <option v-for="stop in availableStops" :key="stop.id" :value="stop.id">
-                {{ stop.name }}
-              </option>
-            </select>
-          </label>
+        <div class="swipe-pane tickets-pane">
+          <div class="tickets-section">
+            <article class="ticket-option">
+              <div class="ticket-head">
+                <Ticket class="ticket-icon" />
+                <h2>Search Tickets</h2>
+              </div>
 
-          <label>
-            <span>To</span>
-            <select v-model="toStopId" class="ticket-select">
-              <option disabled value="">Select destination</option>
-              <option v-for="stop in availableStops" :key="stop.id" :value="stop.id">
-                {{ stop.name }}
-              </option>
-            </select>
-          </label>
+              <div class="ticket-form">
+                <label>
+                  <span>From</span>
+                  <select v-model="fromStopId" class="ticket-select">
+                    <option disabled value="">Select origin</option>
+                    <option v-for="stop in availableStops" :key="stop.id" :value="stop.id">
+                      {{ stop.name }}
+                    </option>
+                  </select>
+                </label>
 
-          <label>
-            <span>Date</span>
-            <input v-model="departureDate" type="date" class="ticket-select" />
-          </label>
+                <label>
+                  <span>To</span>
+                  <select v-model="toStopId" class="ticket-select">
+                    <option disabled value="">Select destination</option>
+                    <option v-for="stop in availableStops" :key="stop.id" :value="stop.id">
+                      {{ stop.name }}
+                    </option>
+                  </select>
+                </label>
 
-          <button
-            class="ticket-btn"
-            :disabled="!canSearchTickets || travelViewModel.isLoading.value"
-            @click="searchTickets"
-          >
-            {{ travelViewModel.isLoading.value ? 'Searching...' : 'Search Routes' }}
-          </button>
+                <label>
+                  <span>Date</span>
+                  <input v-model="departureDate" type="date" class="ticket-select" />
+                </label>
+
+                <button
+                  class="ticket-btn"
+                  :disabled="!canSearchTickets || travelViewModel.isLoading.value"
+                  @click="searchTickets"
+                >
+                  {{ travelViewModel.isLoading.value ? 'Searching...' : 'Search Routes' }}
+                </button>
+              </div>
+
+              <p v-if="ticketMessage" class="ticket-message">{{ ticketMessage }}</p>
+
+              <div v-if="searchResults.length > 0" class="route-results">
+                <article v-for="result in searchResults" :key="result.routeId" class="route-result-item">
+                  <div>
+                    <p class="route-name">{{ result.fromStop.name }} → {{ result.toStop.name }}</p>
+                    <p class="route-meta">{{ result.departureTime }} - {{ result.arrivalTime }}</p>
+                  </div>
+                  <div class="route-actions">
+                    <p class="route-price">€{{ result.price.toFixed(2) }}</p>
+                    <button class="ticket-buy-btn" @click="buyTicket(result)">Buy Ticket</button>
+                  </div>
+                </article>
+              </div>
+            </article>
+
+            <article class="ticket-option ticket-option-muted">
+              <div class="ticket-head">
+                <MapPin class="ticket-icon" />
+                <h2>Map Search</h2>
+              </div>
+              <p>Prefer visual stop search? Use the map screen for stop-based route exploration.</p>
+              <router-link to="/map" class="ticket-btn">Open Map</router-link>
+            </article>
+          </div>
         </div>
-
-        <p v-if="ticketMessage" class="ticket-message">{{ ticketMessage }}</p>
-
-        <div v-if="searchResults.length > 0" class="route-results">
-          <article v-for="result in searchResults" :key="result.routeId" class="route-result-item">
-            <div>
-              <p class="route-name">{{ result.fromStop.name }} → {{ result.toStop.name }}</p>
-              <p class="route-meta">{{ result.departureTime }} - {{ result.arrivalTime }}</p>
-            </div>
-            <div class="route-actions">
-              <p class="route-price">€{{ result.price.toFixed(2) }}</p>
-              <button class="ticket-buy-btn" @click="buyTicket(result)">Buy Ticket</button>
-            </div>
-          </article>
-        </div>
-      </article>
-
-      <article class="ticket-option ticket-option-muted">
-        <div class="ticket-head">
-          <MapPin class="ticket-icon" />
-          <h2>Map Search</h2>
-        </div>
-        <p>Prefer visual stop search? Use the map screen for stop-based route exploration.</p>
-        <router-link to="/map" class="ticket-btn">Open Map</router-link>
-      </article>
+      </div>
     </div>
 
     <nav class="bottom-nav">
@@ -131,7 +149,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { ArrowLeft, Bell, House, Map, MapPin, ShoppingCart, Ticket, User } from 'lucide-vue-next'
 import { useCardViewModel, useTicketViewModel, useTravelViewModel } from '../viewmodels'
 import { mockAPI } from '../services/api/mockAPI'
@@ -151,6 +169,11 @@ const cardViewModel = useCardViewModel()
 const ticketViewModel = useTicketViewModel()
 const travelViewModel = useTravelViewModel()
 const activeTab = ref<'cards' | 'tickets'>('cards')
+const swipeViewport = ref<HTMLElement | null>(null)
+const viewportWidth = ref(0)
+const touchStartX = ref(0)
+const currentDragX = ref(0)
+const isDragging = ref(false)
 const availableStops = ref<Stop[]>([])
 const fromStopId = ref('')
 const toStopId = ref('')
@@ -198,6 +221,102 @@ const canSearchTickets = computed(() =>
 
 const searchResults = computed(() => travelViewModel.searchResults.value as RouteResult[])
 
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
+
+const blendColor = (from: string, to: string, amount: number) => {
+  const progress = clamp(amount, 0, 1)
+  const fromRGB = from.match(/[A-Fa-f0-9]{2}/g)?.map((hex) => parseInt(hex, 16))
+  const toRGB = to.match(/[A-Fa-f0-9]{2}/g)?.map((hex) => parseInt(hex, 16))
+
+  if (!fromRGB || !toRGB || fromRGB.length !== 3 || toRGB.length !== 3) return to
+
+  const mixed = fromRGB.map((value, index) => Math.round(value + (toRGB[index] - value) * progress))
+  return `rgb(${mixed[0]}, ${mixed[1]}, ${mixed[2]})`
+}
+
+const updateViewportWidth = () => {
+  viewportWidth.value = swipeViewport.value?.clientWidth ?? 0
+}
+
+const tabProgress = computed(() => {
+  const width = viewportWidth.value || 1
+  const dragRatio = clamp(Math.abs(currentDragX.value) / width, 0, 1)
+
+  if (activeTab.value === 'cards') {
+    return dragRatio
+  }
+
+  return 1 - dragRatio
+})
+
+const cardsTabColor = computed(() => blendColor('#9ca3af', '#667eea', 1 - tabProgress.value))
+const ticketsTabColor = computed(() => blendColor('#9ca3af', '#667eea', tabProgress.value))
+
+const tabIndicatorStyle = computed(() => ({
+  transform: `translateX(${tabProgress.value * 100}%)`,
+}))
+
+const swipeTrackStyle = computed(() => {
+  const width = viewportWidth.value
+  if (!width) {
+    return {
+      transform: activeTab.value === 'cards' ? 'translate3d(0, 0, 0)' : 'translate3d(-100%, 0, 0)',
+    }
+  }
+
+  const baseOffset = activeTab.value === 'cards' ? 0 : -width
+  const offset = baseOffset + currentDragX.value
+
+  return {
+    transform: `translate3d(${offset}px, 0, 0)`,
+  }
+})
+
+const setActiveTab = (tab: 'cards' | 'tickets') => {
+  activeTab.value = tab
+  currentDragX.value = 0
+}
+
+const onTouchStart = (event: TouchEvent) => {
+  if (!event.touches.length) return
+  touchStartX.value = event.touches[0].clientX
+  isDragging.value = true
+  currentDragX.value = 0
+}
+
+const onTouchMove = (event: TouchEvent) => {
+  if (!isDragging.value || !event.touches.length) return
+
+  const deltaX = event.touches[0].clientX - touchStartX.value
+  const width = viewportWidth.value || 1
+  const maxDrag = width * 0.8
+
+  if (activeTab.value === 'cards') {
+    currentDragX.value = clamp(deltaX, -maxDrag, 0)
+    return
+  }
+
+  currentDragX.value = clamp(deltaX, 0, maxDrag)
+}
+
+const onTouchEnd = () => {
+  if (!isDragging.value) return
+
+  const width = viewportWidth.value || 1
+  const threshold = width * 0.2
+  const shouldMoveToTickets = activeTab.value === 'cards' && currentDragX.value <= -threshold
+  const shouldMoveToCards = activeTab.value === 'tickets' && currentDragX.value >= threshold
+
+  if (shouldMoveToTickets) {
+    activeTab.value = 'tickets'
+  } else if (shouldMoveToCards) {
+    activeTab.value = 'cards'
+  }
+
+  currentDragX.value = 0
+  isDragging.value = false
+}
+
 const searchTickets = async () => {
   if (!canSearchTickets.value) {
     ticketMessage.value = 'Please select different origin and destination stops.'
@@ -220,6 +339,9 @@ const buyTicket = async (result: RouteResult) => {
 }
 
 onMounted(async () => {
+  updateViewportWidth()
+  window.addEventListener('resize', updateViewportWidth)
+
   await cardViewModel.fetchUserCards()
   await cardViewModel.fetchAvailableCards()
 
@@ -227,6 +349,10 @@ onMounted(async () => {
   if (stopsResponse.success && stopsResponse.data) {
     availableStops.value = stopsResponse.data
   }
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', updateViewportWidth)
 })
 
 const purchasePlan = async (cardId: string, tier?: CardTier) => {
@@ -276,6 +402,7 @@ const purchasePlan = async (cardId: string, tier?: CardTier) => {
   background: white;
   border-bottom: 2px solid #e0e0e0;
   padding: 0 1rem;
+  position: relative;
 }
 
 .tab {
@@ -283,22 +410,54 @@ const purchasePlan = async (cardId: string, tier?: CardTier) => {
   padding: 1rem;
   background: none;
   border: none;
-  border-bottom: 3px solid transparent;
   cursor: pointer;
   font-size: 0.95rem;
   font-weight: 600;
   color: #999;
-  transition: all 0.3s;
+  transition: color 0.25s ease;
+  z-index: 1;
 }
 
 .tab.active {
-  border-bottom-color: #667eea;
   color: #667eea;
 }
 
-.cards-list {
+.tab-indicator {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 50%;
+  height: 3px;
+  background: #667eea;
+  transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.swipe-viewport {
   flex: 1;
+  overflow: hidden;
+  touch-action: pan-y;
+}
+
+.swipe-track {
+  display: flex;
+  width: 200%;
+  height: 100%;
+  transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+  will-change: transform;
+}
+
+.swipe-track.is-dragging {
+  transition: none;
+}
+
+.swipe-pane {
+  width: 50%;
+  height: 100%;
   overflow-y: auto;
+}
+
+.cards-list {
+  min-height: 100%;
   padding: 1rem;
   display: flex;
   flex-direction: column;
@@ -389,8 +548,7 @@ const purchasePlan = async (cardId: string, tier?: CardTier) => {
 }
 
 .tickets-section {
-  flex: 1;
-  overflow-y: auto;
+  min-height: 100%;
   padding: 1rem;
   display: flex;
   flex-direction: column;

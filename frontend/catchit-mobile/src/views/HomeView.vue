@@ -15,67 +15,83 @@
     <div class="tabs">
       <button
         :class="['tab', { active: activeTab === 'cards' }]"
-        @click="activeTab = 'cards'"
+        :style="{ color: cardsTabColor }"
+        @click="setActiveTab('cards')"
       >
         My Cards
       </button>
       <button
         :class="['tab', { active: activeTab === 'tickets' }]"
-        @click="activeTab = 'tickets'"
+        :style="{ color: ticketsTabColor }"
+        @click="setActiveTab('tickets')"
       >
         My Tickets
       </button>
+      <span class="tab-indicator" :style="tabIndicatorStyle"></span>
     </div>
 
-    <!-- My Cards Tab -->
-    <div v-if="activeTab === 'cards'" class="tab-content">
-      <div class="card-display">
-        <div v-if="currentCard" class="card-visual">
-          <div class="card-logo">{{ currentCard.name }}</div>
-          <div class="card-details">
-            <p>{{ currentCard.description || 'Your active CatchIt plan' }}</p>
-            <p class="date">Valid until {{ formatDate(currentCard.validUntil) }}</p>
+    <div
+      ref="swipeViewport"
+      class="swipe-viewport"
+      @touchstart="onTouchStart"
+      @touchmove="onTouchMove"
+      @touchend="onTouchEnd"
+      @touchcancel="onTouchEnd"
+    >
+      <div class="swipe-track" :class="{ 'is-dragging': isDragging }" :style="swipeTrackStyle">
+        <div class="swipe-pane">
+          <div class="tab-content">
+            <div class="card-display">
+              <div v-if="currentCard" class="card-visual">
+                <div class="card-logo">{{ currentCard.name }}</div>
+                <div class="card-details">
+                  <p>{{ currentCard.description || 'Your active CatchIt plan' }}</p>
+                  <p class="date">Valid until {{ formatDate(currentCard.validUntil) }}</p>
+                </div>
+              </div>
+
+              <div v-else class="card-visual card-visual-empty">
+                <div class="card-logo">My Card</div>
+                <div class="card-details">
+                  <p>No CatchIt card yet</p>
+                  <p class="date">Buy one to unlock full access</p>
+                </div>
+              </div>
+
+              <div class="card-bottom">
+                <router-link to="/cards" class="btn-primary card-action-btn">{{ currentCard ? 'Renew' : 'Buy Card' }}</router-link>
+                <div v-if="currentCard" class="card-qr">
+                  <QrCode class="card-qr-icon" />
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div v-else class="card-visual card-visual-empty">
-          <div class="card-logo">My Card</div>
-          <div class="card-details">
-            <p>No CatchIt card yet</p>
-            <p class="date">Buy one to unlock full access</p>
-          </div>
-        </div>
+        <div class="swipe-pane">
+          <div class="tab-content">
+            <div v-if="tickets.length === 0" class="empty-state">
+              <p><Ticket class="empty-icon" /> No tickets yet</p>
+              <router-link to="/cards" class="btn-primary">Buy Tickets</router-link>
+            </div>
 
-        <div class="card-bottom">
-          <router-link to="/cards" class="btn-primary card-action-btn">{{ currentCard ? 'Renew' : 'Buy Card' }}</router-link>
-          <div v-if="currentCard" class="card-qr">
-            <QrCode class="card-qr-icon" />
+            <div v-else>
+              <div v-for="ticket in tickets" :key="ticket.id" class="ticket-item">
+                <div class="ticket-header">
+                  <h3>Ticket</h3>
+                  <span class="status-badge" :class="ticket.status.toLowerCase()">
+                    {{ formatStatus(ticket.status) }}
+                  </span>
+                </div>
+                <p class="expiry">Expires on {{ formatDate(ticket.validUntil) }}</p>
+                <div class="ticket-stops">
+                  <p><MapPin class="icon-sm" /> {{ (ticket.trip?.stops?.[0]?.name) || 'Stop 1' }}</p>
+                  <p><MapPin class="icon-sm" /> {{ (ticket.trip?.stops?.at(-1)?.name) || 'Stop 2' }}</p>
+                </div>
+                <div class="qr-code"><QrCode class="icon-md" /></div>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- My Tickets Tab -->
-    <div v-if="activeTab === 'tickets'" class="tab-content">
-      <div v-if="tickets.length === 0" class="empty-state">
-        <p><Ticket class="empty-icon" /> No tickets yet</p>
-        <router-link to="/cards" class="btn-primary">Buy Tickets</router-link>
-      </div>
-
-      <div v-else>
-        <div v-for="ticket in tickets" :key="ticket.id" class="ticket-item">
-          <div class="ticket-header">
-            <h3>Ticket</h3>
-            <span class="status-badge" :class="ticket.status.toLowerCase()">
-              {{ formatStatus(ticket.status) }}
-            </span>
-          </div>
-          <p class="expiry">Expires on {{ formatDate(ticket.validUntil) }}</p>
-          <div class="ticket-stops">
-            <p><MapPin class="icon-sm" /> {{ (ticket.trip?.stops?.[0]?.name) || 'Stop 1' }}</p>
-            <p><MapPin class="icon-sm" /> {{ (ticket.trip?.stops?.at(-1)?.name) || 'Stop 2' }}</p>
-          </div>
-          <div class="qr-code"><QrCode class="icon-md" /></div>
         </div>
       </div>
     </div>
@@ -102,20 +118,128 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { Bell, House, MapPin, QrCode, Map, ShoppingCart, Ticket, User } from 'lucide-vue-next'
 import { useTicketViewModel, useCardViewModel } from '../viewmodels'
 
 const activeTab = ref<'cards' | 'tickets'>('cards')
+const swipeViewport = ref<HTMLElement | null>(null)
+const viewportWidth = ref(0)
+const touchStartX = ref(0)
+const currentDragX = ref(0)
+const isDragging = ref(false)
 const ticketViewModel = useTicketViewModel()
 const cardViewModel = useCardViewModel()
 const tickets = computed(() => ticketViewModel.tickets.value)
 const userCards = computed(() => cardViewModel.userCards.value)
 const currentCard = computed(() => userCards.value[0] ?? null)
 
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
+
+const blendColor = (from: string, to: string, amount: number) => {
+  const progress = clamp(amount, 0, 1)
+  const fromRGB = from.match(/[A-Fa-f0-9]{2}/g)?.map((hex) => parseInt(hex, 16))
+  const toRGB = to.match(/[A-Fa-f0-9]{2}/g)?.map((hex) => parseInt(hex, 16))
+
+  if (!fromRGB || !toRGB || fromRGB.length !== 3 || toRGB.length !== 3) return to
+
+  const mixed = fromRGB.map((value, index) => Math.round(value + (toRGB[index] - value) * progress))
+  return `rgb(${mixed[0]}, ${mixed[1]}, ${mixed[2]})`
+}
+
+const updateViewportWidth = () => {
+  viewportWidth.value = swipeViewport.value?.clientWidth ?? 0
+}
+
+const tabProgress = computed(() => {
+  const width = viewportWidth.value || 1
+  const dragRatio = clamp(Math.abs(currentDragX.value) / width, 0, 1)
+
+  if (activeTab.value === 'cards') {
+    return dragRatio
+  }
+
+  return 1 - dragRatio
+})
+
+const cardsTabColor = computed(() => blendColor('#9ca3af', '#667eea', 1 - tabProgress.value))
+const ticketsTabColor = computed(() => blendColor('#9ca3af', '#667eea', tabProgress.value))
+
+const tabIndicatorStyle = computed(() => ({
+  transform: `translateX(${tabProgress.value * 100}%)`,
+}))
+
+const swipeTrackStyle = computed(() => {
+  const width = viewportWidth.value
+  if (!width) {
+    return {
+      transform: activeTab.value === 'cards' ? 'translate3d(0, 0, 0)' : 'translate3d(-100%, 0, 0)',
+    }
+  }
+
+  const baseOffset = activeTab.value === 'cards' ? 0 : -width
+  const offset = baseOffset + currentDragX.value
+
+  return {
+    transform: `translate3d(${offset}px, 0, 0)`,
+  }
+})
+
+const setActiveTab = (tab: 'cards' | 'tickets') => {
+  activeTab.value = tab
+  currentDragX.value = 0
+}
+
+const onTouchStart = (event: TouchEvent) => {
+  if (!event.touches.length) return
+  touchStartX.value = event.touches[0].clientX
+  isDragging.value = true
+  currentDragX.value = 0
+}
+
+const onTouchMove = (event: TouchEvent) => {
+  if (!isDragging.value || !event.touches.length) return
+
+  const deltaX = event.touches[0].clientX - touchStartX.value
+  const width = viewportWidth.value || 1
+  const maxDrag = width * 0.8
+
+  if (activeTab.value === 'cards') {
+    currentDragX.value = clamp(deltaX, -maxDrag, 0)
+    return
+  }
+
+  currentDragX.value = clamp(deltaX, 0, maxDrag)
+}
+
+const onTouchEnd = () => {
+  if (!isDragging.value) return
+
+  const width = viewportWidth.value || 1
+  const threshold = width * 0.2
+  const shouldMoveToTickets = activeTab.value === 'cards' && currentDragX.value <= -threshold
+  const shouldMoveToCards = activeTab.value === 'tickets' && currentDragX.value >= threshold
+
+  if (shouldMoveToTickets) {
+    activeTab.value = 'tickets'
+  } else if (shouldMoveToCards) {
+    activeTab.value = 'cards'
+  }
+
+  currentDragX.value = 0
+  isDragging.value = false
+}
+
 onMounted(async () => {
+  updateViewportWidth()
+  window.addEventListener('resize', updateViewportWidth)
+
   await ticketViewModel.fetchUserTickets()
   await cardViewModel.fetchUserCards()
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', updateViewportWidth)
 })
 
 const formatDate = (date: Date) => {
@@ -183,6 +307,7 @@ const formatStatus = (status: string) => {
   background: white;
   border-bottom: 2px solid #e0e0e0;
   padding: 0 1rem;
+  position: relative;
 }
 
 .tab {
@@ -190,22 +315,54 @@ const formatStatus = (status: string) => {
   padding: 1rem;
   background: none;
   border: none;
-  border-bottom: 3px solid transparent;
   cursor: pointer;
   font-size: 0.95rem;
   font-weight: 600;
   color: #999;
-  transition: all 0.3s;
+  transition: color 0.25s ease;
+  z-index: 1;
 }
 
 .tab.active {
-  border-bottom-color: #667eea;
   color: #667eea;
 }
 
-.tab-content {
+.tab-indicator {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 50%;
+  height: 3px;
+  background: #667eea;
+  transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.swipe-viewport {
   flex: 1;
+  overflow: hidden;
+  touch-action: pan-y;
+}
+
+.swipe-track {
+  display: flex;
+  width: 200%;
+  height: 100%;
+  transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+  will-change: transform;
+}
+
+.swipe-track.is-dragging {
+  transition: none;
+}
+
+.swipe-pane {
+  width: 50%;
+  height: 100%;
   overflow-y: auto;
+}
+
+.tab-content {
+  min-height: 100%;
   padding: 1rem;
   display: flex;
   flex-direction: column;
