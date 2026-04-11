@@ -147,6 +147,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { ArrowLeft, House, Map, MapPin, ShoppingCart, Ticket, User } from 'lucide-vue-next'
+import { useRoute } from 'vue-router'
 import { useCardViewModel, useCheckoutViewModel, useTravelViewModel } from '../viewmodels'
 import { mockAPI } from '../services/api/mockAPI'
 import type { CardTier, Stop, Vehicle } from '../models'
@@ -164,6 +165,7 @@ type RouteResult = {
 const cardViewModel = useCardViewModel()
 const travelViewModel = useTravelViewModel()
 const checkoutViewModel = useCheckoutViewModel()
+const route = useRoute()
 const activeTab = ref<'cards' | 'tickets'>('cards')
 const swipeViewport = ref<HTMLElement | null>(null)
 const viewportWidth = ref(0)
@@ -336,7 +338,16 @@ const addTicketToCart = (result: RouteResult) => {
   ticketMessage.value = 'Added to cart.'
 }
 
+const applyTabFromRoute = () => {
+  if (route.query.tab === 'tickets') {
+    activeTab.value = 'tickets'
+    currentDragX.value = 0
+  }
+}
+
 onMounted(async () => {
+  applyTabFromRoute()
+
   updateViewportWidth()
   window.addEventListener('resize', updateViewportWidth)
 

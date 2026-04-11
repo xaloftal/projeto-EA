@@ -60,6 +60,7 @@ const mockStops: Stop[] = [
 ]
 
 const mockTickets: Ticket[] = []
+const mockTrips: Trip[] = []
 
 const mockCards: Card[] = [
   // Start with no owned card so the UI shows all plans as purchasable.
@@ -265,8 +266,12 @@ class MockAPIService {
     tripID: string
     quantity: number
     price: number
+    stopFromID: string
+    stopToID: string
   }): Promise<APIResponse<Ticket[]>> {
     await this.delay()
+    const trip = mockTrips.find((item) => item.id === data.tripID)
+
     const newTickets: Ticket[] = Array.from({ length: data.quantity }).map(
       (_, i) => ({
         id: `ticket_${Date.now()}_${i}`,
@@ -277,7 +282,8 @@ class MockAPIService {
         price: data.price,
         qrCode: `TUB_${Date.now()}_${i}`,
         status: TicketStatus.PurchasedButNotValid,
-        tripID: data.tripID,
+        stopFrom: mockStops.find((s) => s.id === data.stopFromID)!,
+        stopTo: mockStops.find((s) => s.id === data.stopToID)!,
       })
     )
 
@@ -494,21 +500,25 @@ class MockAPIService {
     tripId: string
   }): Promise<APIResponse<Trip>> {
     await this.delay()
+    const trip: Trip = {
+      id: data.tripId,
+      startTime: new Date(),
+      endTime: new Date(Date.now() + 4 * 60 * 60 * 1000),
+      stops: mockStops.slice(0, 3),
+      vehicle: {
+        id: 'vehicle_1',
+        capacity: 50,
+        currentPassengers: 25,
+        updateLocation: () => {},
+        notifyObservers: () => {},
+      },
+    }
+
+    mockTrips.push(trip)
+
     return {
       success: true,
-      data: {
-        id: data.tripId,
-        startTime: new Date(),
-        endTime: new Date(Date.now() + 4 * 60 * 60 * 1000),
-        stops: mockStops.slice(0, 3),
-        vehicle: {
-          id: 'vehicle_1',
-          capacity: 50,
-          currentPassengers: 25,
-          updateLocation: () => {},
-          notifyObservers: () => {},
-        },
-      },
+      data: trip,
     }
   }
 

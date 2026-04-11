@@ -72,7 +72,7 @@
           <div class="tab-content">
             <div v-if="tickets.length === 0" class="empty-state">
               <p><Ticket class="empty-icon" /> No tickets yet</p>
-              <router-link to="/cards" class="btn-primary">Buy Tickets</router-link>
+              <router-link :to="{ path: '/cards', query: { tab: 'tickets' } }" class="btn-primary">Buy Tickets</router-link>
             </div>
 
             <div v-else>
@@ -85,8 +85,8 @@
                 </div>
                 <p class="expiry">Expires on {{ formatDate(ticket.validUntil) }}</p>
                 <div class="ticket-stops">
-                  <p><MapPin class="icon-sm" /> {{ (ticket.trip?.stops?.[0]?.name) || 'Stop 1' }}</p>
-                  <p><MapPin class="icon-sm" /> {{ (ticket.trip?.stops?.at(-1)?.name) || 'Stop 2' }}</p>
+                  <p><MapPin class="icon-sm" /> {{ getTicketFromStop(ticket) }}</p>
+                  <p><MapPin class="icon-sm" /> {{ getTicketToStop(ticket) }}</p>
                 </div>
                 <div class="qr-code"><QrCode class="icon-md" /></div>
               </div>
@@ -121,6 +121,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { Bell, House, MapPin, QrCode, Map, ShoppingCart, Ticket, User } from 'lucide-vue-next'
 import { useTicketViewModel, useCardViewModel } from '../viewmodels'
+import type { Ticket as UserTicket } from '../models'
 
 const activeTab = ref<'cards' | 'tickets'>('cards')
 const swipeViewport = ref<HTMLElement | null>(null)
@@ -259,6 +260,12 @@ const formatStatus = (status: string) => {
   }
   return statusMap[status] || status
 }
+
+const getTicketFromStop = (ticket: UserTicket) =>
+  ticket.stopFrom?.name ?? 'Route details unavailable'
+
+const getTicketToStop = (ticket: UserTicket) =>
+  ticket.stopTo?.name ?? 'Route details unavailable'
 </script>
 
 <style scoped>

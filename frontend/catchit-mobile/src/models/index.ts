@@ -24,8 +24,8 @@ export interface Ticket {
   price: number
   qrCode: string
   status: TicketStatus
-  tripID: string
-  trip?: Trip
+  stopFrom: Stop
+  stopTo: Stop
 }
 
 export interface TicketPack {

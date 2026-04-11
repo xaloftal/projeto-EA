@@ -36,6 +36,8 @@ type TicketCartEntry = {
   totalPrice: number
   source: {
     routeId: string
+    fromStopId: string
+    toStopId: string
     fromStop: string
     toStop: string
     departureTime: string
@@ -161,6 +163,8 @@ export function useTicketViewModel() {
         tripID,
         quantity,
         price,
+        stopFromID: '', // You would need to pass the actual stop IDs here
+        stopToID: '',
       })
       if (response.success && response.data) {
         tickets.value.push(...response.data)
@@ -381,6 +385,8 @@ export function useCheckoutViewModel() {
       totalPrice: route.price * quantity,
       source: {
         routeId: route.routeId,
+        fromStopId: route.fromStop.id,
+        toStopId: route.toStop.id,
         fromStop: route.fromStop.name,
         toStop: route.toStop.name,
         departureTime: route.departureTime,
@@ -482,6 +488,8 @@ export function useCheckoutViewModel() {
               tripID: tripResponse.data.id,
               quantity: item.quantity,
               price: item.unitPrice,
+              stopFromID: item.source.fromStopId,
+              stopToID: item.source.toStopId,
             })
 
             if (!ticketResponse.success) {
