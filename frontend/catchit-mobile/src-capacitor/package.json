@@ -1,0 +1,17 @@
+{
+  "name": "catchit-mobile",
+  "version": "0.0.1",
+  "description": "Application Engineering Project",
+  "author": " xaloftal <dianaacdinis@gmail.com>",
+  "private": true,
+  "dependencies": {
+    "@capacitor-community/sqlite": "^8.0.1",
+    "@capacitor/android": "^8.2.0",
+    "@capacitor/app": "^7.0.0",
+    "@capacitor/camera": "^8.0.2",
+    "@capacitor/cli": "^8.2.0",
+    "@capacitor/core": "^8.2.0",
+    "@capacitor/filesystem": "^8.1.2",
+    "@capacitor/geolocation": "^8.1.0"
+  }
+}
