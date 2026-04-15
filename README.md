@@ -34,3 +34,5 @@ Fluxo recomendado:
 4. Pedir revisão.
 5. Fazer merge apenas após pelo menos 1 aprovação.
 
+(ps: que try harder)
+
