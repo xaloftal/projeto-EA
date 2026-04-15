@@ -30,7 +30,6 @@
           </button>
         </li>
       </ul>
-
     </header>
 
     <section
@@ -39,13 +38,14 @@
       class="bottom-sheet"
       :class="{ 'is-dragging': isDragging }"
       :style="bottomSheetStyle"
-      @pointerdown="onSheetPointerDown"
     >
-      <div class="drag-handle"></div>
+      <div class="drag-area" @pointerdown="onSheetPointerDown">
+        <div class="drag-handle"></div>
+      </div>
 
       <div v-if="sheetMode === 'stop' && selectedStop" class="sheet-header">
         <h2>{{ selectedStop.name }}</h2>
-        <span class="provider-badge">TUB</span>
+        <span class="provider-badge">BUS</span>
       </div>
 
       <template v-if="sheetMode === 'stop' && selectedStop">
@@ -54,11 +54,7 @@
         <p class="next-stop">Next Stop: {{ nextStopName }}</p>
 
         <h3 class="route-title">Routes at this stop</h3>
-        <div
-          v-for="route in stopRouteInfo"
-          :key="route.routeId"
-          class="route-item"
-        >
+        <div v-for="route in stopRouteInfo" :key="route.routeId" class="route-item">
           <span>{{ route.lineLabel }} ({{ route.busId }})</span>
           <span class="route-time">
             {{ route.nextTime }}
@@ -70,7 +66,7 @@
       <template v-else-if="sheetMode === 'bus' && selectedBus">
         <div class="sheet-header">
           <h2>Bus {{ selectedBus.lineLabel }}</h2>
-          <span class="provider-badge">TUB</span>
+          <span class="provider-badge">BUS</span>
         </div>
 
         <p class="line-name">Bus information</p>
@@ -83,7 +79,6 @@
           <span>{{ selectedBus.etaLabel }}</span>
         </div>
       </template>
-
     </section>
 
     <nav class="bottom-nav">
@@ -98,7 +93,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
-import { House, Map as MapIcon, Search, ShoppingCart, User, Ticket } from 'lucide-vue-next'
+import { House, Map as MapIcon, Search, ShoppingCart, Ticket, User } from 'lucide-vue-next'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 
@@ -534,7 +529,8 @@ const loadGeoJsonStops = async () => {
   }
 
   stops.value = geoJson.features.map((feature) => {
-    const numericCode = feature.properties.name.match(/\d{1,4}/)?.[0] ?? feature.properties.id.replace('stop_', '')
+    const numericCode =
+      feature.properties.name.match(/\d{1,4}/)?.[0] ?? feature.properties.id.replace('stop_', '')
     return {
       id: feature.properties.id,
       name: feature.properties.name,
@@ -553,9 +549,13 @@ watch(selectedStopId, () => {
   drawStopMarkers()
 })
 
-watch(activeBuses, () => {
-  drawBusMarkers()
-}, { deep: true })
+watch(
+  activeBuses,
+  () => {
+    drawBusMarkers()
+  },
+  { deep: true }
+)
 
 watch(selectedBusId, () => {
   drawBusMarkers()
@@ -580,17 +580,21 @@ onMounted(async () => {
   map = L.map(mapContainer.value, {
     zoomControl: false,
   }).setView([41.4057, -8.5332], 13)
+
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; OpenStreetMap contributors',
   }).addTo(map)
+
   L.control.zoom({ position: 'bottomleft' }).addTo(map)
 
   stopMarkersLayer = L.layerGroup().addTo(map)
   busMarkersLayer = L.layerGroup().addTo(map)
+
   await loadGeoJsonStops()
   await nextTick()
   measureSheetHeight()
   measureTopOverlayHeight()
+
   window.addEventListener('resize', measureSheetHeight)
   window.addEventListener('resize', measureTopOverlayHeight)
 
@@ -603,10 +607,12 @@ onUnmounted(() => {
   stopDragging()
   window.removeEventListener('resize', measureSheetHeight)
   window.removeEventListener('resize', measureTopOverlayHeight)
+
   if (tickIntervalId) {
     window.clearInterval(tickIntervalId)
     tickIntervalId = null
   }
+
   map?.remove()
   map = null
   stopMarkersLayer = null
@@ -614,7 +620,6 @@ onUnmounted(() => {
   stopMarkers.clear()
   busMarkers.clear()
 })
-
 </script>
 
 <style scoped>
@@ -750,11 +755,19 @@ onUnmounted(() => {
   box-shadow: 0 -8px 18px rgba(15, 23, 42, 0.12);
   z-index: 650;
   transition: transform 0.22s ease;
-  touch-action: none;
+  max-height: 50vh;
+  overflow-y: auto;
 }
 
 .bottom-sheet.is-dragging {
   transition: none;
+}
+
+.drag-area {
+  padding: 0.5rem 0;
+  margin-top: -0.5rem;
+  touch-action: none;
+  cursor: grab;
 }
 
 .drag-handle {
@@ -762,7 +775,7 @@ onUnmounted(() => {
   height: 4px;
   border-radius: 999px;
   background: #d1d5db;
-  margin: 0.2rem auto 0.8rem;
+  margin: 0 auto;
 }
 
 .sheet-header {
@@ -774,9 +787,10 @@ onUnmounted(() => {
 
 .sheet-header h2 {
   margin: 0;
-  font-size: 1.95rem;
+  font-size: 1.4rem;
   font-weight: 700;
   color: #111827;
+  line-height: 1.1;
 }
 
 .provider-badge {
