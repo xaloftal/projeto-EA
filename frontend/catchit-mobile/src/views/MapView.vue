@@ -148,6 +148,10 @@ const nowTick = ref(Date.now())
 let map: L.Map | null = null
 let stopMarkersLayer: L.LayerGroup | null = null
 let busMarkersLayer: L.LayerGroup | null = null
+let selectedBusArrowLayer: L.LayerGroup | null = null
+let selectedBusDashLine: L.Polyline | null = null
+let selectedBusDashAnimationId: number | null = null
+let selectedBusDashOffset = 0
 let tickIntervalId: number | null = null
 const stopMarkers = new Map<string, L.Marker>()
 const busMarkers = new Map<string, L.Marker>()
@@ -443,6 +447,100 @@ const busMarkerIcon = (lineLabel: string, isActive: boolean) =>
     iconAnchor: [33, 14],
   })
 
+const getBrandColor = () => {
+  const fallbackColor = '#4f46e5'
+  if (typeof window === 'undefined') return fallbackColor
+
+  const cssBrandColor = getComputedStyle(document.documentElement)
+    .getPropertyValue('--color-brand')
+    .trim()
+
+  return cssBrandColor || fallbackColor
+}
+
+const stopSelectedBusArrowAnimation = () => {
+  if (selectedBusDashAnimationId !== null) {
+    cancelAnimationFrame(selectedBusDashAnimationId)
+    selectedBusDashAnimationId = null
+  }
+  selectedBusDashLine = null
+}
+
+const animateSelectedBusArrow = () => {
+  if (!selectedBusDashLine || !selectedBusId.value) {
+    stopSelectedBusArrowAnimation()
+    return
+  }
+
+  selectedBusDashOffset = (selectedBusDashOffset + 0.30) % 100
+  selectedBusDashLine.setStyle({ dashOffset: `${-selectedBusDashOffset}` })
+  selectedBusDashAnimationId = requestAnimationFrame(animateSelectedBusArrow)
+}
+
+const startSelectedBusArrowAnimation = () => {
+  if (!selectedBusDashLine) return
+  if (selectedBusDashAnimationId !== null) return
+
+  selectedBusDashOffset = 0
+  selectedBusDashAnimationId = requestAnimationFrame(animateSelectedBusArrow)
+}
+
+const updateSelectedBusArrow = () => {
+  if (!selectedBusArrowLayer) return
+
+  selectedBusArrowLayer.clearLayers()
+  selectedBusDashLine = null
+
+  if (!selectedBusId.value || !selectedBus.value) {
+    stopSelectedBusArrowAnimation()
+    return
+  }
+
+  const destinationStop = stopById.value.get(selectedBus.value.nextStopId)
+  if (!destinationStop) {
+    stopSelectedBusArrowAnimation()
+    return
+  }
+
+  const busPoint = L.latLng(selectedBus.value.latitude, selectedBus.value.longitude)
+  const stopPoint = L.latLng(destinationStop.latitude, destinationStop.longitude)
+  const brandColor = getBrandColor()
+
+  const glowLine = L.polyline([busPoint, stopPoint], {
+    color: brandColor,
+    weight: 10,
+    opacity: 0.2,
+    lineCap: 'round',
+    interactive: false,
+  })
+
+  const mainLine = L.polyline([busPoint, stopPoint], {
+    color: brandColor,
+    weight: 4,
+    opacity: 0.98,
+    dashArray: '10 9',
+    dashOffset: '0',
+    lineCap: 'round',
+    interactive: false,
+  })
+
+  const destinationRing = L.circleMarker(stopPoint, {
+    radius: 8,
+    color: brandColor,
+    weight: 2,
+    fillColor: '#ffffff',
+    fillOpacity: 1,
+    interactive: false,
+  })
+
+  selectedBusArrowLayer.addLayer(glowLine)
+  selectedBusArrowLayer.addLayer(mainLine)
+  selectedBusArrowLayer.addLayer(destinationRing)
+
+  selectedBusDashLine = mainLine
+  startSelectedBusArrowAnimation()
+}
+
 const drawStopMarkers = () => {
   if (!map || !stopMarkersLayer) return
 
@@ -486,6 +584,8 @@ const drawBusMarkers = () => {
       .addTo(busMarkersLayer)
     busMarkers.set(bus.busId, marker)
   }
+
+  updateSelectedBusArrow()
 }
 
 const focusStop = async (stopId: string) => {
@@ -543,10 +643,12 @@ const loadGeoJsonStops = async () => {
   selectedStopId.value = ''
   drawStopMarkers()
   drawBusMarkers()
+  updateSelectedBusArrow()
 }
 
 watch(selectedStopId, () => {
   drawStopMarkers()
+  updateSelectedBusArrow()
 })
 
 watch(
@@ -559,6 +661,7 @@ watch(
 
 watch(selectedBusId, () => {
   drawBusMarkers()
+  updateSelectedBusArrow()
 })
 
 watch(selectedStop, async () => {
@@ -589,6 +692,7 @@ onMounted(async () => {
 
   stopMarkersLayer = L.layerGroup().addTo(map)
   busMarkersLayer = L.layerGroup().addTo(map)
+  selectedBusArrowLayer = L.layerGroup().addTo(map)
 
   await loadGeoJsonStops()
   await nextTick()
@@ -605,6 +709,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   stopDragging()
+  stopSelectedBusArrowAnimation()
   window.removeEventListener('resize', measureSheetHeight)
   window.removeEventListener('resize', measureTopOverlayHeight)
 
@@ -617,6 +722,7 @@ onUnmounted(() => {
   map = null
   stopMarkersLayer = null
   busMarkersLayer = null
+  selectedBusArrowLayer = null
   stopMarkers.clear()
   busMarkers.clear()
 })
