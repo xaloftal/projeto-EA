@@ -36,3 +36,60 @@ Fluxo recomendado:
 
 (ps: que try harder)
 
+## Backend
+
+O backend está dentro da pasta [backend](backend). Para o correr, é preciso ter:
+
+- Java 17 ou +
+- Maven
+- PostgreSQL a correr localmente
+
+### 1. Criar a base de dados
+
+O projeto espera uma base chamada `catchitdb`.
+
+No `psql`, executa:
+
+```sql
+CREATE DATABASE catchitdb;
+```
+
+ou no Windows
+
+```powershell
+createdb -U postgres catchitdb
+```
+
+### 2. Confirmar as credenciais
+
+O backend usa estas definições no ficheiro [backend/src/main/resources/application.properties](backend/src/main/resources/application.properties):
+
+- `spring.datasource.url=jdbc:postgresql://localhost:5432/catchitdb`
+- `spring.datasource.username=postgres`
+- `spring.datasource.password=1234`
+
+Se o teu utilizador ou palavra-passe do PostgreSQL forem diferentes, ajusta esse ficheiro.
+
+### 3. Arrancar o backend
+
+Abre um terminal na pasta `backend` e corre:
+
+```powershell
+mvn spring-boot:run
+```
+
+Se quiseres ignorar testes durante o arranque:
+
+```powershell
+mvn -DskipTests spring-boot:run
+```
+
+### 4. Validar que subiu
+
+Quando estiver certo, deves ver no terminal algo como:
+
+- `Tomcat started on port 8080`
+- `Started CatchItApplication`
+
+Se a base ainda não existir, o Spring Boot vai falhar antes de criar as tabelas.
+
