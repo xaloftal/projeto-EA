@@ -1,0 +1,38 @@
+<hibernate-configuration>
+    <session-factory>
+        <!-- Configurações da ligação -->
+        <property name="hibernate.dialect">org.hibernate.dialect.PostgreSQLDialect</property>
+        <property name="hibernate.connection.driver_class">org.postgresql.Driver</property>
+        <property name="hibernate.connection.url">jdbc:postgresql://localhost:5432/catchitdb</property>
+
+        <property name="hibernate.connection.username">postgres</property>
+        <property name="hibernate.connection.password">1234</property>
+
+        <property name="hibernate.hbm2ddl.auto">create</property>
+        <property name="hibernate.hbm2ddl.halt_on_error">false</property>
+
+        <property name="hibernate.show_sql">true</property>
+        <property name="hibernate.format_sql">true</property>
+
+        <!-- Mapeamento das entidades -->
+        <mapping class="PSM.Location.Stop"/>
+        <mapping class="PSM.Location.Location"/>
+        <mapping class="PSM.Location.Route"/>
+        <mapping class="PSM.Location.StopSchedule"/>
+        <mapping class="PSM.Location.Zone"/>
+
+        <mapping class="PSM.Travel.Vehicle"/>
+        <mapping class="PSM.Travel.Trip"/>
+
+        <mapping class="PSM.UserManagement.User"/>
+
+        <mapping class="PSM.Ticketing.Title"/>
+        <mapping class="PSM.Ticketing.TicketPack"/>
+        <mapping class="PSM.Ticketing.Ticket"/>
+        <mapping class="PSM.Ticketing.Card"/>
+
+        <mapping class="PSM.ValidationManager.ValidationRecord"/>
+
+        <mapping class="PSM.ExitManager.ExitRecord"/>
+    </session-factory>
+</hibernate-configuration>
