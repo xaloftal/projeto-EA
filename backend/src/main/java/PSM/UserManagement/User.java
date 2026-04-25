@@ -35,6 +35,7 @@ public class User implements Observer {
 	private float balance;
 
 	@ManyToMany
+	@JsonIgnore
 	private List<Trip> trips = new ArrayList<Trip>();
 
 	@OneToOne(optional = true)
@@ -44,6 +45,7 @@ public class User implements Observer {
 	private List<Ticket> tickets = new ArrayList<Ticket>();
 
 	@ManyToMany
+	@JsonIgnore
 	private List<Stop> poi = new ArrayList<Stop>();
 
 
@@ -56,6 +58,7 @@ public class User implements Observer {
 		throw new UnsupportedOperationException();
 	}
 
+	@JsonIgnore
 	public List<Ticket> getActiveTickets() {
 		throw new UnsupportedOperationException();
 	}

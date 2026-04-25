@@ -146,6 +146,8 @@ Variáveis necessárias:
 - `DB_USER` (opcional, default: `postgres`)
 - `DB_NAME` (opcional, default: `catchitdb`)
 - `DB_PORT` (opcional, default: `5433`)
+- `JWT_SECRET` (obrigatória)
+- `JWT_EXPIRATION` (obrigatória, em milissegundos)
 
 ### Aceder à base de dados via Docker
 

@@ -1,15 +1,24 @@
 package PSM.Ticketing;
 
-import PSM.Ticketing.State.TitleState;
-
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.UUID;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
+import PSM.Ticketing.State.TitleState;
 import PSM.Travel.Trip;
-import jakarta.persistence.*;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Inheritance;
+import jakarta.persistence.InheritanceType;
+import jakarta.persistence.ManyToMany;
+import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 
 @Entity
 @Table(name = "title")
@@ -40,6 +49,7 @@ public abstract class Title {
 		throw new UnsupportedOperationException();
 	}
 
+	@JsonIgnore
 	public boolean isValid() {
 		throw new UnsupportedOperationException();
 	}
@@ -52,10 +62,12 @@ public abstract class Title {
 		throw new UnsupportedOperationException();
 	}
 
+	@JsonIgnore
 	public Duration getRemainingValidity() {
 		throw new UnsupportedOperationException();
 	}
 
+	@JsonIgnore
 	public String getStateName() {
 		throw new UnsupportedOperationException();
 	}

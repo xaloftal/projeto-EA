@@ -106,8 +106,8 @@ export function useAuthViewModel() {
     }
   }
 
-  const logout = () => {
-    void catchitApi.logout()
+  const logout = async () => {
+    await catchitApi.logout()
     currentUser.value = null
     authToken.value = ''
     localStorage.removeItem('authToken')

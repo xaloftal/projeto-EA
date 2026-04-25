@@ -65,6 +65,7 @@
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/UserManagement/api/auth/AuthRequest.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/UserManagement/api/auth/AuthResponse.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/UserManagement/api/auth/AuthService.java
+/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/UserManagement/api/auth/AuthenticatedUserDTO.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/UserManagement/api/user/UserController.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/UserManagement/api/user/UserRepository.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/UserManagement/api/user/UserService.java
@@ -75,3 +76,6 @@
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/ValidationManager/api/validationrecord/ValidationRecordRepository.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/ValidationManager/api/validationrecord/ValidationRecordService.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/config/CorsConfig.java
+/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/config/JwtAuthenticationFilter.java
+/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/config/JwtUtil.java
+/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/config/SecurityConfig.java

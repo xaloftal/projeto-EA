@@ -16,6 +16,19 @@ services:
       timeout: 3s
       retries: 20
 
+  redis:
+    image: redis:7-alpine
+    container_name: catchit-redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - catchit_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
   backend:
     build:
       context: ./backend
@@ -25,11 +38,17 @@ services:
       DB_URL: jdbc:postgresql://db:5432/${DB_NAME:-catchitdb}
       DB_USER: ${DB_USER:-postgres}
       DB_PASSWORD: ${DB_PASSWORD:-1234}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION: ${JWT_EXPIRATION}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
     ports:
       - "8080:8080"
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
   frontend:
@@ -48,3 +67,5 @@ services:
 volumes:
   catchit_postgres_data:
     name: catchit_postgres_data
+  catchit_redis_data:
+    name: catchit_redis_data

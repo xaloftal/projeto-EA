@@ -78,7 +78,7 @@ type BackendUser = {
 
 type BackendAuthResponse = {
   user: BackendUser
-  sessionId: string
+  token: string
 }
 
 type BackendCheckoutSession = {
@@ -212,7 +212,7 @@ export class CatchItApiClient {
       success: true,
       data: {
         user: mapUser(response.data.user),
-        token: response.data.sessionId,
+        token: response.data.token,
       },
     }
   }
@@ -234,7 +234,7 @@ export class CatchItApiClient {
       success: true,
       data: {
         user: mapUser(response.data.user),
-        token: response.data.sessionId,
+        token: response.data.token,
       },
     }
   }
