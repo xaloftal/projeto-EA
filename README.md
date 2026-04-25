@@ -111,6 +111,11 @@ Isto sobe:
 - PostgreSQL em `localhost:5433`
 - Backend Spring Boot em `localhost:8080`
 
+Isto sobe:
+- PostgreSQL em `localhost:5433`
+- Backend Spring Boot em `localhost:8080`
+- Frontend web em `localhost:9000`
+
 Para parar:
 
 ```bash
@@ -147,7 +152,7 @@ psql -h localhost -p 5433 -U postgres -d catchitdb
 ## Mobile + Docker
 
 O emulador Android/iOS continua fora do Docker. O fluxo recomendado fica:
-1. `docker compose up --build` (DB + backend)
+1. `docker compose up --build` (DB + backend + frontend web)
 2. `npx quasar dev -m capacitor -T android` (app mobile)
 
 No frontend mobile, define `VITE_API_BASE_URL` para:
