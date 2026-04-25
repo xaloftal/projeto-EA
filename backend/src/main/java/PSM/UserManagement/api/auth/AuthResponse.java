@@ -1,4 +1,4 @@
 package PSM.UserManagement.api.auth;
 
-public record AuthResponse(AuthenticatedUserDTO user, String sessionId) {
+public record AuthResponse(AuthenticatedUserDTO user, String token) {
 }
