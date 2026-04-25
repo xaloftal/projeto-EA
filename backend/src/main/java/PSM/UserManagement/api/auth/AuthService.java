@@ -77,7 +77,7 @@ public class AuthService {
 
     public void logout(HttpServletRequest httpRequest) {
         String token = jwtUtil.extractTokenFromRequest(httpRequest);
-        if (token != null && jwtUtil.validateToken(token)) {
+        if (token != null && !token.isBlank()) {
             jwtUtil.revokeToken(token);
         }
 

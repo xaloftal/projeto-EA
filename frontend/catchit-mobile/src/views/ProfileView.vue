@@ -61,8 +61,8 @@ const router = useRouter()
 const { logout } = useAuthViewModel()
 const profileViewModel = useProfileViewModel()
 
-const handleLogout = () => {
-  logout()
+const handleLogout = async () => {
+  await logout()
   void router.push('/login')
 }
 </script>

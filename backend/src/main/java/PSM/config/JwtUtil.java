@@ -1,19 +1,24 @@
 package PSM.config;
 
+import java.time.Duration;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.Date;
+import java.util.UUID;
+
+import javax.crypto.SecretKey;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.http.HttpHeaders;
+import org.springframework.stereotype.Component;
+
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.stereotype.Component;
-import org.springframework.http.HttpHeaders;
 import jakarta.servlet.http.HttpServletRequest;
-
-import javax.crypto.SecretKey;
-import java.time.Duration;
-import java.util.Date;
-import java.util.UUID;
 
 @Component
 public class JwtUtil {
@@ -125,6 +130,9 @@ public class JwtUtil {
      */
     public long getTokenExpirationTime(String token) {
         Claims claims = getAllClaimsFromToken(token);
+        if (claims == null || claims.getExpiration() == null) {
+            return 0;
+        }
         long expirationTime = claims.getExpiration().getTime();
         long currentTime = System.currentTimeMillis();
         return Math.max(0, (expirationTime - currentTime) / 1000);
@@ -141,11 +149,29 @@ public class JwtUtil {
     public void revokeToken(String token) {
         long ttlSeconds = getTokenExpirationTime(token);
         if (ttlSeconds > 0) {
-            redisTemplate.opsForValue().set(BLACKLIST_PREFIX + token, "revoked", Duration.ofSeconds(ttlSeconds));
+            redisTemplate.opsForValue().set(getBlacklistKey(token), "revoked", Duration.ofSeconds(ttlSeconds));
         }
     }
 
     public boolean isTokenBlacklisted(String token) {
-        return Boolean.TRUE.equals(redisTemplate.hasKey(BLACKLIST_PREFIX + token));
+        return Boolean.TRUE.equals(redisTemplate.hasKey(getBlacklistKey(token)));
+    }
+
+    private String getBlacklistKey(String token) {
+        return BLACKLIST_PREFIX + sha256Hex(token);
+    }
+
+    private String sha256Hex(String value) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(value.getBytes(StandardCharsets.UTF_8));
+            StringBuilder hex = new StringBuilder(hash.length * 2);
+            for (byte b : hash) {
+                hex.append(String.format("%02x", b));
+            }
+            return hex.toString();
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 algorithm not available", e);
+        }
     }
 }
