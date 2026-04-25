@@ -64,11 +64,17 @@ createdb -U postgres catchitdb
 
 O backend usa estas definições no ficheiro [backend/src/main/resources/application.properties](backend/src/main/resources/application.properties):
 
-- `spring.datasource.url=jdbc:postgresql://localhost:5432/catchitdb`
-- `spring.datasource.username=postgres`
-- `spring.datasource.password=1234`
+- `spring.datasource.url=${DB_URL:jdbc:postgresql://localhost:5432/catchitdb}`
+- `spring.datasource.username=${DB_USER:postgres}`
+- `spring.datasource.password=${DB_PASSWORD}`
 
-Se o teu utilizador ou palavra-passe do PostgreSQL forem diferentes, ajusta esse ficheiro.
+Antes de arrancar, define as variáveis de ambiente (por exemplo num ficheiro `.env` na raiz do projeto):
+
+```bash
+cp .env.example .env
+```
+
+Depois edita o `.env` com os teus valores.
 
 ### 3. Arrancar o backend
 
@@ -110,10 +116,6 @@ docker compose up --build
 Isto sobe:
 - PostgreSQL em `localhost:5433`
 - Backend Spring Boot em `localhost:8080`
-
-Isto sobe:
-- PostgreSQL em `localhost:5433`
-- Backend Spring Boot em `localhost:8080`
 - Frontend web em `localhost:9000`
 
 Para parar:
@@ -127,6 +129,23 @@ Para parar e apagar também os dados da base:
 ```bash
 docker compose down -v
 ```
+
+Nota sobre persistência de dados:
+- `docker compose down` mantém os dados (volume persistente)
+- `docker compose down -v` apaga os volumes e os dados
+- O backend está com `ddl-auto=update` para não recriar tabelas a cada arranque
+
+Antes do `docker compose up --build`, cria o `.env` na raiz:
+
+```bash
+cp .env.example .env
+```
+
+Variáveis necessárias:
+- `DB_PASSWORD` (obrigatória)
+- `DB_USER` (opcional, default: `postgres`)
+- `DB_NAME` (opcional, default: `catchitdb`)
+- `DB_PORT` (opcional, default: `5433`)
 
 ### Aceder à base de dados via Docker
 
@@ -146,7 +165,7 @@ select id, email, name, balance from users;
 Se preferires ligar a partir do teu terminal ao PostgreSQL exposto pelo Docker, usa:
 
 ```bash
-psql -h localhost -p 5433 -U postgres -d catchitdb
+psql -h localhost -p ${DB_PORT:-5433} -U postgres -d catchitdb
 ```
 
 ## Mobile + Docker
