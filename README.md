@@ -93,3 +93,64 @@ Quando estiver certo, deves ver no terminal algo como:
 
 Se a base ainda não existir, o Spring Boot vai falhar antes de criar as tabelas.
 
+## Docker (DB + Backend)
+
+Se quiseres subir a infraestrutura com um comando, usa Docker Compose.
+
+Pré-requisitos:
+- Docker
+- Docker Compose
+
+Na raiz do projeto, corre:
+
+```bash
+docker compose up --build
+```
+
+Isto sobe:
+- PostgreSQL em `localhost:5433`
+- Backend Spring Boot em `localhost:8080`
+
+Para parar:
+
+```bash
+docker compose down
+```
+
+Para parar e apagar também os dados da base:
+
+```bash
+docker compose down -v
+```
+
+### Aceder à base de dados via Docker
+
+Se quiseres abrir o `psql` dentro do container da base de dados:
+
+```bash
+docker exec -it catchit-db psql -U postgres -d catchitdb
+```
+
+Depois podes correr comandos como:
+
+```sql
+\dt
+select id, email, name, balance from users;
+```
+
+Se preferires ligar a partir do teu terminal ao PostgreSQL exposto pelo Docker, usa:
+
+```bash
+psql -h localhost -p 5433 -U postgres -d catchitdb
+```
+
+## Mobile + Docker
+
+O emulador Android/iOS continua fora do Docker. O fluxo recomendado fica:
+1. `docker compose up --build` (DB + backend)
+2. `npx quasar dev -m capacitor -T android` (app mobile)
+
+No frontend mobile, define `VITE_API_BASE_URL` para:
+- Android Emulator: `http://10.0.2.2:8080`
+- Dispositivo físico: `http://<ip-da-tua-maquina>:8080`
+

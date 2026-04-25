@@ -4,12 +4,21 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-import PSM.Travel.Trip;
-import PSM.Ticketing.Card;
-import PSM.Ticketing.Ticket;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import PSM.Location.Stop;
 import PSM.Location.Subject;
-import jakarta.persistence.*;
+import PSM.Ticketing.Card;
+import PSM.Ticketing.Ticket;
+import PSM.Travel.Trip;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.ManyToMany;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OneToOne;
+import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "users")
@@ -20,19 +29,22 @@ public class User implements Observer {
 
 	private String name;
 	private String email;
+
+	@JsonIgnore
+	private String passwordHash;
 	private float balance;
 
 	@ManyToMany
-	public ArrayList<Trip> trips = new ArrayList<Trip>();
+	private List<Trip> trips = new ArrayList<Trip>();
 
 	@OneToOne(optional = true)
-	public Card card;
+	private Card card;
 
 	@OneToMany
-	public ArrayList<Ticket> tickets = new ArrayList<Ticket>();
+	private List<Ticket> tickets = new ArrayList<Ticket>();
 
 	@ManyToMany
-	public ArrayList<Stop> poi = new ArrayList<Stop>();
+	private List<Stop> poi = new ArrayList<Stop>();
 
 
 
@@ -76,6 +88,14 @@ public class User implements Observer {
 		this.email = _email;
 	}
 
+	public String getPasswordHash() {
+		return this.passwordHash;
+	}
+
+	public void setPasswordHash(String _passwordHash) {
+		this.passwordHash = _passwordHash;
+	}
+
 	public float getBalance() {
 		return this.balance;
 	}
@@ -84,11 +104,11 @@ public class User implements Observer {
 		this.balance = _balance;
 	}
 
-	public ArrayList<Trip> getTrips() {
+	public List<Trip> getTrips() {
 		return this.trips;
 	}
 
-	public void setTrips(ArrayList<Trip> _trips) {
+	public void setTrips(List<Trip> _trips) {
 		this.trips = _trips;
 	}
 
@@ -100,19 +120,19 @@ public class User implements Observer {
 		this.card = _card;
 	}
 
-	public ArrayList<Ticket> getTickets() {
+	public List<Ticket> getTickets() {
 		return this.tickets;
 	}
 
-	public void setCard(ArrayList<Ticket> _tickets) {
+	public void setCard(List<Ticket> _tickets) {
 		this.tickets = _tickets;
 	}
 
-	public ArrayList<Stop> getPOI() {
+	public List<Stop> getPOI() {
 		return this.poi;
 	}
 
-	public void setPOI(ArrayList<Stop> _poi) {
+	public void setPOI(List<Stop> _poi) {
 		this.poi = _poi;
 	}
 }
