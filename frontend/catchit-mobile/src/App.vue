@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { RouterView } from 'vue-router'
+import { onMounted } from 'vue'
 import { useAuthViewModel } from './viewmodels'
 
 const { restoreSession } = useAuthViewModel()
 
-// Restore session as soon as app setup runs so child views can fetch with auth state available.
-restoreSession()
+onMounted(() => {
+  void restoreSession()
+})
 </script>
 
 <template>

@@ -1,0 +1,50 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: catchit-db
+    environment:
+      POSTGRES_DB: ${DB_NAME:-catchitdb}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-1234}
+    ports:
+      - "${DB_PORT:-5433}:5432"
+    volumes:
+      - catchit_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-catchitdb}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: catchit-backend
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/${DB_NAME:-catchitdb}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-1234}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend/catchit-mobile
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: http://localhost:8080
+    container_name: catchit-frontend
+    ports:
+      - "9000:80"
+    depends_on:
+      backend:
+        condition: service_started
+
+volumes:
+  catchit_postgres_data:
+    name: catchit_postgres_data
