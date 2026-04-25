@@ -149,7 +149,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { ArrowLeft, House, Map, MapPin, ShoppingCart, Ticket, User } from 'lucide-vue-next'
 import { useRoute } from 'vue-router'
 import { useCardViewModel, useCheckoutViewModel, useTravelViewModel } from '../viewmodels'
-import { mockAPI } from '../services/api/mockAPI'
+import { catchitApi } from '../services/api/catchitApi'
 import type { CardTier, Stop, Vehicle } from '../models'
 
 type RouteResult = {
@@ -354,7 +354,7 @@ onMounted(async () => {
   await cardViewModel.fetchUserCards()
   await cardViewModel.fetchAvailableCards()
 
-  const stopsResponse = await mockAPI.getStops()
+  const stopsResponse = await catchitApi.getStops()
   if (stopsResponse.success && stopsResponse.data) {
     availableStops.value = stopsResponse.data
   }

@@ -1,5 +1,5 @@
 import { ref, computed } from 'vue'
-import { mockAPI } from '../services/api/mockAPI'
+import { catchitApi } from '../services/api/catchitApi'
 import type { User, Ticket, Card, CardTier, TravelCard, PaymentMethod, Stop, Vehicle } from '../models'
 
 export type RouteSearchResult = {
@@ -65,16 +65,22 @@ export function useAuthViewModel() {
   const isLoading = ref(false)
   const error = ref<string>('')
 
+  const applySession = (user: User, token?: string) => {
+    currentUser.value = user
+    authToken.value = token ?? authToken.value
+    localStorage.setItem('user', JSON.stringify(user))
+    if (token) {
+      localStorage.setItem('authToken', token)
+    }
+  }
+
   const signup = async (name: string, email: string, password: string) => {
     isLoading.value = true
     error.value = ''
     try {
-      const response = await mockAPI.signup({ name, email, password })
+      const response = await catchitApi.signup({ name, email, password })
       if (response.success && response.data) {
-        currentUser.value = response.data.user
-        authToken.value = response.data.token
-        localStorage.setItem('authToken', response.data.token)
-        localStorage.setItem('user', JSON.stringify(response.data.user))
+        applySession(response.data.user, response.data.token)
         return true
       }
       error.value = response.error || 'Signup failed'
@@ -88,12 +94,9 @@ export function useAuthViewModel() {
     isLoading.value = true
     error.value = ''
     try {
-      const response = await mockAPI.login({ email, password })
+      const response = await catchitApi.login({ email, password })
       if (response.success && response.data) {
-        currentUser.value = response.data.user
-        authToken.value = response.data.token
-        localStorage.setItem('authToken', response.data.token)
-        localStorage.setItem('user', JSON.stringify(response.data.user))
+        applySession(response.data.user, response.data.token)
         return true
       }
       error.value = response.error || 'Login failed'
@@ -104,13 +107,20 @@ export function useAuthViewModel() {
   }
 
   const logout = () => {
+    void catchitApi.logout()
     currentUser.value = null
     authToken.value = ''
     localStorage.removeItem('authToken')
     localStorage.removeItem('user')
   }
 
-  const restoreSession = () => {
+  const restoreSession = async () => {
+    const sessionResponse = await catchitApi.getCurrentSessionUser()
+    if (sessionResponse.success && sessionResponse.data) {
+      applySession(sessionResponse.data)
+      return
+    }
+
     const token = localStorage.getItem('authToken')
     const user = localStorage.getItem('user')
     if (token && user) {
@@ -145,7 +155,7 @@ export function useTicketViewModel() {
     isLoading.value = true
     error.value = ''
     try {
-      const response = await mockAPI.getUserTickets(currentUser.value.id)
+      const response = await catchitApi.getUserTickets(currentUser.value.id)
       if (response.success && response.data) {
         tickets.value = response.data
       }
@@ -158,7 +168,7 @@ export function useTicketViewModel() {
     if (!currentUser.value) return false
     isLoading.value = true
     try {
-      const response = await mockAPI.purchaseTickets({
+      const response = await catchitApi.purchaseTickets({
         userID: currentUser.value.id,
         tripID,
         quantity,
@@ -180,7 +190,7 @@ export function useTicketViewModel() {
   const activateTicket = async (ticketId: string) => {
     isLoading.value = true
     try {
-      const response = await mockAPI.activateTicket(ticketId)
+      const response = await catchitApi.activateTicket(ticketId)
       if (response.success && response.data) {
         const index = tickets.value.findIndex((t) => t.id === ticketId)
         if (index !== -1) {
@@ -218,7 +228,7 @@ export function useCardViewModel() {
     if (!currentUser.value) return
     isLoading.value = true
     try {
-      const response = await mockAPI.getUserCards(currentUser.value.id)
+      const response = await catchitApi.getUserCards(currentUser.value.id)
       if (response.success && response.data) {
         userCards.value = response.data
       }
@@ -230,7 +240,7 @@ export function useCardViewModel() {
   const fetchAvailableCards = async () => {
     isLoading.value = true
     try {
-      const response = await mockAPI.getAvailableCards()
+      const response = await catchitApi.getAvailableCards()
       if (response.success && response.data) {
         availableCards.value = response.data
       }
@@ -243,7 +253,7 @@ export function useCardViewModel() {
     if (!currentUser.value) return false
     isLoading.value = true
     try {
-      const response = await mockAPI.purchaseCard({
+      const response = await catchitApi.purchaseCard({
         userId: currentUser.value.id,
         cardId,
         tier,
@@ -287,7 +297,7 @@ export function useTravelViewModel() {
     isLoading.value = true
     error.value = ''
     try {
-      const response = await mockAPI.searchRoutes({
+      const response = await catchitApi.searchRoutes({
         fromStopId,
         toStopId,
         departureDate,
@@ -307,7 +317,7 @@ export function useTravelViewModel() {
     if (!currentUser.value) return null
     isLoading.value = true
     try {
-      const response = await mockAPI.bookTravel({
+      const response = await catchitApi.bookTravel({
         userId: currentUser.value.id,
         routeId,
         tripId,
@@ -407,7 +417,7 @@ export function useCheckoutViewModel() {
     if (!currentUser.value) return
     isLoading.value = true
     try {
-      const response = await mockAPI.getPaymentMethods(currentUser.value.id)
+      const response = await catchitApi.getPaymentMethods(currentUser.value.id)
       if (response.success && response.data) {
         paymentMethods.value = response.data
       }
@@ -420,7 +430,7 @@ export function useCheckoutViewModel() {
     if (!currentUser.value) return null
     isLoading.value = true
     try {
-      const response = await mockAPI.createCheckoutSession({
+      const response = await catchitApi.createCheckoutSession({
         userId: currentUser.value.id,
         items: cartItems.value.map((item) => ({
           type: item.kind,
@@ -453,14 +463,14 @@ export function useCheckoutViewModel() {
         return null
       }
 
-      const response = await mockAPI.confirmCheckout({
+      const response = await catchitApi.confirmCheckout({
         sessionId,
         paymentMethodId,
       })
       if (response.success && response.data) {
         for (const item of cartItems.value) {
           if (item.kind === 'card') {
-            const cardResponse = await mockAPI.purchaseCard({
+            const cardResponse = await catchitApi.purchaseCard({
               userId: currentUser.value.id,
               cardId: item.source.cardId,
               tier: item.source.tier,
@@ -472,7 +482,7 @@ export function useCheckoutViewModel() {
             }
           } else {
             const tripId = `trip_${Date.now()}_${item.id}`
-            const tripResponse = await mockAPI.bookTravel({
+            const tripResponse = await catchitApi.bookTravel({
               userId: currentUser.value.id,
               routeId: item.source.routeId,
               tripId,
@@ -483,7 +493,7 @@ export function useCheckoutViewModel() {
               return null
             }
 
-            const ticketResponse = await mockAPI.purchaseTickets({
+            const ticketResponse = await catchitApi.purchaseTickets({
               userID: currentUser.value.id,
               tripID: tripResponse.data.id,
               quantity: item.quantity,
@@ -540,7 +550,7 @@ export function useProfileViewModel() {
     isLoading.value = true
     error.value = ''
     try {
-      const response = await mockAPI.updateUserProfile(currentUser.value.id, updates)
+      const response = await catchitApi.updateUserProfile(currentUser.value.id, updates)
       if (response.success && response.data) {
         currentUser.value = response.data
         localStorage.setItem('user', JSON.stringify(response.data))

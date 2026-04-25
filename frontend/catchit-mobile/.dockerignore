@@ -1,0 +1,8 @@
+node_modules
+dist
+.quasar
+src-capacitor/android/build
+src-capacitor/ios/build
+.git
+.idea
+*.log
