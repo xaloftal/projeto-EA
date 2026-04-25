@@ -2,6 +2,7 @@ package PSM.Location;
 
 import PSM.Travel.VehicleType;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 import PSM.UserManagement.Observer;
@@ -23,7 +24,7 @@ public class Stop implements Subject {
 	public Location location;
 
 	@OneToMany(mappedBy = "stop",cascade = CascadeType.ALL)
-	public ArrayList<StopSchedule> schedules = new ArrayList<StopSchedule>();
+	public List<StopSchedule> schedules = new ArrayList<StopSchedule>();
 
 	public void notifyObservers() {
 		throw new UnsupportedOperationException();

@@ -76,6 +76,7 @@
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/ValidationManager/api/validationrecord/ValidationRecordRepository.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/ValidationManager/api/validationrecord/ValidationRecordService.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/config/CorsConfig.java
+/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/config/DatabaseSeeder.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/config/JwtAuthenticationFilter.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/config/JwtUtil.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/config/SecurityConfig.java

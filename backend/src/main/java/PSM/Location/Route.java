@@ -4,10 +4,10 @@ import jakarta.persistence.*;
 
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 import PSM.Location.StopSchedule;
-import org.hibernate.engine.internal.Cascade;
 
 @Entity
 @Table(name = "route")
@@ -20,7 +20,7 @@ public class Route {
 
 	@OneToMany(cascade=CascadeType.ALL)
 	@JoinColumn(name = "route_id")
-	public ArrayList<StopSchedule> schedules = new ArrayList<StopSchedule>();
+	public List<StopSchedule> schedules = new ArrayList<StopSchedule>();
 
 
 

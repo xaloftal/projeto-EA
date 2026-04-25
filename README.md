@@ -99,6 +99,17 @@ Quando estiver certo, deves ver no terminal algo como:
 
 Se a base ainda não existir, o Spring Boot vai falhar antes de criar as tabelas.
 
+### Seed automático
+
+No arranque do backend, o projeto popula automaticamente as tabelas `route`, `stop` e `stopschedule` apenas se estiverem vazias. Os dados são lidos a partir dos CSVs em [backend/src/main/resources/seed](backend/src/main/resources/seed), para poderes alterá-los sem mexer no código Java.
+
+Se já houver dados nessas tabelas, o seed é ignorado para evitar duplicados.
+
+Ficheiros usados:
+- [routes.csv] 
+- [stops.csv]
+- [stop_schedules.csv]
+
 ## Docker (DB + Backend)
 
 Se quiseres subir a infraestrutura com um comando, usa Docker Compose.

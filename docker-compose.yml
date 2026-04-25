@@ -43,6 +43,9 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRATION: ${JWT_EXPIRATION}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SCRIPT_MOCK_DATA_DIR: /data/mock
+    volumes:
+      - ./script_mock_data/data:/data/mock:ro
     ports:
       - "8080:8080"
     depends_on:
