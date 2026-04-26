@@ -1,0 +1,8 @@
+PSM/payment/api/PaymentAuthorizationResponseDTO.class
+PSM/payment/api/PaymentController.class
+PSM/payment/service/strategy/PaymentStrategy.class
+PSM/payment/service/strategy/FallbackDeclinePaymentStrategy.class
+PSM/payment/PaymentServiceApplication.class
+PSM/payment/service/strategy/BalancePaymentStrategy.class
+PSM/payment/service/PaymentProcessorService.class
+PSM/payment/api/PaymentAuthorizationRequestDTO.class
