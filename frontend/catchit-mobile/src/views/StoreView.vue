@@ -73,22 +73,54 @@
               <div class="ticket-form">
                 <label>
                   <span>From</span>
-                  <select v-model="fromStopId" class="ticket-select">
-                    <option disabled value="">Select origin</option>
-                    <option v-for="stop in availableStops" :key="stop.id" :value="stop.id">
-                      {{ stop.name }}
-                    </option>
-                  </select>
+                  <div class="stop-search-wrapper">
+                    <input
+                      v-model="fromStopSearch"
+                      type="text"
+                      class="ticket-select"
+                      placeholder="Search origin by stop name"
+                      autocomplete="off"
+                      @focus="isFromDropdownOpen = true"
+                      @blur="onFromInputBlur"
+                    />
+                    <ul v-if="isFromDropdownOpen" class="stop-dropdown">
+                      <li
+                        v-for="stop in filteredFromStops"
+                        :key="`from-${stop.id}`"
+                        class="stop-dropdown-item"
+                        @mousedown.prevent="selectFromStop(stop)"
+                      >
+                        {{ stop.name }}
+                      </li>
+                      <li v-if="!filteredFromStops.length" class="stop-dropdown-empty">No stops found with that name.</li>
+                    </ul>
+                  </div>
                 </label>
 
                 <label>
                   <span>To</span>
-                  <select v-model="toStopId" class="ticket-select">
-                    <option disabled value="">Select destination</option>
-                    <option v-for="stop in availableStops" :key="stop.id" :value="stop.id">
-                      {{ stop.name }}
-                    </option>
-                  </select>
+                  <div class="stop-search-wrapper">
+                    <input
+                      v-model="toStopSearch"
+                      type="text"
+                      class="ticket-select"
+                      placeholder="Search destination by stop name"
+                      autocomplete="off"
+                      @focus="isToDropdownOpen = true"
+                      @blur="onToInputBlur"
+                    />
+                    <ul v-if="isToDropdownOpen" class="stop-dropdown">
+                      <li
+                        v-for="stop in filteredToStops"
+                        :key="`to-${stop.id}`"
+                        class="stop-dropdown-item"
+                        @mousedown.prevent="selectToStop(stop)"
+                      >
+                        {{ stop.name }}
+                      </li>
+                      <li v-if="!filteredToStops.length" class="stop-dropdown-empty">No stops found with that name.</li>
+                    </ul>
+                  </div>
                 </label>
 
                 <label>
@@ -145,7 +177,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { ArrowLeft, House, Map, MapPin, ShoppingCart, Ticket, User } from 'lucide-vue-next'
 import { useRoute } from 'vue-router'
 import { useCardViewModel, useCheckoutViewModel, useTravelViewModel } from '../viewmodels'
@@ -173,6 +205,10 @@ const touchStartX = ref(0)
 const currentDragX = ref(0)
 const isDragging = ref(false)
 const availableStops = ref<Stop[]>([])
+const fromStopSearch = ref('')
+const toStopSearch = ref('')
+const isFromDropdownOpen = ref(false)
+const isToDropdownOpen = ref(false)
 const fromStopId = ref('')
 const toStopId = ref('')
 const departureDate = ref(new Date().toISOString().split('T')[0])
@@ -216,6 +252,22 @@ const cardClass = (tier?: CardTier) => ({
 const canSearchTickets = computed(() =>
   !!fromStopId.value && !!toStopId.value && fromStopId.value !== toStopId.value && !!departureDate.value
 )
+
+const normalizeStopName = (value: string) =>
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+
+const filterStopsByName = (search: string) => {
+  const searchTerm = normalizeStopName(search)
+  if (!searchTerm) return availableStops.value
+  return availableStops.value.filter((stop) => normalizeStopName(stop.name).includes(searchTerm))
+}
+
+const filteredFromStops = computed(() => filterStopsByName(fromStopSearch.value))
+const filteredToStops = computed(() => filterStopsByName(toStopSearch.value))
 
 const searchResults = computed(() => travelViewModel.searchResults.value as RouteResult[])
 
@@ -275,6 +327,45 @@ const setActiveTab = (tab: 'cards' | 'tickets') => {
   currentDragX.value = 0
 }
 
+const resolveStopIdByName = (search: string) => {
+  const normalizedSearch = normalizeStopName(search)
+  if (!normalizedSearch) return ''
+
+  return availableStops.value.find((stop) => normalizeStopName(stop.name) === normalizedSearch)?.id ?? ''
+}
+
+watch(fromStopSearch, (search) => {
+  fromStopId.value = resolveStopIdByName(search)
+})
+
+watch(toStopSearch, (search) => {
+  toStopId.value = resolveStopIdByName(search)
+})
+
+const selectFromStop = (stop: Stop) => {
+  fromStopSearch.value = stop.name
+  fromStopId.value = stop.id
+  isFromDropdownOpen.value = false
+}
+
+const selectToStop = (stop: Stop) => {
+  toStopSearch.value = stop.name
+  toStopId.value = stop.id
+  isToDropdownOpen.value = false
+}
+
+const onFromInputBlur = () => {
+  window.setTimeout(() => {
+    isFromDropdownOpen.value = false
+  }, 120)
+}
+
+const onToInputBlur = () => {
+  window.setTimeout(() => {
+    isToDropdownOpen.value = false
+  }, 120)
+}
+
 const onTouchStart = (event: TouchEvent) => {
   if (!event.touches.length) return
   touchStartX.value = event.touches[0].clientX
@@ -317,7 +408,7 @@ const onTouchEnd = () => {
 
 const searchTickets = async () => {
   if (!canSearchTickets.value) {
-    ticketMessage.value = 'Please select different origin and destination stops.'
+    ticketMessage.value = 'Please choose valid and different origin and destination stops from the suggestions.'
     return
   }
 
@@ -586,6 +677,47 @@ onBeforeUnmount(() => {
   background: #fff;
   color: #111827;
   width: 100%;
+}
+
+.stop-search-wrapper {
+  position: relative;
+}
+
+.stop-dropdown {
+  margin: 0;
+  padding: 0.2rem;
+  list-style: none;
+  position: absolute;
+  top: calc(100% + 0.25rem);
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  max-height: 170px;
+  overflow-y: auto;
+  z-index: 20;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+}
+
+.stop-dropdown-item,
+.stop-dropdown-empty {
+  padding: 0.5rem 0.55rem;
+  border-radius: 6px;
+  font-size: 0.86rem;
+}
+
+.stop-dropdown-item {
+  color: #111827;
+  cursor: pointer;
+}
+
+.stop-dropdown-item:hover {
+  background: #f1f5f9;
+}
+
+.stop-dropdown-empty {
+  color: #64748b;
 }
 
 .ticket-btn {

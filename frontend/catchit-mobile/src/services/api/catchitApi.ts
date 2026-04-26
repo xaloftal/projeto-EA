@@ -59,6 +59,16 @@ type BackendRoute = {
   schedules?: BackendRouteSchedule[]
 }
 
+type BackendRouteSearchResult = {
+  routeId: string
+  routeName?: string
+  fromStop?: BackendStop | null
+  toStop?: BackendStop | null
+  departureTime?: string
+  arrivalTime?: string
+  price?: number
+}
+
 type BackendTrip = {
   id: string
   startTime?: string
@@ -442,46 +452,27 @@ export class CatchItApiClient {
     toStopId: string
     departureDate: string
   }): Promise<ApiResponse<RouteSearchResult[]>> {
-    void data.departureDate
-
-    const routesResponse = await requestJson<BackendRoute[]>('/api/routes')
-    const stopsResponse = await this.getStops()
-
-    if (!routesResponse.success || !routesResponse.data || !stopsResponse.success || !stopsResponse.data) {
-      return {
-        success: false,
-        error: routesResponse.error || stopsResponse.error || 'Unable to search routes',
-      }
-    }
-
-    const routeResults = routesResponse.data.flatMap((route, index) => {
-      const schedules = [...(route.schedules ?? [])]
-        .filter((schedule): schedule is BackendRouteSchedule & { stop: BackendStop } => !!schedule.stop)
-        .sort((left, right) => (left.sequence ?? 0) - (right.sequence ?? 0))
-
-      if (schedules.length < 2) return []
-
-      const firstStop = schedules[0].stop
-      const lastStop = schedules[schedules.length - 1].stop
-
-      if (firstStop.id !== data.fromStopId || lastStop.id !== data.toStopId) {
-        return []
-      }
-
-      return [
-        {
-          routeId: route.id,
-          fromStop: mapStop(firstStop),
-          toStop: mapStop(lastStop),
-          departureTime: schedules[0].departureTime?.slice(11, 16) ?? '00:00',
-          arrivalTime: schedules[schedules.length - 1].arrivalTime?.slice(11, 16) ?? '00:00',
-          price: 19.98 + index,
-          vehicle: mapVehicle(),
-        },
-      ]
+    const searchParams = new URLSearchParams({
+      fromStopId: data.fromStopId,
+      toStopId: data.toStopId,
     })
 
-    return { success: true, data: routeResults }
+    const backendSearch = await requestJson<BackendRouteSearchResult[]>(`/api/routes/search?${searchParams.toString()}`)
+    if (!backendSearch.success || !backendSearch.data) {
+      return { success: false, error: backendSearch.error || 'Unable to search routes' }
+    }
+
+    const mappedResults = backendSearch.data.map((result) => ({
+      routeId: result.routeId,
+      fromStop: mapStop(result.fromStop ?? { id: data.fromStopId, name: 'Origin', latitude: 0, longitude: 0 }),
+      toStop: mapStop(result.toStop ?? { id: data.toStopId, name: 'Destination', latitude: 0, longitude: 0 }),
+      departureTime: result.departureTime ?? '00:00',
+      arrivalTime: result.arrivalTime ?? '00:00',
+      price: Number(result.price ?? 0),
+      vehicle: mapVehicle(),
+    }))
+
+    return { success: true, data: mappedResults }
   }
 
   async bookTravel(data: { userId: string; routeId: string; tripId: string }): Promise<ApiResponse<Trip>> {

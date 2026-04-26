@@ -1,5 +1,6 @@
 package PSM.Location.api.route;
 
+import java.time.LocalTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -10,7 +11,10 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.HttpStatus;
 
 import PSM.Location.Route;
 
@@ -26,6 +30,23 @@ public class RouteController {
     @GetMapping
     public List<Route> getAll() {
         return service.findAll();
+    }
+
+    @GetMapping("/search")
+    public List<RouteSearchResultDTO> search(
+            @RequestParam UUID fromStopId,
+            @RequestParam UUID toStopId,
+            @RequestParam(required = false) String departureTime) {
+        LocalTime parsedDepartureTime = null;
+        if (departureTime != null && !departureTime.isBlank()) {
+            try {
+                parsedDepartureTime = LocalTime.parse(departureTime);
+            } catch (Exception e) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid departureTime format. Expected HH:mm or HH:mm:ss");
+            }
+        }
+
+        return service.search(fromStopId, toStopId, parsedDepartureTime);
     }
 
     @GetMapping("/{id}")

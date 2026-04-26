@@ -1,12 +1,23 @@
 package PSM.Location;
 
-import PSM.Travel.VehicleType;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
+import PSM.Travel.VehicleType;
 import PSM.UserManagement.Observer;
-import jakarta.persistence.*;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OneToOne;
+import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "stop")
@@ -24,6 +35,7 @@ public class Stop implements Subject {
 	public Location location;
 
 	@OneToMany(mappedBy = "stop",cascade = CascadeType.ALL)
+	@JsonIgnore
 	public List<StopSchedule> schedules = new ArrayList<StopSchedule>();
 
 	public void notifyObservers() {
