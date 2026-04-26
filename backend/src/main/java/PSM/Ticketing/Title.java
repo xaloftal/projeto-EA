@@ -13,6 +13,7 @@ import PSM.Travel.Trip;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
+import jakarta.persistence.DiscriminatorColumn;
 import jakarta.persistence.Id;
 import jakarta.persistence.Inheritance;
 import jakarta.persistence.InheritanceType;
@@ -22,7 +23,8 @@ import jakarta.persistence.Transient;
 
 @Entity
 @Table(name = "title")
-@Inheritance(strategy = InheritanceType.TABLE_PER_CLASS)
+@Inheritance(strategy = InheritanceType.SINGLE_TABLE)
+@DiscriminatorColumn(name = "title_type")
 public abstract class Title {
 	@Id
 	@GeneratedValue(strategy= GenerationType.UUID)
@@ -37,7 +39,7 @@ public abstract class Title {
 	public TitleState status;
 
 	@ManyToMany
-	public ArrayList<Trip> titles = new ArrayList<Trip>();
+	public ArrayList<Trip> trips = new ArrayList<Trip>();
 
 
 
@@ -131,4 +133,13 @@ public abstract class Title {
 	public void setStatus(TitleState _status) {
 		this.status = _status;
 	}
+
+	public ArrayList<Trip> getTrips() {
+		return this.trips;
+	}
+
+	public void setTrips(ArrayList<Trip> _trips) {
+		this.trips = _trips;
+	}
+
 }
