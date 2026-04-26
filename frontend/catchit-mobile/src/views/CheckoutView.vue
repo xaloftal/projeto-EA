@@ -80,7 +80,7 @@ import { useCheckoutViewModel } from '../viewmodels'
 
 const router = useRouter()
 const checkoutViewModel = useCheckoutViewModel()
-const { cartItems, subtotal, taxes, total, paymentMethods } = checkoutViewModel
+const { cartItems, subtotal, taxes, total, paymentMethods, fetchCart } = checkoutViewModel
 
 const selectedPaymentMethodId = ref('')
 const isProcessing = ref(false)
@@ -100,6 +100,7 @@ const labelPaymentMethod = (method: { type: string; cardLast4?: string }) => {
 }
 
 onMounted(async () => {
+  await fetchCart()
   await checkoutViewModel.fetchPaymentMethods()
   selectedPaymentMethodId.value = paymentMethods.value.find((method) => method.isDefault)?.id ?? paymentMethods.value[0]?.id ?? ''
 })

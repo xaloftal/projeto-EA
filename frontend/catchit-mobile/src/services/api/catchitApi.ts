@@ -104,6 +104,36 @@ type BackendCheckoutConfirmation = {
   items: string[]
 }
 
+type BackendCartItemSource = {
+  cardId?: string
+  tier?: CardTier
+  routeId?: string
+  fromStopId?: string
+  toStopId?: string
+  fromStop?: string
+  toStop?: string
+  departureTime?: string
+  arrivalTime?: string
+}
+
+type BackendCartItem = {
+  id: string
+  kind: 'card' | 'ticket'
+  title: string
+  description: string
+  quantity: number
+  unitPrice: number
+  totalPrice: number
+  source: BackendCartItemSource
+}
+
+type BackendCartResponse = {
+  items: BackendCartItem[]
+  subtotal: number
+  taxes: number
+  total: number
+}
+
 type RouteSearchResult = {
   routeId: string
   fromStop: Stop
@@ -510,42 +540,44 @@ export class CatchItApiClient {
     }
   }
 
-  async createCheckoutSession(data: {
-    userId: string
-    items: Array<{
-      type: 'ticket' | 'card'
-      itemId: string
-      quantity: number
-    }>
-  }): Promise<ApiResponse<BackendCheckoutSession>> {
-    void data.userId
-    const subtotal = data.items.reduce((sum, item) => sum + item.quantity * 19.98, 0)
-    const taxes = subtotal * 0.1
+  async getCart(): Promise<ApiResponse<BackendCartResponse>> {
+    return requestJson<BackendCartResponse>('/api/cart')
+  }
 
-    return {
-      success: true,
-      data: {
-        sessionId: `session_${Date.now()}`,
-        subtotal,
-        taxes,
-        total: subtotal + taxes,
-      },
-    }
+  async upsertCartItem(item: BackendCartItem): Promise<ApiResponse<BackendCartResponse>> {
+    return requestJson<BackendCartResponse>('/api/cart/items', {
+      method: 'POST',
+      body: JSON.stringify(item),
+    })
+  }
+
+  async removeCartItem(itemId: string): Promise<ApiResponse<BackendCartResponse>> {
+    return requestJson<BackendCartResponse>(`/api/cart/items/${itemId}`, {
+      method: 'DELETE',
+    })
+  }
+
+  async clearCart(): Promise<ApiResponse<BackendCartResponse>> {
+    return requestJson<BackendCartResponse>('/api/cart', {
+      method: 'DELETE',
+    })
+  }
+
+  async createCheckoutSession(): Promise<ApiResponse<BackendCheckoutSession>> {
+    return requestJson<BackendCheckoutSession>('/api/checkout/session', {
+      method: 'POST',
+      body: JSON.stringify({}),
+    })
   }
 
   async confirmCheckout(data: {
     sessionId: string
     paymentMethodId: string
   }): Promise<ApiResponse<BackendCheckoutConfirmation>> {
-    void data.paymentMethodId
-    return {
-      success: true,
-      data: {
-        orderId: `order_${Date.now()}`,
-        confirmationNumber: Math.random().toString(36).substring(2, 11).toUpperCase(),
-        items: [data.sessionId],
-      },
-    }
+    return requestJson<BackendCheckoutConfirmation>('/api/checkout/confirm', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
   }
 
   async getPaymentMethods(userId: string): Promise<ApiResponse<PaymentMethod[]>> {

@@ -349,50 +349,79 @@ export function useCheckoutViewModel() {
   const error = ref<string>('')
   const paymentMethods = ref<PaymentMethod[]>([])
 
-  const addCardToCart = (item: TravelCard | Card, quantity: number = 1) => {
-    const existing = cartItems.value.find((entry) => entry.kind === 'card' && entry.source.cardId === item.id)
+  const applyBackendCart = (response: {
+    items: Array<{
+      id: string
+      kind: 'card' | 'ticket'
+      title: string
+      description: string
+      quantity: number
+      unitPrice: number
+      totalPrice: number
+      source: Record<string, unknown>
+    }>
+  }) => {
+    cartItems.value = response.items as CartEntry[]
+  }
 
-    if (existing && existing.kind === 'card') {
-      existing.quantity = Math.max(existing.quantity, quantity)
-      existing.unitPrice = item.price
-      existing.totalPrice = existing.unitPrice * existing.quantity
+  const fetchCart = async () => {
+    if (!currentUser.value) return
+    const response = await catchitApi.getCart()
+    if (response.success && response.data) {
+      applyBackendCart(response.data)
       return
     }
 
-    cartItems.value.push({
+    error.value = response.error || 'Unable to load cart'
+  }
+
+  const addCardToCart = async (item: TravelCard | Card, quantity: number = 1) => {
+    if (!currentUser.value) return
+
+    await fetchCart()
+    const existing = cartItems.value.find((entry) => entry.kind === 'card' && entry.source.cardId === item.id)
+    const resolvedQuantity = existing && existing.kind === 'card' ? Math.max(existing.quantity, quantity) : quantity
+
+    const payload: CartEntry = {
       id: `card_${item.id}`,
       kind: 'card',
       title: item.name,
       description: item.description || 'Travel card',
-      quantity,
+      quantity: resolvedQuantity,
       unitPrice: item.price,
-      totalPrice: item.price * quantity,
+      totalPrice: item.price * resolvedQuantity,
       source: {
         cardId: item.id,
         tier: item.tier || 'weekly',
       },
-    })
-  }
+    }
 
-  const addTicketToCart = (route: RouteSearchResult, quantity: number = 1) => {
-    const existing = cartItems.value.find(
-      (entry) => entry.kind === 'ticket' && entry.source.routeId === route.routeId
-    )
-
-    if (existing && existing.kind === 'ticket') {
-      existing.quantity += quantity
-      existing.totalPrice = existing.unitPrice * existing.quantity
+    const response = await catchitApi.upsertCartItem(payload)
+    if (response.success && response.data) {
+      applyBackendCart(response.data)
       return
     }
 
-    cartItems.value.push({
+    error.value = response.error || 'Unable to add card to cart'
+  }
+
+  const addTicketToCart = async (route: RouteSearchResult, quantity: number = 1) => {
+    if (!currentUser.value) return
+
+    await fetchCart()
+    const existing = cartItems.value.find(
+      (entry) => entry.kind === 'ticket' && entry.source.routeId === route.routeId
+    )
+    const resolvedQuantity = existing && existing.kind === 'ticket' ? existing.quantity + quantity : quantity
+
+    const payload: CartEntry = {
       id: `ticket_${route.routeId}`,
       kind: 'ticket',
       title: `${route.fromStop.name} → ${route.toStop.name}`,
       description: `${route.departureTime} - ${route.arrivalTime}`,
-      quantity,
+      quantity: resolvedQuantity,
       unitPrice: route.price,
-      totalPrice: route.price * quantity,
+      totalPrice: route.price * resolvedQuantity,
       source: {
         routeId: route.routeId,
         fromStopId: route.fromStop.id,
@@ -402,15 +431,39 @@ export function useCheckoutViewModel() {
         departureTime: route.departureTime,
         arrivalTime: route.arrivalTime,
       },
-    })
+    }
+
+    const response = await catchitApi.upsertCartItem(payload)
+    if (response.success && response.data) {
+      applyBackendCart(response.data)
+      return
+    }
+
+    error.value = response.error || 'Unable to add ticket to cart'
   }
 
-  const removeFromCart = (itemId: string) => {
-    cartItems.value = cartItems.value.filter((item) => item.id !== itemId)
+  const removeFromCart = async (itemId: string) => {
+    if (!currentUser.value) return
+
+    const response = await catchitApi.removeCartItem(itemId)
+    if (response.success && response.data) {
+      applyBackendCart(response.data)
+      return
+    }
+
+    error.value = response.error || 'Unable to remove item from cart'
   }
 
-  const clearCart = () => {
-    cartItems.value = []
+  const clearCart = async () => {
+    if (!currentUser.value) return
+
+    const response = await catchitApi.clearCart()
+    if (response.success && response.data) {
+      applyBackendCart(response.data)
+      return
+    }
+
+    error.value = response.error || 'Unable to clear cart'
   }
 
   const fetchPaymentMethods = async () => {
@@ -430,14 +483,9 @@ export function useCheckoutViewModel() {
     if (!currentUser.value) return null
     isLoading.value = true
     try {
-      const response = await catchitApi.createCheckoutSession({
-        userId: currentUser.value.id,
-        items: cartItems.value.map((item) => ({
-          type: item.kind,
-          itemId: item.kind === 'card' ? item.source.cardId : item.source.routeId,
-          quantity: item.quantity,
-        })),
-      })
+      await fetchCart()
+
+      const response = await catchitApi.createCheckoutSession()
       if (response.success && response.data) {
         return response.data.sessionId
       }
@@ -468,48 +516,7 @@ export function useCheckoutViewModel() {
         paymentMethodId,
       })
       if (response.success && response.data) {
-        for (const item of cartItems.value) {
-          if (item.kind === 'card') {
-            const cardResponse = await catchitApi.purchaseCard({
-              userId: currentUser.value.id,
-              cardId: item.source.cardId,
-              tier: item.source.tier,
-            })
-
-            if (!cardResponse.success) {
-              error.value = cardResponse.error || 'Card purchase failed'
-              return null
-            }
-          } else {
-            const tripId = `trip_${Date.now()}_${item.id}`
-            const tripResponse = await catchitApi.bookTravel({
-              userId: currentUser.value.id,
-              routeId: item.source.routeId,
-              tripId,
-            })
-
-            if (!tripResponse.success || !tripResponse.data) {
-              error.value = tripResponse.error || 'Trip booking failed'
-              return null
-            }
-
-            const ticketResponse = await catchitApi.purchaseTickets({
-              userID: currentUser.value.id,
-              tripID: tripResponse.data.id,
-              quantity: item.quantity,
-              price: item.unitPrice,
-              stopFromID: item.source.fromStopId,
-              stopToID: item.source.toStopId,
-            })
-
-            if (!ticketResponse.success) {
-              error.value = ticketResponse.error || 'Ticket purchase failed'
-              return null
-            }
-          }
-        }
-
-        clearCart()
+        await fetchCart()
         return response.data
       }
       error.value = response.error || 'Checkout failed'
@@ -531,6 +538,7 @@ export function useCheckoutViewModel() {
     addTicketToCart,
     removeFromCart,
     clearCart,
+    fetchCart,
     fetchPaymentMethods,
     createCheckoutSession,
     confirmCheckout,

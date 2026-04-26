@@ -420,12 +420,12 @@ const searchTickets = async () => {
 }
 
 const addCardToCart = (card: { id: string; name: string; price: number; description?: string; tier?: CardTier }) => {
-  checkoutViewModel.addCardToCart(card as any)
+  void checkoutViewModel.addCardToCart(card as any)
   ticketMessage.value = ''
 }
 
 const addTicketToCart = (result: RouteResult) => {
-  checkoutViewModel.addTicketToCart(result)
+  void checkoutViewModel.addTicketToCart(result)
   ticketMessage.value = 'Added to cart.'
 }
 

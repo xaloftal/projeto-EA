@@ -1,4 +1,13 @@
 C:\Users\RuiMiguelSoaresRodri\Desktop\Mestrado\1_Ano\2_semestre\Projeto_EA\projeto-EA\backend\src\main\java\PSM\CatchItApplication.java
+C:\Users\RuiMiguelSoaresRodri\Desktop\Mestrado\1_Ano\2_semestre\Projeto_EA\projeto-EA\backend\src\main\java\PSM\Checkout\api\cart\CartController.java
+C:\Users\RuiMiguelSoaresRodri\Desktop\Mestrado\1_Ano\2_semestre\Projeto_EA\projeto-EA\backend\src\main\java\PSM\Checkout\api\cart\CartItemDTO.java
+C:\Users\RuiMiguelSoaresRodri\Desktop\Mestrado\1_Ano\2_semestre\Projeto_EA\projeto-EA\backend\src\main\java\PSM\Checkout\api\cart\CartItemSourceDTO.java
+C:\Users\RuiMiguelSoaresRodri\Desktop\Mestrado\1_Ano\2_semestre\Projeto_EA\projeto-EA\backend\src\main\java\PSM\Checkout\api\cart\CartResponseDTO.java
+C:\Users\RuiMiguelSoaresRodri\Desktop\Mestrado\1_Ano\2_semestre\Projeto_EA\projeto-EA\backend\src\main\java\PSM\Checkout\api\cart\CartService.java
+C:\Users\RuiMiguelSoaresRodri\Desktop\Mestrado\1_Ano\2_semestre\Projeto_EA\projeto-EA\backend\src\main\java\PSM\Checkout\api\checkout\CheckoutConfirmationDTO.java
+C:\Users\RuiMiguelSoaresRodri\Desktop\Mestrado\1_Ano\2_semestre\Projeto_EA\projeto-EA\backend\src\main\java\PSM\Checkout\api\checkout\CheckoutConfirmRequestDTO.java
+C:\Users\RuiMiguelSoaresRodri\Desktop\Mestrado\1_Ano\2_semestre\Projeto_EA\projeto-EA\backend\src\main\java\PSM\Checkout\api\checkout\CheckoutController.java
+C:\Users\RuiMiguelSoaresRodri\Desktop\Mestrado\1_Ano\2_semestre\Projeto_EA\projeto-EA\backend\src\main\java\PSM\Checkout\api\checkout\CheckoutSessionResponseDTO.java
 C:\Users\RuiMiguelSoaresRodri\Desktop\Mestrado\1_Ano\2_semestre\Projeto_EA\projeto-EA\backend\src\main\java\PSM\config\CorsConfig.java
 C:\Users\RuiMiguelSoaresRodri\Desktop\Mestrado\1_Ano\2_semestre\Projeto_EA\projeto-EA\backend\src\main\java\PSM\config\DatabaseSeeder.java
 C:\Users\RuiMiguelSoaresRodri\Desktop\Mestrado\1_Ano\2_semestre\Projeto_EA\projeto-EA\backend\src\main\java\PSM\config\JwtAuthenticationFilter.java
