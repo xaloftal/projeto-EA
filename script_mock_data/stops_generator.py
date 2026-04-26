@@ -2,8 +2,8 @@ import os
 import pandas as pd
 
 # Define paths
-BUS_STOPS_FILE = '/home/gojalo/mei/pea/BusStopList.csv'
-OUTPUT_FILE = '/home/gojalo/mei/pea/stops.csv'
+BUS_STOPS_FILE = './data/BusStopList.csv'
+OUTPUT_FILE = './data/stops.csv'
 
 # Load source stops
 bus_stops_df = pd.read_csv(BUS_STOPS_FILE)

@@ -2,9 +2,9 @@ import pandas as pd
 import os
 
 # Define paths
-ROUTES_DIR = 'data/routes' 
-STOPS_FILE = 'data/stops.csv'
-OUTPUT_FILE = 'data/schedule.csv'
+ROUTES_DIR = './data/routes' 
+STOPS_FILE = './data/stops.csv'
+OUTPUT_FILE = './data/schedule.csv'
 
 # Load stop mapping generated from BusStopList.csv
 stops_df = pd.read_csv(STOPS_FILE)

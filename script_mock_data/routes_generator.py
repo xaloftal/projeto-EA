@@ -2,8 +2,8 @@ import os
 import pandas as pd
 
 # Define paths
-ROUTES_DIR = '/home/gojalo/mei/pea/routes'
-OUTPUT_FILE = '/home/gojalo/mei/pea/routes.csv'
+ROUTES_DIR = './data/routes/'
+OUTPUT_FILE = './data/routes.csv'
 
 # Get all route files
 route_files = sorted([f for f in os.listdir(ROUTES_DIR) if f.endswith('.csv')])

@@ -31,7 +31,7 @@ public class DatabaseSeeder implements CommandLineRunner {
 
     private static final Path DATA_DIR = Path.of(
             System.getenv().getOrDefault("SCRIPT_MOCK_DATA_DIR",
-                    "/home/gojalo/mei/pea/projeto-EA/script_mock_data/data"));
+                    "/../../../../../script_mock_data/data"));
     private static final Path ROUTES_CSV = DATA_DIR.resolve("routes.csv");
     private static final Path STOPS_CSV = DATA_DIR.resolve("stops.csv");
     private static final Path STOP_SCHEDULES_CSV = DATA_DIR.resolve("schedule.csv");
