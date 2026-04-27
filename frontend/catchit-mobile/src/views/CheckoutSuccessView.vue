@@ -6,9 +6,15 @@
 
     <div class="success-content">
       <div class="success-card">
-        <h2>Payment successful</h2>
-        <p>Your items were added to your account.</p>
+        <h2 v-if="isValid">Payment successful</h2>
+        <h2 v-else-if="validationChecked">Payment not validated</h2>
+        <h2 v-else>Validating payment...</h2>
+        <p v-if="isValid">Your items were added to your account.</p>
+        <p v-else-if="validationChecked">We could not confirm this payment with the backend.</p>
+        <p v-else>Please wait while we validate your order.</p>
         <p class="meta">Order {{ orderId }}</p>
+        <p class="meta">Status: {{ paymentStatus }}</p>
+        <p v-if="validationMessage" class="meta">{{ validationMessage }}</p>
         <p class="meta">Items: {{ itemCount }}</p>
         <p class="meta">Total: €{{ total }}</p>
         <p class="meta">Payment: {{ paymentMethod }}</p>
@@ -28,9 +34,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { House, Map, ShoppingCart, Ticket, User } from 'lucide-vue-next'
 import { useRoute } from 'vue-router'
+import { catchitApi } from '../services/api/catchitApi'
 
 const route = useRoute()
 
@@ -38,6 +45,34 @@ const orderId = computed(() => String(route.params.orderId ?? 'N/A'))
 const itemCount = computed(() => String(route.query.items ?? '0'))
 const total = computed(() => String(route.query.total ?? '0.00'))
 const paymentMethod = computed(() => String(route.query.payment ?? 'Selected payment method'))
+
+const isValid = ref(false)
+const validationChecked = ref(false)
+const paymentStatus = ref('PENDING')
+const validationMessage = ref('')
+
+onMounted(async () => {
+  if (!orderId.value || orderId.value === 'N/A') {
+    validationChecked.value = true
+    paymentStatus.value = 'UNKNOWN'
+    validationMessage.value = 'Missing order id'
+    return
+  }
+
+  const response = await catchitApi.validateCheckoutOrder(orderId.value)
+  validationChecked.value = true
+
+  if (response.success && response.data) {
+    isValid.value = response.data.valid
+    paymentStatus.value = response.data.paymentStatus
+    validationMessage.value = response.data.message
+    return
+  }
+
+  isValid.value = false
+  paymentStatus.value = 'UNAVAILABLE'
+  validationMessage.value = response.error || 'Unable to validate payment'
+})
 </script>
 
 <style scoped>

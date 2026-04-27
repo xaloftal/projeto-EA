@@ -121,12 +121,10 @@ export function useAuthViewModel() {
       return
     }
 
-    const token = localStorage.getItem('authToken')
-    const user = localStorage.getItem('user')
-    if (token && user) {
-      authToken.value = token
-      currentUser.value = JSON.parse(user)
-    }
+    currentUser.value = null
+    authToken.value = ''
+    localStorage.removeItem('authToken')
+    localStorage.removeItem('user')
   }
 
   return {

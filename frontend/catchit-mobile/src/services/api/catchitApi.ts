@@ -104,6 +104,13 @@ type BackendCheckoutConfirmation = {
   items: string[]
 }
 
+type BackendCheckoutOrderValidation = {
+  orderId: string
+  paymentStatus: string
+  valid: boolean
+  message: string
+}
+
 type BackendCartItemSource = {
   cardId?: string
   tier?: CardTier
@@ -145,6 +152,28 @@ type RouteSearchResult = {
 }
 
 const storedPaymentMethodsKey = 'catchit.paymentMethods'
+
+const defaultPaymentMethods = (): PaymentMethod[] => [
+  {
+    id: 'balance-default',
+    type: 'digital_wallet',
+    isDefault: true,
+  },
+]
+
+const normalizePaymentMethods = (methods: PaymentMethod[]): PaymentMethod[] => {
+  const balanceMethods = methods.filter((method) => method.id.toLowerCase().startsWith('balance-'))
+  if (!balanceMethods.length) {
+    return defaultPaymentMethods()
+  }
+
+  return balanceMethods.map((method, index) => ({
+    ...method,
+    type: 'digital_wallet',
+    isDefault: index === 0,
+    cardLast4: undefined,
+  }))
+}
 
 const toDate = (value?: string) => (value ? new Date(value) : new Date())
 
@@ -220,12 +249,27 @@ const mapUser = (user: BackendUser): User => ({
 
 const loadPaymentMethods = (): PaymentMethod[] => {
   const stored = localStorage.getItem(storedPaymentMethodsKey)
-  if (!stored) return []
+  if (!stored) {
+    const seeded = defaultPaymentMethods()
+    savePaymentMethods(seeded)
+    return seeded
+  }
 
   try {
-    return JSON.parse(stored) as PaymentMethod[]
+    const parsed = JSON.parse(stored) as PaymentMethod[]
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      const seeded = defaultPaymentMethods()
+      savePaymentMethods(seeded)
+      return seeded
+    }
+
+    const normalized = normalizePaymentMethods(parsed)
+    savePaymentMethods(normalized)
+    return normalized
   } catch {
-    return []
+    const seeded = defaultPaymentMethods()
+    savePaymentMethods(seeded)
+    return seeded
   }
 }
 
@@ -580,6 +624,10 @@ export class CatchItApiClient {
     })
   }
 
+  async validateCheckoutOrder(orderId: string): Promise<ApiResponse<BackendCheckoutOrderValidation>> {
+    return requestJson<BackendCheckoutOrderValidation>(`/api/checkout/orders/${orderId}/validation`)
+  }
+
   async getPaymentMethods(userId: string): Promise<ApiResponse<PaymentMethod[]>> {
     void userId
     return { success: true, data: loadPaymentMethods() }
@@ -588,15 +636,12 @@ export class CatchItApiClient {
   async addPaymentMethod(userId: string, data: Partial<PaymentMethod>): Promise<ApiResponse<PaymentMethod>> {
     void userId
     const paymentMethod: PaymentMethod = {
-      id: `payment_${Date.now()}`,
-      type: data.type || 'credit_card',
-      isDefault: data.isDefault ?? false,
-      cardLast4: data.cardLast4 || '0000',
+      id: `balance-${Date.now()}`,
+      type: 'digital_wallet',
+      isDefault: true,
     }
 
-    const currentMethods = loadPaymentMethods()
-    currentMethods.push(paymentMethod)
-    savePaymentMethods(currentMethods)
+    savePaymentMethods([paymentMethod])
 
     return { success: true, data: paymentMethod }
   }

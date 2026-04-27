@@ -1,5 +1,7 @@
 package PSM.Services.CheckOut;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -9,6 +11,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -18,10 +21,16 @@ import PSM.Checkout.api.cart.CartResponseDTO;
 import PSM.Checkout.api.cart.CartService;
 import PSM.Checkout.api.checkout.CheckoutConfirmRequestDTO;
 import PSM.Checkout.api.checkout.CheckoutConfirmationDTO;
+import PSM.Checkout.api.checkout.CheckoutOrderValidationDTO;
 import PSM.Checkout.api.checkout.CheckoutSessionResponseDTO;
+import PSM.Services.Payment.PaymentAuthorizationRequestDTO;
+import PSM.Services.Payment.PaymentAuthorizationResponseDTO;
+import PSM.Services.Payment.PaymentServiceClient;
 import PSM.Services.Payment.PaymentStrategy;
+import PSM.Services.Payment.PaymentTransactionStatusDTO;
 import PSM.Ticketing.Title;
 import PSM.UserManagement.User;
+import PSM.UserManagement.api.user.UserRepository;
 
 @Service
 public class CheckOutService {
@@ -29,16 +38,22 @@ public class CheckOutService {
 	private static final String SESSION_PREFIX = "checkout:session:user:";
 
 	private final CartService cartService;
+	private final PaymentServiceClient paymentServiceClient;
+	private final UserRepository userRepository;
 	private final StringRedisTemplate redisTemplate;
 	private final ObjectMapper objectMapper;
 	private final Duration sessionTtl;
 
 	public CheckOutService(
 			CartService cartService,
+			PaymentServiceClient paymentServiceClient,
+			UserRepository userRepository,
 			StringRedisTemplate redisTemplate,
 			ObjectMapper objectMapper,
 			@Value("${checkout.session-ttl-minutes:15}") long sessionTtlMinutes) {
 		this.cartService = cartService;
+		this.paymentServiceClient = paymentServiceClient;
+		this.userRepository = userRepository;
 		this.redisTemplate = redisTemplate;
 		this.objectMapper = objectMapper;
 		this.sessionTtl = Duration.ofMinutes(Math.max(1, sessionTtlMinutes));
@@ -69,6 +84,7 @@ public class CheckOutService {
 		return response;
 	}
 
+	@Transactional
 	public CheckoutConfirmationDTO confirm(UUID userId, CheckoutConfirmRequestDTO request) {
 		if (request == null || request.getSessionId() == null || request.getSessionId().isBlank()) {
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "sessionId is required");
@@ -84,14 +100,75 @@ public class CheckOutService {
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Checkout session not found or expired");
 		}
 
+		User user = userRepository.findWithBalanceLockById(userId)
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+		BigDecimal totalAmount = BigDecimal.valueOf(session.getTotal()).setScale(2, RoundingMode.HALF_UP);
+		BigDecimal currentBalance = BigDecimal.valueOf(user.getBalance()).setScale(2, RoundingMode.HALF_UP);
+		if (currentBalance.compareTo(totalAmount) < 0) {
+			throw new ResponseStatusException(HttpStatus.PAYMENT_REQUIRED,
+					"Insufficient balance. Available=" + currentBalance + ", required=" + totalAmount);
+		}
+
+		String orderId = "order_" + System.currentTimeMillis();
+
+		PaymentAuthorizationRequestDTO paymentRequest = new PaymentAuthorizationRequestDTO();
+		paymentRequest.setOrderId(orderId);
+		paymentRequest.setUserId(userId.toString());
+		paymentRequest.setSessionId(sessionId);
+		paymentRequest.setPaymentMethodId(request.getPaymentMethodId().trim());
+		paymentRequest.setAmount(totalAmount);
+		paymentRequest.setCurrency("EUR");
+
+		PaymentAuthorizationResponseDTO paymentResponse;
+		try {
+			paymentResponse = paymentServiceClient.authorize(paymentRequest);
+		} catch (Exception e) {
+			throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Payment service is unavailable", e);
+		}
+
+		if (!paymentResponse.isApproved()) {
+			throw new ResponseStatusException(HttpStatus.PAYMENT_REQUIRED,
+					"Payment was declined: " + paymentResponse.getMessage());
+		}
+
+		BigDecimal newBalance = currentBalance.subtract(totalAmount).setScale(2, RoundingMode.HALF_UP);
+		user.setBalance(newBalance.floatValue());
+		userRepository.save(user);
+
 		cartService.clearCart(userId);
 		redisTemplate.delete(getSessionKey(userId, sessionId));
 
 		CheckoutConfirmationDTO confirmation = new CheckoutConfirmationDTO();
-		confirmation.setOrderId("order_" + System.currentTimeMillis());
+		confirmation.setOrderId(orderId);
 		confirmation.setConfirmationNumber(UUID.randomUUID().toString().substring(0, 8).toUpperCase());
 		confirmation.setItems(new ArrayList<>(session.getItemIds()));
 		return confirmation;
+	}
+
+	public CheckoutOrderValidationDTO validateOrder(UUID userId, String orderId) {
+		if (orderId == null || orderId.isBlank()) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "orderId is required");
+		}
+
+		PaymentTransactionStatusDTO payment;
+		try {
+			payment = paymentServiceClient.getTransaction(orderId.trim());
+		} catch (ResponseStatusException e) {
+			throw e;
+		} catch (Exception e) {
+			throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Payment service is unavailable", e);
+		}
+
+		String status = payment.getStatus() == null ? "UNKNOWN" : payment.getStatus().toUpperCase();
+		boolean valid = "AUTHORIZED".equals(status) || "CAPTURED".equals(status) || "REFUNDED".equals(status);
+
+		CheckoutOrderValidationDTO response = new CheckoutOrderValidationDTO();
+		response.setOrderId(payment.getOrderId() != null ? payment.getOrderId() : orderId.trim());
+		response.setPaymentStatus(status);
+		response.setValid(valid);
+		response.setMessage(valid ? "Order payment is valid" : "Order payment is not valid");
+		return response;
 	}
 
 	public boolean checkout(User _user, List<Title> _titles, PaymentStrategy _payment) {
