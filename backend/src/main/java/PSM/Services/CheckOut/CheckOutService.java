@@ -168,7 +168,8 @@ public class CheckOutService {
 					ticket.setFrom(resolveStop(source.getFromStopId()));
 					ticket.setTo(resolveStop(source.getToStopId()));
 				}
-
+				ticket.setValidFrom(LocalDateTime.now());
+				ticket.setValidUntil(LocalDateTime.now().plusWeeks(1));
 				ticket.setUser(user);
 				ticketRepository.save(ticket);
 				user.addTicket(ticket);

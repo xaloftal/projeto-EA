@@ -1,10 +1,9 @@
 package PSM.Ticketing;
 
 import PSM.Location.Stop;
-import jakarta.persistence.Entity;
 import jakarta.persistence.DiscriminatorValue;
+import jakarta.persistence.Entity;
 import jakarta.persistence.ManyToOne;
-import jakarta.persistence.OneToOne;
 
 @Entity
 @DiscriminatorValue("ticket")
