@@ -88,7 +88,15 @@
                   <p><MapPin class="icon-sm" /> {{ getTicketFromStop(ticket) }}</p>
                   <p><MapPin class="icon-sm" /> {{ getTicketToStop(ticket) }}</p>
                 </div>
-                <div class="qr-code"><QrCode class="icon-md" /></div>
+                <div class="qr-code">
+                  <img
+                    v-if="getQrCodeSrc(ticket.qrCode)"
+                    :src="getQrCodeSrc(ticket.qrCode)"
+                    alt="Ticket QR code"
+                    class="ticket-qr-image"
+                  />
+                  <span v-else class="qr-fallback">QR code unavailable</span>
+                </div>
               </div>
             </div>
           </div>
@@ -266,6 +274,13 @@ const getTicketFromStop = (ticket: UserTicket) =>
 
 const getTicketToStop = (ticket: UserTicket) =>
   ticket.stopTo?.name ?? 'Route details unavailable'
+
+const getQrCodeSrc = (qrCode: string) => {
+  if (!qrCode) return ''
+  if (qrCode.startsWith('data:image/')) return qrCode
+  if (qrCode.startsWith('http://') || qrCode.startsWith('https://')) return qrCode
+  return `data:image/png;base64,${qrCode}`
+}
 </script>
 
 <style scoped>
@@ -400,6 +415,18 @@ const getTicketToStop = (ticket: UserTicket) =>
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.ticket-qr-image {
+  width: 180px;
+  height: 180px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.qr-fallback {
+  color: #999;
+  font-size: 0.9rem;
 }
 
 .btn-qr {

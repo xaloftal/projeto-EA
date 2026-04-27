@@ -177,8 +177,6 @@ public class CheckOutService {
 					ticket.generateQrCode(qrText, 300);
 					ticketRepository.save(ticket);
 				} catch (Exception e) {
-					// QR generation failed — proceed but log (avoid blocking purchase)
-					// In production, replace with proper logging
 					System.err.println("QR generation failed for ticket " + ticket.getId() + ": " + e.getMessage());
 				}
 				user.addTicket(ticket);
