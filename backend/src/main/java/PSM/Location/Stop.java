@@ -5,6 +5,8 @@ import java.util.List;
 import java.util.UUID;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIdentityInfo;
+import com.fasterxml.jackson.annotation.ObjectIdGenerators;
 
 import PSM.Travel.VehicleType;
 import PSM.UserManagement.Observer;
@@ -15,11 +17,14 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 
 @Entity
+@JsonIdentityInfo(generator = ObjectIdGenerators.PropertyGenerator.class, property = "id")
 @Table(name = "stop")
 public class Stop implements Subject {
 	@Id
@@ -28,8 +33,14 @@ public class Stop implements Subject {
 
 	private String name;
 
+	private String stopCode;
+
 	@Enumerated(EnumType.STRING)
 	private VehicleType stopType;
+
+	@ManyToOne
+	@JoinColumn(name = "zone_id")
+	private Zone zone;
 
 	@OneToOne
 	public Location location;
@@ -66,6 +77,14 @@ public class Stop implements Subject {
 		this.name = _name;
 	}
 
+	public String getStopCode() {
+		return this.stopCode;
+	}
+
+	public void setStopCode(String _stopCode) {
+		this.stopCode = _stopCode;
+	}
+
 	public VehicleType getStopType() {
 		return this.stopType;
 	}
@@ -80,5 +99,13 @@ public class Stop implements Subject {
 
 	public void setLocation(Location _location) {
 		this.location = _location;
+	}
+
+	public Zone getZone() {
+		return this.zone;
+	}
+
+	public void setZone(Zone _zone) {
+		this.zone = _zone;
 	}
 }

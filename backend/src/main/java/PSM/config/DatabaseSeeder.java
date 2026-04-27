@@ -23,10 +23,12 @@ import PSM.Location.Location;
 import PSM.Location.Route;
 import PSM.Location.Stop;
 import PSM.Location.StopSchedule;
+import PSM.Location.Zone;
 import PSM.Location.api.location.LocationRepository;
 import PSM.Location.api.route.RouteRepository;
 import PSM.Location.api.stop.StopRepository;
 import PSM.Location.api.stopschedule.StopScheduleRepository;
+import PSM.Location.api.zone.ZoneRepository;
 import PSM.Travel.VehicleType;
 
 @Component
@@ -36,6 +38,7 @@ public class DatabaseSeeder implements CommandLineRunner {
             System.getenv().getOrDefault("SCRIPT_MOCK_DATA_DIR",
                     "/../../../../../script_mock_data/data"));
     private static final Path ROUTES_CSV = DATA_DIR.resolve("routes.csv");
+    private static final Path ZONES_CSV = DATA_DIR.resolve("zones.csv");
     private static final Path STOPS_CSV = DATA_DIR.resolve("stops.csv");
     private static final Path STOP_SCHEDULES_CSV = DATA_DIR.resolve("schedule.csv");
     private static final LocalDate SEED_BASE_DATE = LocalDate.of(2000, 1, 1);
@@ -49,27 +52,31 @@ public class DatabaseSeeder implements CommandLineRunner {
     private static final int COL_LOCATION_ID = 4;
     private static final int COL_LATITUDE = 5;
     private static final int COL_LONGITUDE = 6;
+    private static final int COL_ZONE_ID = 7;
 
     private final LocationRepository locationRepository;
     private final StopRepository stopRepository;
     private final RouteRepository routeRepository;
     private final StopScheduleRepository stopScheduleRepository;
+    private final ZoneRepository zoneRepository;
 
     public DatabaseSeeder(
             LocationRepository locationRepository,
             StopRepository stopRepository,
             RouteRepository routeRepository,
-            StopScheduleRepository stopScheduleRepository) {
+            StopScheduleRepository stopScheduleRepository,
+            ZoneRepository zoneRepository) {
         this.locationRepository = locationRepository;
         this.stopRepository = stopRepository;
         this.routeRepository = routeRepository;
         this.stopScheduleRepository = stopScheduleRepository;
+        this.zoneRepository = zoneRepository;
     }
 
     @Override
     @Transactional
     public void run(String... args) {
-        if (routeRepository.count() > 0 || stopRepository.count() > 0 || stopScheduleRepository.count() > 0) {
+        if (routeRepository.count() > 0 || zoneRepository.count() > 0 || stopRepository.count() > 0 || stopScheduleRepository.count() > 0) {
             return;
         }
 
@@ -80,18 +87,21 @@ public class DatabaseSeeder implements CommandLineRunner {
         ExecutorService executor = Executors.newFixedThreadPool(THREAD_POOL_SIZE);
         
         try {
-            // Step 1: Load routes and locations in parallel (independent operations)
+            // Step 1: Load independent CSVs in parallel.
             CompletableFuture<Map<String, Route>> routesFuture = 
                 CompletableFuture.supplyAsync(this::loadRoutes, executor);
+            CompletableFuture<Map<String, Zone>> zonesFuture = 
+                CompletableFuture.supplyAsync(this::loadZones, executor);
             CompletableFuture<Map<String, Location>> locationsFuture = 
                 CompletableFuture.supplyAsync(this::loadLocations, executor);
             
-            // Wait for both to complete
+            // Wait for all independent data to finish loading.
             Map<String, Route> routesByCode = routesFuture.join();
+            Map<String, Zone> zonesByCode = zonesFuture.join();
             Map<String, Location> locationsByCode = locationsFuture.join();
             
-            // Step 2: Load stops (depends on locations)
-            Map<String, Stop> stopsByCode = loadStops(locationsByCode);
+            // Step 2: Load stops (depends on locations and zones)
+            Map<String, Stop> stopsByCode = loadStops(locationsByCode, zonesByCode);
             
             // Step 3: Load stop schedules (depends on routes and stops)
             loadStopSchedules(routesByCode, stopsByCode);
@@ -129,6 +139,35 @@ public class DatabaseSeeder implements CommandLineRunner {
         return routesByCode;
     }
 
+    private Map<String, Zone> loadZones() {
+        Map<String, Zone> zonesByCode = new LinkedHashMap<>();
+
+        for (String[] row : readCsv(ZONES_CSV)) {
+            if (row.length < 3) {
+                throw new IllegalStateException("Invalid zones.csv row. Expected id,name,colorHexCode");
+            }
+
+            String zoneId = row[0].trim();
+            String zoneName = row[1].trim();
+            String colorHexCode = row[2].trim();
+
+            Zone zone = new Zone();
+            zone.setName(zoneName);
+            zone.setColorHexCode(colorHexCode);
+
+            // Support rows that reference either zone id or zone name.
+            Zone savedZone = zoneRepository.save(zone);
+            zonesByCode.put(zoneId, savedZone);
+            zonesByCode.put(zoneName, savedZone);
+        }
+
+        if (zonesByCode.isEmpty()) {
+            throw new IllegalStateException("zones.csv is empty");
+        }
+
+        return zonesByCode;
+    }
+
     private Map<String, Location> loadLocations() {
         Map<String, Location> locationsByCode = new LinkedHashMap<>();
 
@@ -161,13 +200,13 @@ public class DatabaseSeeder implements CommandLineRunner {
         return locationsByCode;
     }
 
-    private Map<String, Stop> loadStops(Map<String, Location> locationsByCode) {
+    private Map<String, Stop> loadStops(Map<String, Location> locationsByCode, Map<String, Zone> zonesByCode) {
         Map<String, Stop> stopsByCode = new LinkedHashMap<>();
 
         for (String[] row : readCsv(STOPS_CSV)) {
-            if (row.length <= COL_LONGITUDE) {
+            if (row.length <= COL_ZONE_ID) {
                 throw new IllegalStateException(
-                        "Invalid stops.csv row. Expected id,name,stop_type,stop_code,location_id,latitude,longitude");
+                        "Invalid stops.csv row. Expected id,name,stop_type,stop_code,location_id,latitude,longitude,zone_id");
             }
 
             String stopId = row[COL_STOP_ID].trim();
@@ -175,18 +214,27 @@ public class DatabaseSeeder implements CommandLineRunner {
             String stopName = row[COL_STOP_NAME].trim();
             VehicleType stopType = parseVehicleType(row[COL_STOP_TYPE]);
             String locationId = row[COL_LOCATION_ID].trim();
+            String zoneId = row[COL_ZONE_ID].trim();
 
             Location location = locationsByCode.get(locationId);
             if (location == null) {
                 throw new IllegalStateException("Unknown location_id in stops.csv: " + locationId);
             }
 
+            Zone zone = zonesByCode.get(zoneId);
+            if (zone == null) {
+                throw new IllegalStateException("Unknown zone_id in stops.csv: " + zoneId);
+            }
+
             Stop stop = new Stop();
             stop.setName(stopName);
+            stop.setStopCode(stopCode);
             stop.setStopType(stopType);
             stop.setLocation(location);
+            stop.setZone(zone);
 
             Stop savedStop = stopRepository.save(stop);
+            zone.getStops().add(savedStop);
 
             // Support schedule rows that reference either stop id or stop code.
             stopsByCode.put(stopId, savedStop);
