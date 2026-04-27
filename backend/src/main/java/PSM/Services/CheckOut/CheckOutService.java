@@ -172,6 +172,15 @@ public class CheckOutService {
 				ticket.setValidUntil(LocalDateTime.now().plusWeeks(1));
 				ticket.setUser(user);
 				ticketRepository.save(ticket);
+				try {
+					String qrText = orderId + ":" + ticket.getId();
+					ticket.generateQrCode(qrText, 300);
+					ticketRepository.save(ticket);
+				} catch (Exception e) {
+					// QR generation failed — proceed but log (avoid blocking purchase)
+					// In production, replace with proper logging
+					System.err.println("QR generation failed for ticket " + ticket.getId() + ": " + e.getMessage());
+				}
 				user.addTicket(ticket);
 			}
 		}
