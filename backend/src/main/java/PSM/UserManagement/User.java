@@ -41,7 +41,7 @@ public class User implements Observer {
 	@OneToOne(optional = true)
 	private Card card;
 
-	@OneToMany
+	@OneToMany(mappedBy = "user")
 	private List<Ticket> tickets = new ArrayList<Ticket>();
 
 	@ManyToMany
@@ -129,6 +129,14 @@ public class User implements Observer {
 
 	public void setCard(List<Ticket> _tickets) {
 		this.tickets = _tickets;
+	}
+
+	public void addTicket(Ticket ticket) {
+		if (ticket == null) {
+			return;
+		}
+		this.tickets.add(ticket);
+		ticket.setUser(this);
 	}
 
 	public List<Stop> getPOI() {
