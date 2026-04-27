@@ -88,10 +88,14 @@ public class DatabaseSeeder implements CommandLineRunner {
                 throw new IllegalStateException("Invalid routes.csv row. Expected id,name");
             }
 
+            String routeId = row[0].trim();
             String routeCode = row[1].trim();
 
             Route route = new Route();
             route.setName(routeCode);
+
+            // Support schedule rows that reference either route id or route code.
+            routesByCode.put(routeId, route);
             routesByCode.put(routeCode, route);
         }
 
@@ -143,6 +147,7 @@ public class DatabaseSeeder implements CommandLineRunner {
                         "Invalid stops.csv row. Expected id,name,stop_type,stop_code,location_id,latitude,longitude");
             }
 
+            String stopId = row[COL_STOP_ID].trim();
             String stopCode = row[COL_STOP_CODE].trim();
             String stopName = row[COL_STOP_NAME].trim();
             VehicleType stopType = parseVehicleType(row[COL_STOP_TYPE]);
@@ -157,7 +162,12 @@ public class DatabaseSeeder implements CommandLineRunner {
             stop.setName(stopName);
             stop.setStopType(stopType);
             stop.setLocation(location);
-            stopsByCode.put(stopCode, stopRepository.save(stop));
+
+            Stop savedStop = stopRepository.save(stop);
+
+            // Support schedule rows that reference either stop id or stop code.
+            stopsByCode.put(stopId, savedStop);
+            stopsByCode.put(stopCode, savedStop);
         }
 
         if (stopsByCode.isEmpty()) {
