@@ -37,6 +37,14 @@ public class DatabaseSeeder implements CommandLineRunner {
     private static final Path STOP_SCHEDULES_CSV = DATA_DIR.resolve("schedule.csv");
     private static final LocalDate SEED_BASE_DATE = LocalDate.of(2000, 1, 1);
 
+    private static final int COL_STOP_ID = 0;
+    private static final int COL_STOP_NAME = 1;
+    private static final int COL_STOP_TYPE = 2;
+    private static final int COL_STOP_CODE = 3;
+    private static final int COL_LOCATION_ID = 4;
+    private static final int COL_LATITUDE = 5;
+    private static final int COL_LONGITUDE = 6;
+
     private final LocationRepository locationRepository;
     private final StopRepository stopRepository;
     private final RouteRepository routeRepository;
@@ -65,7 +73,8 @@ public class DatabaseSeeder implements CommandLineRunner {
 
     private void seedFromCsv() {
         Map<String, Route> routesByCode = loadRoutes();
-        Map<String, Stop> stopsByCode = loadStops();
+        Map<String, Location> locationsByCode = loadLocations();
+        Map<String, Stop> stopsByCode = loadStops(locationsByCode);
         loadStopSchedules(routesByCode, stopsByCode);
 
         routeRepository.saveAll(routesByCode.values());
@@ -79,10 +88,14 @@ public class DatabaseSeeder implements CommandLineRunner {
                 throw new IllegalStateException("Invalid routes.csv row. Expected id,name");
             }
 
+            String routeId = row[0].trim();
             String routeCode = row[1].trim();
 
             Route route = new Route();
             route.setName(routeCode);
+
+            // Support schedule rows that reference either route id or route code.
+            routesByCode.put(routeId, route);
             routesByCode.put(routeCode, route);
         }
 
@@ -93,29 +106,68 @@ public class DatabaseSeeder implements CommandLineRunner {
         return routesByCode;
     }
 
-    private Map<String, Stop> loadStops() {
+    private Map<String, Location> loadLocations() {
+        Map<String, Location> locationsByCode = new LinkedHashMap<>();
+
+        for (String[] row : readCsv(STOPS_CSV)) {
+            if (row.length <= COL_LONGITUDE) {
+                throw new IllegalStateException(
+                        "Invalid stops.csv row. Expected id,name,stop_type,stop_code,location_id,latitude,longitude");
+            }
+
+            String locationId = row[COL_LOCATION_ID].trim();
+
+            // Skip if already processed (in case of duplicate location_ids)
+            if (locationsByCode.containsKey(locationId)) {
+                continue;
+            }
+
+            double latitude = Double.parseDouble(row[COL_LATITUDE].trim());
+            double longitude = Double.parseDouble(row[COL_LONGITUDE].trim());
+
+            Location location = new Location();
+            location.setLatitude(latitude);
+            location.setLongitude(longitude);
+            locationsByCode.put(locationId, locationRepository.save(location));
+        }
+
+        if (locationsByCode.isEmpty()) {
+            throw new IllegalStateException("No locations found in stops.csv");
+        }
+
+        return locationsByCode;
+    }
+
+    private Map<String, Stop> loadStops(Map<String, Location> locationsByCode) {
         Map<String, Stop> stopsByCode = new LinkedHashMap<>();
 
         for (String[] row : readCsv(STOPS_CSV)) {
-            if (row.length < 2) {
-                throw new IllegalStateException("Invalid stops.csv row. Expected id,name,stop_type,location_id");
+            if (row.length <= COL_LONGITUDE) {
+                throw new IllegalStateException(
+                        "Invalid stops.csv row. Expected id,name,stop_type,stop_code,location_id,latitude,longitude");
             }
 
-            String stopCode = row[0].trim();
-            String stopName = row[1].trim();
-            VehicleType stopType = parseVehicleType(row.length > 2 ? row[2] : null);
+            String stopId = row[COL_STOP_ID].trim();
+            String stopCode = row[COL_STOP_CODE].trim();
+            String stopName = row[COL_STOP_NAME].trim();
+            VehicleType stopType = parseVehicleType(row[COL_STOP_TYPE]);
+            String locationId = row[COL_LOCATION_ID].trim();
 
-            Location location = new Location();
-            // Mock CSV does not include coordinates. Persist neutral coordinates for now.
-            location.setLatitude(0.0);
-            location.setLongitude(0.0);
-            locationRepository.save(location);
+            Location location = locationsByCode.get(locationId);
+            if (location == null) {
+                throw new IllegalStateException("Unknown location_id in stops.csv: " + locationId);
+            }
 
             Stop stop = new Stop();
             stop.setName(stopName);
             stop.setStopType(stopType);
             stop.setLocation(location);
-            stopsByCode.put(stopCode, stopRepository.save(stop));
+
+            Stop savedStop = stopRepository.save(stop);
+
+            // Support schedule rows that reference either stop id or stop code.
+            stopsByCode.put(stopId, savedStop);
+            stopsByCode.put(stopCode, savedStop);
         }
 
         if (stopsByCode.isEmpty()) {

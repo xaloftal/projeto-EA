@@ -2,12 +2,12 @@ package PSM.Ticketing;
 
 import PSM.Location.Stop;
 import jakarta.persistence.Entity;
+import jakarta.persistence.DiscriminatorValue;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToOne;
-import jakarta.persistence.Table;
 
 @Entity
-@Table(name = "ticket")
+@DiscriminatorValue("ticket")
 public class Ticket extends Title {
 	@ManyToOne
 	public Stop to;
