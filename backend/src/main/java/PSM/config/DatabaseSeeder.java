@@ -11,6 +11,9 @@ import java.time.LocalTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
@@ -36,6 +39,8 @@ public class DatabaseSeeder implements CommandLineRunner {
     private static final Path STOPS_CSV = DATA_DIR.resolve("stops.csv");
     private static final Path STOP_SCHEDULES_CSV = DATA_DIR.resolve("schedule.csv");
     private static final LocalDate SEED_BASE_DATE = LocalDate.of(2000, 1, 1);
+    
+    private static final int THREAD_POOL_SIZE = Runtime.getRuntime().availableProcessors();
 
     private static final int COL_STOP_ID = 0;
     private static final int COL_STOP_NAME = 1;
@@ -72,12 +77,30 @@ public class DatabaseSeeder implements CommandLineRunner {
     }
 
     private void seedFromCsv() {
-        Map<String, Route> routesByCode = loadRoutes();
-        Map<String, Location> locationsByCode = loadLocations();
-        Map<String, Stop> stopsByCode = loadStops(locationsByCode);
-        loadStopSchedules(routesByCode, stopsByCode);
-
-        routeRepository.saveAll(routesByCode.values());
+        ExecutorService executor = Executors.newFixedThreadPool(THREAD_POOL_SIZE);
+        
+        try {
+            // Step 1: Load routes and locations in parallel (independent operations)
+            CompletableFuture<Map<String, Route>> routesFuture = 
+                CompletableFuture.supplyAsync(this::loadRoutes, executor);
+            CompletableFuture<Map<String, Location>> locationsFuture = 
+                CompletableFuture.supplyAsync(this::loadLocations, executor);
+            
+            // Wait for both to complete
+            Map<String, Route> routesByCode = routesFuture.join();
+            Map<String, Location> locationsByCode = locationsFuture.join();
+            
+            // Step 2: Load stops (depends on locations)
+            Map<String, Stop> stopsByCode = loadStops(locationsByCode);
+            
+            // Step 3: Load stop schedules (depends on routes and stops)
+            loadStopSchedules(routesByCode, stopsByCode);
+            
+            // Step 4: Save all routes
+            routeRepository.saveAll(routesByCode.values());
+        } finally {
+            executor.shutdown();
+        }
     }
 
     private Map<String, Route> loadRoutes() {
