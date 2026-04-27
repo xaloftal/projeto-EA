@@ -99,7 +99,18 @@ Quando estiver certo, deves ver no terminal algo como:
 
 Se a base ainda não existir, o Spring Boot vai falhar antes de criar as tabelas.
 
-## Docker (DB + Backend)
+### Seed automático
+
+No arranque do backend, o projeto popula automaticamente as tabelas `route`, `stop` e `stopschedule` apenas se estiverem vazias. Os dados são lidos a partir dos CSVs em [backend/src/main/resources/seed](backend/src/main/resources/seed), para poderes alterá-los sem mexer no código Java.
+
+Se já houver dados nessas tabelas, o seed é ignorado para evitar duplicados.
+
+Ficheiros usados:
+- [routes.csv] 
+- [stops.csv]
+- [stop_schedules.csv]
+
+## Docker (DB + Backend + Payment Service)
 
 Se quiseres subir a infraestrutura com um comando, usa Docker Compose.
 
@@ -116,6 +127,7 @@ docker compose up --build
 Isto sobe:
 - PostgreSQL em `localhost:5433`
 - Backend Spring Boot em `localhost:8080`
+- Payment Service em `localhost:8081`
 - Frontend web em `localhost:9000`
 
 Para parar:
@@ -146,8 +158,23 @@ Variáveis necessárias:
 - `DB_USER` (opcional, default: `postgres`)
 - `DB_NAME` (opcional, default: `catchitdb`)
 - `DB_PORT` (opcional, default: `5433`)
+- `PAYMENT_SERVICE_PORT` (opcional, default: `8081`)
 - `JWT_SECRET` (obrigatória)
 - `JWT_EXPIRATION` (obrigatória, em milissegundos)
+
+### Escalabilidade do pagamento
+
+O pagamento foi isolado num microserviço dedicado (`payment-service`) e o backend passou a comunicar via HTTP no endpoint `/api/payments/authorize`.
+
+No `payment-service`, a autorização usa padrão Strategy com seleção por prefixo de `paymentMethodId`:
+- `balance-...` -> `BalancePaymentStrategy`
+- Qualquer outro valor -> rejeitado por `FallbackDeclinePaymentStrategy`
+
+Com esta separação, podes escalar apenas o serviço de pagamento sem escalar o backend inteiro, por exemplo:
+
+```bash
+docker compose up --build --scale payment-service=3
+```
 
 ### Aceder à base de dados via Docker
 

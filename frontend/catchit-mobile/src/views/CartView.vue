@@ -50,13 +50,18 @@
 </template>
 
 <script setup lang="ts">
+import { onMounted } from 'vue'
 import { ArrowLeft, Ticket, House, Map, ShoppingCart, User } from 'lucide-vue-next'
 import { useRouter } from 'vue-router'
 import { useCheckoutViewModel } from '../viewmodels'
 
 const router = useRouter()
 const checkoutViewModel = useCheckoutViewModel()
-const { cartItems, total, removeFromCart } = checkoutViewModel
+const { cartItems, total, removeFromCart, fetchCart } = checkoutViewModel
+
+onMounted(() => {
+  void fetchCart()
+})
 
 const goToCheckout = () => {
   void router.push('/checkout')

@@ -82,8 +82,8 @@ const router = useRouter()
 const { login, isLoading, error } = useAuthViewModel()
 
 const form = ref({
-  email: 'maria@example.com', // Pre-filled for testing
-  password: 'password', // Pre-filled for testing
+  email: '',
+  password: '',
 })
 
 const handleLogin = async () => {
