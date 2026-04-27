@@ -8,6 +8,7 @@ import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -87,34 +88,54 @@ public class DatabaseSeeder implements CommandLineRunner {
         ExecutorService executor = Executors.newFixedThreadPool(THREAD_POOL_SIZE);
         
         try {
-            // Step 1: Load independent CSVs in parallel.
-            CompletableFuture<Map<String, Route>> routesFuture = 
-                CompletableFuture.supplyAsync(this::loadRoutes, executor);
-            CompletableFuture<Map<String, Zone>> zonesFuture = 
-                CompletableFuture.supplyAsync(this::loadZones, executor);
-            CompletableFuture<Map<String, Location>> locationsFuture = 
-                CompletableFuture.supplyAsync(this::loadLocations, executor);
-            
-            // Wait for all independent data to finish loading.
-            Map<String, Route> routesByCode = routesFuture.join();
-            Map<String, Zone> zonesByCode = zonesFuture.join();
-            Map<String, Location> locationsByCode = locationsFuture.join();
-            
-            // Step 2: Load stops (depends on locations and zones)
-            Map<String, Stop> stopsByCode = loadStops(locationsByCode, zonesByCode);
-            
-            // Step 3: Load stop schedules (depends on routes and stops)
-            loadStopSchedules(routesByCode, stopsByCode);
-            
-            // Step 4: Save all routes
-            routeRepository.saveAll(routesByCode.values());
+            CompletableFuture<RoutesData> routesFuture = CompletableFuture.supplyAsync(this::loadRoutes, executor);
+            CompletableFuture<ZonesData> zonesFuture = CompletableFuture.supplyAsync(this::loadZones, executor);
+            CompletableFuture<StopsData> stopsFuture = CompletableFuture.supplyAsync(this::loadStops, executor);
+
+            RoutesData routesData = routesFuture.join();
+            ZonesData zonesData = zonesFuture.join();
+            StopsData stopsData = stopsFuture.join();
+
+            zoneRepository.saveAll(zonesData.zonesToSave);
+
+            List<Location> savedLocations = locationRepository.saveAll(stopsData.locationsToSave.values());
+            Map<String, Location> savedLocationsById = new LinkedHashMap<>();
+            int locationIndex = 0;
+            for (String locationId : stopsData.locationsToSave.keySet()) {
+                savedLocationsById.put(locationId, savedLocations.get(locationIndex++));
+            }
+
+            for (Stop stop : stopsData.stopsToSave) {
+                String locationId = stopsData.stopCodeToLocationId.get(stop.getStopCode());
+                String zoneId = stopsData.stopCodeToZoneId.get(stop.getStopCode());
+
+                Location savedLocation = savedLocationsById.get(locationId);
+                if (savedLocation == null) {
+                    throw new IllegalStateException("Unknown location_id in stops.csv: " + locationId);
+                }
+
+                Zone zone = zonesData.zonesByCode.get(zoneId);
+                if (zone == null) {
+                    throw new IllegalStateException("Unknown zone_id in stops.csv: " + zoneId);
+                }
+
+                stop.setLocation(savedLocation);
+                stop.setZone(zone);
+                zone.getStops().add(stop);
+            }
+
+            stopRepository.saveAll(stopsData.stopsToSave);
+
+            loadStopSchedules(routesData.routesByCode, stopsData.stopsByCode);
+            routeRepository.saveAll(routesData.routesToSave);
         } finally {
             executor.shutdown();
         }
     }
 
-    private Map<String, Route> loadRoutes() {
+    private RoutesData loadRoutes() {
         Map<String, Route> routesByCode = new LinkedHashMap<>();
+        List<Route> routesToSave = new ArrayList<>();
 
         for (String[] row : readCsv(ROUTES_CSV)) {
             if (row.length < 2) {
@@ -130,17 +151,19 @@ public class DatabaseSeeder implements CommandLineRunner {
             // Support schedule rows that reference either route id or route code.
             routesByCode.put(routeId, route);
             routesByCode.put(routeCode, route);
+            routesToSave.add(route);
         }
 
         if (routesByCode.isEmpty()) {
             throw new IllegalStateException("routes.csv is empty");
         }
 
-        return routesByCode;
+        return new RoutesData(routesByCode, routesToSave);
     }
 
-    private Map<String, Zone> loadZones() {
+    private ZonesData loadZones() {
         Map<String, Zone> zonesByCode = new LinkedHashMap<>();
+        List<Zone> zonesToSave = new ArrayList<>();
 
         for (String[] row : readCsv(ZONES_CSV)) {
             if (row.length < 3) {
@@ -154,54 +177,66 @@ public class DatabaseSeeder implements CommandLineRunner {
             Zone zone = new Zone();
             zone.setName(zoneName);
             zone.setColorHexCode(colorHexCode);
-
-            // Support rows that reference either zone id or zone name.
-            Zone savedZone = zoneRepository.save(zone);
-            zonesByCode.put(zoneId, savedZone);
-            zonesByCode.put(zoneName, savedZone);
+            zonesByCode.put(zoneId, zone);
+            zonesByCode.put(zoneName, zone);
+            zonesToSave.add(zone);
         }
 
-        if (zonesByCode.isEmpty()) {
+        if (zonesToSave.isEmpty()) {
             throw new IllegalStateException("zones.csv is empty");
         }
 
-        return zonesByCode;
+        return new ZonesData(zonesByCode, zonesToSave);
     }
 
-    private Map<String, Location> loadLocations() {
+    private static class RoutesData {
+        final Map<String, Route> routesByCode;
+        final List<Route> routesToSave;
+
+        RoutesData(Map<String, Route> routesByCode, List<Route> routesToSave) {
+            this.routesByCode = routesByCode;
+            this.routesToSave = routesToSave;
+        }
+    }
+
+    private static class ZonesData {
+        final Map<String, Zone> zonesByCode;
+        final List<Zone> zonesToSave;
+
+        ZonesData(Map<String, Zone> zonesByCode, List<Zone> zonesToSave) {
+            this.zonesByCode = zonesByCode;
+            this.zonesToSave = zonesToSave;
+        }
+    }
+
+    private static class StopsData {
+        final Map<String, Location> locationsToSave;
+        final List<Stop> stopsToSave;
+        final Map<String, Stop> stopsByCode;
+        final Map<String, String> stopCodeToLocationId;
+        final Map<String, String> stopCodeToZoneId;
+
+        StopsData(
+                Map<String, Location> locationsToSave,
+                List<Stop> stopsToSave,
+                Map<String, Stop> stopsByCode,
+                Map<String, String> stopCodeToLocationId,
+                Map<String, String> stopCodeToZoneId) {
+            this.locationsToSave = locationsToSave;
+            this.stopsToSave = stopsToSave;
+            this.stopsByCode = stopsByCode;
+            this.stopCodeToLocationId = stopCodeToLocationId;
+            this.stopCodeToZoneId = stopCodeToZoneId;
+        }
+    }
+
+    private StopsData loadStops() {
+        Map<String, Location> locationsToSave = new LinkedHashMap<>();
+        List<Stop> stopsToSave = new ArrayList<>();
         Map<String, Location> locationsByCode = new LinkedHashMap<>();
-
-        for (String[] row : readCsv(STOPS_CSV)) {
-            if (row.length <= COL_LONGITUDE) {
-                throw new IllegalStateException(
-                        "Invalid stops.csv row. Expected id,name,stop_type,stop_code,location_id,latitude,longitude");
-            }
-
-            String locationId = row[COL_LOCATION_ID].trim();
-
-            // Skip if already processed (in case of duplicate location_ids)
-            if (locationsByCode.containsKey(locationId)) {
-                continue;
-            }
-
-            double latitude = Double.parseDouble(row[COL_LATITUDE].trim());
-            double longitude = Double.parseDouble(row[COL_LONGITUDE].trim());
-
-            Location location = new Location();
-            location.setLatitude(latitude);
-            location.setLongitude(longitude);
-            locationsByCode.put(locationId, locationRepository.save(location));
-        }
-
-        if (locationsByCode.isEmpty()) {
-            throw new IllegalStateException("No locations found in stops.csv");
-        }
-
-        return locationsByCode;
-    }
-
-    private Map<String, Stop> loadStops(Map<String, Location> locationsByCode, Map<String, Zone> zonesByCode) {
         Map<String, Stop> stopsByCode = new LinkedHashMap<>();
+        Map<String, String> stopCodeToLocationId = new LinkedHashMap<>();
+        Map<String, String> stopCodeToZoneId = new LinkedHashMap<>();
 
         for (String[] row : readCsv(STOPS_CSV)) {
             if (row.length <= COL_ZONE_ID) {
@@ -214,38 +249,39 @@ public class DatabaseSeeder implements CommandLineRunner {
             String stopName = row[COL_STOP_NAME].trim();
             VehicleType stopType = parseVehicleType(row[COL_STOP_TYPE]);
             String locationId = row[COL_LOCATION_ID].trim();
-            String zoneId = row[COL_ZONE_ID].trim();
 
+            // Create location if not already processed
+            if (!locationsByCode.containsKey(locationId)) {
+                double latitude = Double.parseDouble(row[COL_LATITUDE].trim());
+                double longitude = Double.parseDouble(row[COL_LONGITUDE].trim());
+
+                Location location = new Location();
+                location.setLatitude(latitude);
+                location.setLongitude(longitude);
+                locationsToSave.put(locationId, location);
+                locationsByCode.put(locationId, location);
+            }
+
+            // Create stop (will link to zone later)
             Location location = locationsByCode.get(locationId);
-            if (location == null) {
-                throw new IllegalStateException("Unknown location_id in stops.csv: " + locationId);
-            }
-
-            Zone zone = zonesByCode.get(zoneId);
-            if (zone == null) {
-                throw new IllegalStateException("Unknown zone_id in stops.csv: " + zoneId);
-            }
-
             Stop stop = new Stop();
             stop.setName(stopName);
             stop.setStopCode(stopCode);
             stop.setStopType(stopType);
             stop.setLocation(location);
-            stop.setZone(zone);
 
-            Stop savedStop = stopRepository.save(stop);
-            zone.getStops().add(savedStop);
-
-            // Support schedule rows that reference either stop id or stop code.
-            stopsByCode.put(stopId, savedStop);
-            stopsByCode.put(stopCode, savedStop);
+            stopsByCode.put(stopId, stop);
+            stopsByCode.put(stopCode, stop);
+            stopsToSave.add(stop);
+            stopCodeToLocationId.put(stopCode, locationId);
+            stopCodeToZoneId.put(stopCode, row[COL_ZONE_ID].trim());
         }
 
-        if (stopsByCode.isEmpty()) {
-            throw new IllegalStateException("stops.csv is empty");
+        if (locationsToSave.isEmpty() || stopsToSave.isEmpty()) {
+            throw new IllegalStateException("No locations or stops found in stops.csv");
         }
 
-        return stopsByCode;
+        return new StopsData(locationsToSave, stopsToSave, stopsByCode, stopCodeToLocationId, stopCodeToZoneId);
     }
 
     private void loadStopSchedules(Map<String, Route> routesByCode, Map<String, Stop> stopsByCode) {
