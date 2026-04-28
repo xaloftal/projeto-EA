@@ -20,6 +20,7 @@ type BackendLocation = {
 type BackendStop = {
   id: string
   name: string
+  stopType?: string
   location?: BackendLocation | null
   latitude?: number
   longitude?: number
@@ -182,6 +183,7 @@ const mapStop = (stop: BackendStop): Stop => ({
   name: stop.name,
   latitude: stop.location?.latitude ?? stop.latitude ?? 0,
   longitude: stop.location?.longitude ?? stop.longitude ?? 0,
+  stopType: stop.stopType,
 })
 
 const mapTicketStatus = (status?: string): TicketStatus => {
@@ -519,6 +521,12 @@ export class CatchItApiClient {
     const response = await requestJson<BackendStop[]>('/api/stops')
     if (!response.success || !response.data) return { success: false, error: response.error }
     return { success: true, data: response.data.map(mapStop) }
+  }
+
+  async getRoutes(): Promise<ApiResponse<BackendRoute[]>> {
+    const response = await requestJson<BackendRoute[]>('/api/routes')
+    if (!response.success || !response.data) return { success: false, error: response.error }
+    return { success: true, data: response.data }
   }
 
   async searchRoutes(data: {

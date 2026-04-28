@@ -1,0 +1,53 @@
+services:
+  jmeter-checkout:
+    image: justb4/jmeter:latest
+    container_name: catchit-jmeter-checkout
+    profiles:
+      - loadtest
+      - checkout
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    volumes:
+      - ./:/tests
+    working_dir: /tests
+    cpus: "${JMETER_CPUS:-1.5}"
+    mem_limit: "${JMETER_MEMORY:-1536m}"
+    command:
+      - -n
+      - -t
+      - /tests/load-tests/jmeter/catchit-checkout-flow.jmx
+      - -Jhost=host.docker.internal
+      - -Jport=8080
+      - -Jthreads=${CHECKOUT_THREADS:-8}
+      - -Jramp=${CHECKOUT_RAMP:-40}
+      - -Jloops=${CHECKOUT_LOOPS:-10}
+      - -JusersFile=/tests/load-tests/jmeter/users.csv
+      - -JresultsFile=/tests/load-tests/jmeter/results-checkout-compose.jtl
+      - -l
+      - /tests/load-tests/jmeter/results-checkout-compose.jtl
+
+  jmeter-payment:
+    image: justb4/jmeter:latest
+    container_name: catchit-jmeter-payment
+    profiles:
+      - loadtest
+      - payment
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    volumes:
+      - ./:/tests
+    working_dir: /tests
+    cpus: "${JMETER_CPUS:-1.5}"
+    mem_limit: "${JMETER_MEMORY:-1536m}"
+    command:
+      - -n
+      - -t
+      - /tests/load-tests/jmeter/catchit-payment-service.jmx
+      - -Jhost=host.docker.internal
+      - -Jport=8081
+      - -Jthreads=${PAYMENT_THREADS:-20}
+      - -Jramp=${PAYMENT_RAMP:-40}
+      - -Jloops=${PAYMENT_LOOPS:-20}
+      - -JresultsFile=/tests/load-tests/jmeter/results-payment-compose.jtl
+      - -l
+      - /tests/load-tests/jmeter/results-payment-compose.jtl
