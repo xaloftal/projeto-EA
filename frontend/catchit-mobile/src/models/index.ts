@@ -68,6 +68,7 @@ export interface Stop {
   name: string
   latitude: number
   longitude: number
+  stopType?: string
   schedule?: StopSchedule[]
 }
 

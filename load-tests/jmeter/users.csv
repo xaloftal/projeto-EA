@@ -1,0 +1,4 @@
+name,email,password,paymentMethodId
+Load Tester 1,load1@example.com,LoadTest123!,balance-main
+Load Tester 2,load2@example.com,LoadTest123!,balance-main
+Load Tester 3,load3@example.com,LoadTest123!,balance-main
