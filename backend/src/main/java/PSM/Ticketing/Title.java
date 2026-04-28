@@ -9,6 +9,16 @@ import java.util.UUID;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
+import java.math.BigDecimal;
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+import java.io.ByteArrayOutputStream;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import PSM.Ticketing.State.TitleState;
 import PSM.Travel.Trip;
 import PSM.UserManagement.User;
@@ -25,13 +35,18 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.Transient;
 
+import com.google.zxing.BarcodeFormat;
+import com.google.zxing.common.BitMatrix;
+import com.google.zxing.qrcode.QRCodeWriter;
+import com.google.zxing.client.j2se.MatrixToImageWriter;
+
 @Entity
 @Table(name = "title")
 @Inheritance(strategy = InheritanceType.SINGLE_TABLE)
 @DiscriminatorColumn(name = "title_type")
 public abstract class Title {
 	@Id
-	@GeneratedValue(strategy= GenerationType.UUID)
+	@GeneratedValue(strategy = GenerationType.UUID)
 	private UUID id;
 	private LocalDateTime createdAt;
 	private LocalDateTime validFrom;
@@ -50,8 +65,6 @@ public abstract class Title {
 	@JsonIgnore
 	private User user;
 
-
-
 	public void activate() {
 		throw new UnsupportedOperationException();
 	}
@@ -65,8 +78,17 @@ public abstract class Title {
 		throw new UnsupportedOperationException();
 	}
 
-	private void generateQrCode() {
-		throw new UnsupportedOperationException();
+	public void generateQrCode(String text, int size) {
+		try {
+			QRCodeWriter writer = new QRCodeWriter();
+			BitMatrix matrix = writer.encode(text, BarcodeFormat.QR_CODE, size, size);
+			try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+				MatrixToImageWriter.writeToStream(matrix, "PNG", baos);
+				this.qrCode = baos.toByteArray();
+			}
+		} catch (Exception e) {
+			throw new RuntimeException("Unable to generate QR code", e);
+		}
 	}
 
 	public boolean validate() {
