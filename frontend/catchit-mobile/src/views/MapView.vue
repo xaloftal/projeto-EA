@@ -31,7 +31,7 @@
         <li v-for="stop in filteredStops" :key="stop.id" class="suggestion-item">
           <button type="button" class="suggestion-btn" @click="focusStop(stop.id)">
             <span>{{ stop.name }}</span>
-            <small>{{ stop.id }}</small>
+            <small>{{ stop.code }}</small>
           </button>
         </li>
       </ul>
@@ -55,7 +55,7 @@
 
       <template v-if="sheetMode === 'stop' && selectedStop">
         <p class="line-name">{{ selectedStop.stopType || 'STOP' }} stop information</p>
-        <p class="ids-line">Stop ID: {{ selectedStop.id }}</p>
+        <p class="ids-line">Stop ID: {{ selectedStop.code }}</p>
         <p class="next-stop">Next Stop: {{ nextStopName }}</p>
 
         <h3 class="route-title">Routes at this stop</h3>
@@ -64,7 +64,7 @@
           :key="route.routeId"
           class="route-item"
         >
-          <span>{{ route.lineLabel }} ({{ route.busId }})</span>
+          <span>{{ route.lineLabel }}</span>
           <span class="route-time">
             {{ route.nextTime }}
             <small class="route-eta">{{ route.etaLabel }}</small>
