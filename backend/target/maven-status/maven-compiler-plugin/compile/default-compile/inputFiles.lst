@@ -77,6 +77,7 @@
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Travel/api/vehicle/VehicleService.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/UserManagement/Observer.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/UserManagement/User.java
+/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/UserManagement/UserNotification.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/UserManagement/api/auth/AuthController.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/UserManagement/api/auth/AuthRequest.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/UserManagement/api/auth/AuthResponse.java

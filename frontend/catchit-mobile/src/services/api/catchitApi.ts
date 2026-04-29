@@ -6,6 +6,7 @@ import type {
   Ticket,
   TravelCard,
   Trip,
+  UserNotification,
   User,
   Vehicle,
 } from '../../models'
@@ -85,6 +86,15 @@ type BackendUser = {
   balance?: number
   card?: BackendCard | null
   tickets?: BackendTicket[]
+  notifications?: BackendNotification[]
+}
+
+type BackendNotification = {
+  id: string
+  stopId?: string
+  stopName?: string
+  message?: string
+  createdAt?: string
 }
 
 type BackendAuthResponse = {
@@ -241,12 +251,21 @@ const mapVehicle = (vehicle?: BackendTrip['vehicle']): Vehicle => ({
   notifyObservers: () => {},
 })
 
+const mapNotification = (notification: BackendNotification): UserNotification => ({
+  id: notification.id,
+  stopId: notification.stopId ?? '',
+  stopName: notification.stopName ?? '',
+  message: notification.message ?? '',
+  createdAt: notification.createdAt ?? new Date().toISOString(),
+})
+
 const mapUser = (user: BackendUser): User => ({
   id: user.id,
   name: user.name ?? '',
   email: user.email ?? '',
   balance: Number(user.balance ?? 0),
   tickets: (user.tickets ?? []).map((ticket) => mapTicket(ticket, user.id)),
+  notifications: (user.notifications ?? []).map(mapNotification),
 })
 
 const loadPaymentMethods = (): PaymentMethod[] => {
@@ -339,6 +358,18 @@ export class CatchItApiClient {
     const response = await requestJson<BackendUser>(`/api/users/${userId}`)
     if (!response.success || !response.data) return { success: false, error: response.error }
     return { success: true, data: mapUser(response.data) }
+  }
+
+  async getUserNotifications(userId: string): Promise<ApiResponse<UserNotification[]>> {
+    const response = await requestJson<BackendNotification[]>(`/api/users/${userId}/notifications`)
+    if (!response.success || !response.data) return { success: false, error: response.error }
+    return { success: true, data: response.data.map(mapNotification) }
+  }
+
+  async deleteUserNotification(userId: string, notificationId: string): Promise<ApiResponse<void>> {
+    return requestJson<void>(`/api/users/${userId}/notifications/${notificationId}`, {
+      method: 'DELETE',
+    })
   }
 
   async updateUserProfile(userId: string, updates: Partial<User>): Promise<ApiResponse<User>> {

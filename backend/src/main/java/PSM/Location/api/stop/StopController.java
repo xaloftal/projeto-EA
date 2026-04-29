@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import PSM.Location.Stop;
+import PSM.UserManagement.User;
 
 @RestController
 @RequestMapping("/api/stops")
@@ -46,5 +47,25 @@ public class StopController {
     @DeleteMapping("/{id}")
     public void delete(@PathVariable UUID id) {
         service.delete(id);
+    }
+
+    @GetMapping("/{id}/observers")
+    public List<User> getObservers(@PathVariable UUID id) {
+        return service.getObservers(id);
+    }
+
+    @PostMapping("/{stopId}/observers/{userId}")
+    public void addObserver(@PathVariable UUID stopId, @PathVariable UUID userId) {
+        service.addObserver(stopId, userId);
+    }
+
+    @DeleteMapping("/{stopId}/observers/{userId}")
+    public void removeObserver(@PathVariable UUID stopId, @PathVariable UUID userId) {
+        service.removeObserver(stopId, userId);
+    }
+
+    @PostMapping("/{id}/notify")
+    public int notifyObservers(@PathVariable UUID id) {
+        return service.notifyObservers(id);
     }
 }
