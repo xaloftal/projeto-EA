@@ -25,8 +25,7 @@ public class Route {
 
 	private String name;
 
-	@OneToMany(cascade=CascadeType.ALL)
-	@JoinColumn(name = "route_id")
+	@OneToMany(mappedBy = "route", cascade = CascadeType.ALL)
 	public List<StopSchedule> schedules = new ArrayList<StopSchedule>();
 
 

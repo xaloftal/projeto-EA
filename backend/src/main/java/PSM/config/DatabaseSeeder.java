@@ -16,6 +16,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,13 +37,15 @@ import PSM.Travel.VehicleType;
 @Component
 public class DatabaseSeeder implements CommandLineRunner {
 
+    private static final Logger logger = LoggerFactory.getLogger(DatabaseSeeder.class);
+
     private static final Path DATA_DIR = Path.of(
             System.getenv().getOrDefault("SCRIPT_MOCK_DATA_DIR",
                     "/../../../../../script_mock_data/data"));
     private static final Path ROUTES_CSV = DATA_DIR.resolve("routes.csv");
-    private static final Path ZONES_CSV = DATA_DIR.resolve("zones.csv");
     private static final Path STOPS_CSV = DATA_DIR.resolve("stops.csv");
     private static final Path STOP_SCHEDULES_CSV = DATA_DIR.resolve("schedule.csv");
+    private static final Path ZONES_CSV = DATA_DIR.resolve("zones.csv");
     private static final LocalDate SEED_BASE_DATE = LocalDate.of(2000, 1, 1);
     
     private static final int THREAD_POOL_SIZE = Runtime.getRuntime().availableProcessors();
@@ -125,9 +129,10 @@ public class DatabaseSeeder implements CommandLineRunner {
             }
 
             stopRepository.saveAll(stopsData.stopsToSave);
-
+            
             loadStopSchedules(routesData.routesByCode, stopsData.stopsByCode);
             routeRepository.saveAll(routesData.routesToSave);
+            logger.info("Database seeding completed successfully.");
         } finally {
             executor.shutdown();
         }
@@ -293,17 +298,19 @@ public class DatabaseSeeder implements CommandLineRunner {
             LocalDateTime arrivalTime = LocalDateTime.of(SEED_BASE_DATE, parseTime(row[1]));
             LocalDateTime departureTime = LocalDateTime.of(SEED_BASE_DATE, parseTime(row[2]));
             int sequence = Integer.parseInt(row[3].trim());
-            String stopCode = row[4].trim();
-            String routeCode = row[5].trim();
+            // row[4] and row[5] contain numeric stop_id and route_id from schedule.csv
+            // The maps (stopsByCode, routesByCode) contain both numeric ids and string codes as keys
+            String stopId = row[4].trim();
+            String routeId = row[5].trim();
 
-            Route route = routesByCode.get(routeCode);
+            Route route = routesByCode.get(routeId);
             if (route == null) {
-                throw new IllegalStateException("Unknown route_code in stop_schedules.csv: " + routeCode);
+                throw new IllegalStateException("Unknown route_id in schedule.csv: " + routeId);
             }
 
-            Stop stop = stopsByCode.get(stopCode);
+            Stop stop = stopsByCode.get(stopId);
             if (stop == null) {
-                throw new IllegalStateException("Unknown stop_code in stop_schedules.csv: " + stopCode);
+                throw new IllegalStateException("Unknown stop_id in schedule.csv: " + stopId);
             }
 
             StopSchedule schedule = new StopSchedule();
@@ -311,6 +318,7 @@ public class DatabaseSeeder implements CommandLineRunner {
             schedule.setDepartureTime(departureTime);
             schedule.setSequence(sequence);
             schedule.stop = stop;
+            schedule.route = route;
             route.schedules.add(schedule);
         }
     }

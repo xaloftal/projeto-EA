@@ -19,7 +19,9 @@ public class StopSchedule {
 	@ManyToOne
 	public Stop stop;
 
-
+	@ManyToOne
+	@JoinColumn(name = "route_id")
+	public Route route;
 
 	public UUID getId() {
 		return this.id;
@@ -51,5 +53,21 @@ public class StopSchedule {
 
 	public void setSequence(int _sequence) {
 		this.sequence = _sequence;
+	}
+
+	public Stop getStop() {
+		return this.stop;
+	}
+
+	public void setStop(Stop _stop) {
+		this.stop = _stop;
+	}
+
+	public Route getRoute() {
+		return this.route;
+	}
+
+	public void setRoute(Route _route) {
+		this.route = _route;
 	}
 }
