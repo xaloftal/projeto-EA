@@ -5,6 +5,8 @@ import java.util.List;
 import java.util.UUID;
 
 import com.fasterxml.jackson.annotation.JsonIdentityInfo;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.ObjectIdGenerators;
 
 import PSM.Location.Stop;
@@ -12,6 +14,7 @@ import jakarta.persistence.*;
 
 @Entity
 @JsonIdentityInfo(generator = ObjectIdGenerators.PropertyGenerator.class, property = "id")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 @Table(name = "zone")
 public class Zone {
 	@Id
@@ -23,6 +26,7 @@ public class Zone {
 	private String colorHexCode;
 
 	@OneToMany(mappedBy = "zone")
+	@JsonIgnore
 	private List<Stop> stops = new ArrayList<Stop>();
 
 

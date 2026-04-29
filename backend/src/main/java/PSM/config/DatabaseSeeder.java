@@ -335,6 +335,7 @@ public class DatabaseSeeder implements CommandLineRunner {
                     .map(this::stripBom)
                     .skip(1)
                     .map(this::splitCsvLine)
+                    .map(this::normalizeCsvRow)
                     .toList();
         } catch (IOException e) {
             throw new IllegalStateException("Unable to read CSV file: " + filePath, e);
@@ -361,5 +362,30 @@ public class DatabaseSeeder implements CommandLineRunner {
 
     private String[] splitCsvLine(String line) {
         return line.split(",", -1);
+    }
+
+    private String[] normalizeCsvRow(String[] row) {
+        String[] normalized = new String[row.length];
+        for (int i = 0; i < row.length; i++) {
+            normalized[i] = normalizeCsvValue(row[i]);
+        }
+        return normalized;
+    }
+
+    private String normalizeCsvValue(String value) {
+        if (value == null || value.isBlank()) {
+            return value;
+        }
+
+        if (!looksLikeMojibake(value)) {
+            return value;
+        }
+
+        byte[] latin1Bytes = value.getBytes(StandardCharsets.ISO_8859_1);
+        return new String(latin1Bytes, StandardCharsets.UTF_8);
+    }
+
+    private boolean looksLikeMojibake(String value) {
+        return value.contains("Ã") || value.contains("Â") || value.contains("�");
     }
 }
