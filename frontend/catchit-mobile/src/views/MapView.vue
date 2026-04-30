@@ -50,7 +50,18 @@
 
       <div v-if="sheetMode === 'stop' && selectedStop" class="sheet-header">
         <h2>{{ selectedStop.name }}</h2>
-        <span class="provider-badge">{{ selectedStop.stopType || 'STOP' }}</span>
+        <div class="sheet-header-actions">
+          <button
+            :disabled="isLoadingPOI"
+            class="poi-btn"
+            :class="{ 'is-added': isStopPOI }"
+            @click="toggleStopPOI"
+            :title="isStopPOI ? 'Remove from favorites' : 'Add to favorites'"
+          >
+            <Star :size="20" :fill="isStopPOI ? 'currentColor' : 'none'" />
+          </button>
+          <span class="provider-badge">{{ selectedStop.stopType || 'STOP' }}</span>
+        </div>
       </div>
 
       <template v-if="sheetMode === 'stop' && selectedStop">
@@ -103,10 +114,11 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
-import { House, Map as MapIcon, Search, ShoppingCart, User, Ticket } from 'lucide-vue-next'
+import { House, Map as MapIcon, Search, ShoppingCart, User, Ticket, Star } from 'lucide-vue-next'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { catchitApi } from '../services/api/catchitApi'
+import { useAuthViewModel } from '../viewmodels'
 
 type StopFeature = {
   id: string
@@ -186,6 +198,9 @@ const dragOffset = ref(0)
 const dragStartY = ref(0)
 const dragStartOffset = ref(0)
 const nowTick = ref(Date.now())
+const poiStops = ref<Set<string>>(new Set())
+const isLoadingPOI = ref(false)
+const { currentUser } = useAuthViewModel()
 
 let map: L.Map | null = null
 let stopMarkersLayer: L.LayerGroup | null = null
@@ -252,6 +267,10 @@ const filteredStops = computed(() => {
 
 const selectedStop = computed(() =>
   stops.value.find((stop) => stop.id === selectedStopId.value) ?? null
+)
+
+const isStopPOI = computed(() =>
+  selectedStop.value ? poiStops.value.has(selectedStop.value.id) : false
 )
 
 const stopRouteInfo = computed(() => {
@@ -616,6 +635,73 @@ const reloadMapData = async () => {
   await loadBackendStops()
 }
 
+const toggleStopPOI = async () => {
+  if (!selectedStop.value) {
+    console.warn('No stop selected')
+    return
+  }
+
+  if (!currentUser.value) {
+    console.warn('User not authenticated')
+    apiError.value = 'Please log in to add favorites'
+    return
+  }
+
+  if (isLoadingPOI.value) return
+
+  isLoadingPOI.value = true
+  try {
+    if (isStopPOI.value) {
+      // Remove from POI
+      const response = await catchitApi.removePOI(currentUser.value.id, selectedStop.value.id)
+      if (response.success) {
+        poiStops.value.delete(selectedStop.value.id)
+        console.log('Removed from POI:', selectedStop.value.name)
+      } else {
+        console.error('Error removing POI:', response.error)
+        apiError.value = response.error || 'Error removing favorite'
+      }
+    } else {
+      // Add to POI
+      const response = await catchitApi.addPOI(currentUser.value.id, selectedStop.value.id)
+      if (response.success) {
+        poiStops.value.add(selectedStop.value.id)
+        console.log('Added to POI:', selectedStop.value.name)
+      } else {
+        console.error('Error adding POI:', response.error)
+        apiError.value = response.error || 'Error adding favorite'
+      }
+    }
+  } catch (error) {
+    console.error('Error toggling POI:', error)
+    apiError.value = 'Error updating favorite'
+  } finally {
+    isLoadingPOI.value = false
+  }
+}
+
+const loadUserPOIs = async () => {
+  if (!currentUser.value) {
+    console.warn('User not authenticated, skipping POI load')
+    return
+  }
+
+  try {
+    const response = await catchitApi.getUserPOI(currentUser.value.id)
+    if (response.success && response.data) {
+      poiStops.value.clear()
+      response.data.forEach((stop) => {
+        poiStops.value.add(stop.id)
+      })
+      console.log('Loaded POIs:', poiStops.value.size)
+    } else {
+      console.warn('Error loading POIs:', response.error)
+    }
+  } catch (error) {
+    console.error('Error loading user POIs:', error)
+  }
+}
+
 watch(selectedStopId, () => {
   drawStopMarkers()
 })
@@ -654,6 +740,10 @@ onMounted(async () => {
 
   stopMarkersLayer = L.layerGroup().addTo(map)
   busMarkersLayer = L.layerGroup().addTo(map)
+  
+  // Load user POIs before loading stops
+  await loadUserPOIs()
+  
   await loadBackendStops()
   await nextTick()
   measureSheetHeight()
@@ -837,6 +927,39 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   gap: 0.8rem;
+}
+
+.sheet-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.poi-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: none;
+  background: transparent;
+  color: #9ca3af;
+  cursor: pointer;
+  transition: color 0.2s ease;
+  padding: 0;
+}
+
+.poi-btn:hover {
+  color: #fbbf24;
+}
+
+.poi-btn.is-added {
+  color: #fbbf24;
+}
+
+.poi-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .sheet-header h2 {
