@@ -1,6 +1,6 @@
 import { ref, computed } from 'vue'
 import { catchitApi } from '../services/api/catchitApi'
-import type { User, Ticket, Card, CardTier, TravelCard, PaymentMethod, Stop, Vehicle } from '../models'
+import type { User, Ticket, Card, CardTier, TravelCard, PaymentMethod, Stop, Vehicle, UserNotification } from '../models'
 
 export type RouteSearchResult = {
   routeId: string
@@ -574,5 +574,69 @@ export function useProfileViewModel() {
     error,
     updateProfile,
     currentUser,
+  }
+}
+
+/**
+ * ViewModel for Notifications
+ * Handles loading and refreshing notification items for the current user
+ */
+export function useNotificationViewModel() {
+  const notifications = ref<UserNotification[]>([])
+  const isLoading = ref(false)
+  const error = ref<string>('')
+  const deletingIds = ref<string[]>([])
+
+  const fetchNotifications = async () => {
+    if (!currentUser.value) {
+      notifications.value = []
+      return
+    }
+
+    isLoading.value = true
+    error.value = ''
+    try {
+      const response = await catchitApi.getUserNotifications(currentUser.value.id)
+      if (response.success && response.data) {
+        notifications.value = [...response.data].sort(
+          (left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
+        )
+      } else {
+        error.value = response.error || 'Unable to load notifications'
+      }
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  const deleteNotification = async (notificationId: string) => {
+    if (!currentUser.value || deletingIds.value.includes(notificationId)) {
+      return false
+    }
+
+    deletingIds.value = [...deletingIds.value, notificationId]
+    error.value = ''
+
+    try {
+      const response = await catchitApi.deleteUserNotification(currentUser.value.id, notificationId)
+      if (!response.success) {
+        error.value = response.error || 'Unable to delete notification'
+        return false
+      }
+
+      notifications.value = notifications.value.filter((notification) => notification.id !== notificationId)
+      return true
+    } finally {
+      deletingIds.value = deletingIds.value.filter((id) => id !== notificationId)
+    }
+  }
+
+  return {
+    notifications,
+    isLoading,
+    error,
+    deletingIds,
+    fetchNotifications,
+    deleteNotification,
   }
 }

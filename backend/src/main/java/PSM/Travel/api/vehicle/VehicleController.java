@@ -47,4 +47,9 @@ public class VehicleController {
     public void delete(@PathVariable UUID id) {
         service.delete(id);
     }
+
+    @PostMapping("/{id}/arrive/{stopId}")
+    public Vehicle arrive(@PathVariable UUID id, @PathVariable UUID stopId) {
+        return service.arrive(id, stopId);
+    }
 }

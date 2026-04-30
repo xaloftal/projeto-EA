@@ -12,6 +12,7 @@ import com.fasterxml.jackson.annotation.ObjectIdGenerators;
 
 import PSM.Travel.VehicleType;
 import PSM.UserManagement.Observer;
+import PSM.UserManagement.User;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -24,6 +25,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 
 @Entity
 @JsonIdentityInfo(generator = ObjectIdGenerators.PropertyGenerator.class, property = "id")
@@ -54,16 +56,48 @@ public class Stop implements Subject {
 	@JsonIgnore
 	public List<StopSchedule> schedules = new ArrayList<StopSchedule>();
 
+	@Transient
+	@JsonIgnore
+	private List<Observer> observers = new ArrayList<Observer>();
+
+	@Override
 	public void notifyObservers() {
-		throw new UnsupportedOperationException();
+		for (Observer observer : new ArrayList<Observer>(this.observers)) {
+			observer.notifyUser(this);
+		}
 	}
 
+	@Override
 	public void addObserver(Observer _obs) {
-		throw new UnsupportedOperationException();
+		if (_obs == null) {
+			return;
+		}
+
+		if (_obs instanceof User newUser) {
+			boolean alreadyRegistered = this.observers.stream().anyMatch(existingObserver -> existingObserver instanceof User existingUser && existingUser.getId() != null && existingUser.getId().equals(newUser.getId()));
+			if (!alreadyRegistered) {
+				this.observers.add(_obs);
+			}
+			return;
+		}
+
+		if (!this.observers.contains(_obs)) {
+			this.observers.add(_obs);
+		}
 	}
 
+	@Override
 	public void removeObserver(Observer _obs) {
-		throw new UnsupportedOperationException();
+		if (_obs == null) {
+			return;
+		}
+
+		if (_obs instanceof User user) {
+			this.observers.removeIf(existingObserver -> existingObserver instanceof User existingUser && existingUser.getId() != null && existingUser.getId().equals(user.getId()));
+			return;
+		}
+
+		this.observers.remove(_obs);
 	}
 
 	public UUID getId() {
@@ -116,6 +150,8 @@ public class Stop implements Subject {
 		this.location = _location;
 	}
 
+	public List<Observer> getObservers() {
+		return this.observers;
 	public Zone getZone() {
 		return this.zone;
 	}
