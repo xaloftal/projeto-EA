@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.UUID;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Entity;
@@ -17,6 +18,7 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 
 @Entity
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 @Table(name = "route")
 public class Route {
 	@Id
@@ -25,8 +27,7 @@ public class Route {
 
 	private String name;
 
-	@OneToMany(cascade=CascadeType.ALL)
-	@JoinColumn(name = "route_id")
+	@OneToMany(mappedBy = "route", cascade = CascadeType.ALL)
 	public List<StopSchedule> schedules = new ArrayList<StopSchedule>();
 
 
