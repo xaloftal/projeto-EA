@@ -46,13 +46,15 @@
                  <LoaderCircle class="spinner-icon" />
               </div>
               <template v-else>
-                <div v-if="currentCard" class="card-visual">
-                  <div class="card-logo">{{ currentCard.name }}</div>
-                  <div class="card-details">
-                    <p>{{ currentCard.description || 'Your active CatchIt plan' }}</p>
-                    <p class="date">Valid until {{ formatDate(currentCard.validUntil) }}</p>
-                  </div>
-                </div>
+                <ZoneCard
+                  v-if="currentCard"
+                  class="card-visual"
+                  :zone-name="currentCard.name"
+                  :zone-color="currentCard.zoneColorHexCode || '#111111'"
+                  :valid-until="formatDate(currentCard.validUntil)"
+                  :owner-name="currentUserName"
+                  owned
+                />
 
                 <div v-else class="card-visual card-visual-empty">
                   <div class="card-logo">My Card</div>
@@ -85,30 +87,31 @@
                 <router-link :to="{ path: '/cards', query: { tab: 'tickets' } }" class="btn-primary">Buy Tickets</router-link>
               </div>
 
-            <div v-else>
-              <div v-for="ticket in tickets" :key="ticket.id" class="ticket-item">
-                <div class="ticket-header">
-                  <h3>Ticket</h3>
-                  <span class="status-badge" :class="ticket.status.toLowerCase()">
-                    {{ formatStatus(ticket.status) }}
-                  </span>
-                </div>
-                <p class="expiry">Expires on {{ formatDate(ticket.validUntil) }}</p>
-                <div class="ticket-stops">
-                  <p><MapPin class="icon-sm" /> {{ getTicketFromStop(ticket) }}</p>
-                  <p><MapPin class="icon-sm" /> {{ getTicketToStop(ticket) }}</p>
-                </div>
-                <div class="qr-code">
-                  <img
-                    v-if="getQrCodeSrc(ticket.qrCode)"
-                    :src="getQrCodeSrc(ticket.qrCode)"
-                    alt="Ticket QR code"
-                    class="ticket-qr-image"
-                  />
-                  <span v-else class="qr-fallback">QR code unavailable</span>
+              <div v-else>
+                <div v-for="ticket in tickets" :key="ticket.id" class="ticket-item">
+                  <div class="ticket-header">
+                    <h3>Ticket</h3>
+                    <span class="status-badge" :class="ticket.status.toLowerCase()">
+                      {{ formatStatus(ticket.status) }}
+                    </span>
+                  </div>
+                  <p class="expiry">Expires on {{ formatDate(ticket.validUntil) }}</p>
+                  <div class="ticket-stops">
+                    <p><MapPin class="icon-sm" /> {{ getTicketFromStop(ticket) }}</p>
+                    <p><MapPin class="icon-sm" /> {{ getTicketToStop(ticket) }}</p>
+                  </div>
+                  <div class="qr-code">
+                    <img
+                      v-if="getQrCodeSrc(ticket.qrCode)"
+                      :src="getQrCodeSrc(ticket.qrCode)"
+                      alt="Ticket QR code"
+                      class="ticket-qr-image"
+                    />
+                    <span v-else class="qr-fallback">QR code unavailable</span>
+                  </div>
                 </div>
               </div>
-            </div>
+            </template>
           </div>
         </div>
       </div>
@@ -138,7 +141,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { Bell, House, MapPin, QrCode, Map, ShoppingCart, Ticket, User, LoaderCircle } from 'lucide-vue-next'
-import { useTicketViewModel, useCardViewModel } from '../viewmodels'
+import ZoneCard from '../components/ZoneCard.vue'
+import { useTicketViewModel, useCardViewModel, currentUser } from '../viewmodels'
 import type { Ticket as UserTicket } from '../models'
 
 const activeTab = ref<'cards' | 'tickets'>('cards')
@@ -152,6 +156,7 @@ const cardViewModel = useCardViewModel()
 const tickets = computed(() => ticketViewModel.tickets.value)
 const userCards = computed(() => cardViewModel.userCards.value)
 const currentCard = computed(() => userCards.value[0] ?? null)
+const currentUserName = computed(() => currentUser.value?.name ?? '')
 const isInitialLoad = ref(true)
 const isCardsLoading = computed(() => isInitialLoad.value || cardViewModel.isLoading.value)
 const isTicketsLoading = computed(() => isInitialLoad.value || ticketViewModel.isLoading.value)

@@ -64,7 +64,7 @@
           :key="route.routeId"
           class="route-item"
         >
-          <span>{{ route.lineLabel }} ({{ route.busId }})</span>
+          <span>{{ route.lineLabel }}</span>
           <span class="route-time">
             {{ route.nextTime }}
             <small class="route-eta">{{ route.etaLabel }}</small>
@@ -75,7 +75,7 @@
       <template v-else-if="sheetMode === 'bus' && selectedBus">
         <div class="sheet-header">
           <h2>Bus {{ selectedBus.lineLabel }}</h2>
-          <span class="provider-badge">TUB</span>
+          <span class="provider-badge">{{ selectedBus.lineLabel }}</span>
         </div>
 
         <p class="line-name">{{ selectedBus.lineLabel }} information</p>
@@ -356,6 +356,14 @@ const activeBuses = computed(() => {
 const selectedBus = computed(() =>
   activeBuses.value.find((bus) => bus.busId === selectedBusId.value) ?? null
 )
+
+const stopById = computed(() => {
+  const map = new Map<string, StopFeature>()
+  for (const stop of stops.value) {
+    map.set(stop.id, stop)
+  }
+  return map
+})
 
 const nextStopName = computed(() => {
   if (!selectedStop.value || stops.value.length < 2) return 'No next stop available'
@@ -679,21 +687,40 @@ const loadBackendStops = async () => {
     return
   }
 
-  stops.value = geoJson.features.map((feature) => {
-    const numericCode = feature.properties.name.match(/\d{1,4}/)?.[0] ?? feature.properties.id.replace('stop_', '')
-    return {
-      id: feature.properties.id,
-      name: feature.properties.name,
-      latitude: feature.geometry.coordinates[1],
-      longitude: feature.geometry.coordinates[0],
-      code: numericCode,
-    }
-  })
+  stops.value = stopsResponse.data
+    .filter((stop) => Number.isFinite(stop.latitude) && Number.isFinite(stop.longitude))
+    .map((stop) => {
+      const numericCode = stop.name.match(/\d{1,4}/)?.[0] ?? stop.id.replace(/-/g, '').slice(0, 4).toUpperCase()
+      return {
+        id: stop.id,
+        name: stop.name,
+        latitude: stop.latitude,
+        longitude: stop.longitude,
+        code: numericCode,
+        stopType: stop.stopType,
+      }
+    })
+
+  if (!routesResponse.success || !routesResponse.data) {
+    apiError.value = routesResponse.error || 'Unable to load routes from backend'
+    routeDefinitions.value = []
+  } else {
+    seedRouteDefinitions(routesResponse.data)
+  }
 
   selectedStopId.value = ''
   selectedBusId.value = ''
   drawStopMarkers()
   drawBusMarkers()
+
+  if (map && stops.value.length > 0) {
+    const bounds = L.latLngBounds(stops.value.map((stop) => [stop.latitude, stop.longitude] as [number, number]))
+    map.fitBounds(bounds, { padding: [24, 24], maxZoom: 15 })
+  }
+}
+
+const reloadMapData = async () => {
+  await loadBackendStops()
 }
 
 watch(selectedStopId, () => {
@@ -742,7 +769,7 @@ onMounted(async () => {
 
   stopMarkersLayer = L.layerGroup().addTo(map)
   busMarkersLayer = L.layerGroup().addTo(map)
-  await loadGeoJsonStops()
+  await loadBackendStops()
   await nextTick()
   measureSheetHeight()
   measureTopOverlayHeight()

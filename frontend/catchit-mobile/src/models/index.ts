@@ -147,6 +147,7 @@ export interface Card {
   validFrom: Date
   validUntil: Date
   tier?: CardTier
+  zoneColorHexCode?: string
 }
 
 export interface TravelCard extends Card {

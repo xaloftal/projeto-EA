@@ -45,7 +45,13 @@ type BackendCard = {
   price?: number | string
   validFrom?: string
   validUntil?: string
-  zone?: { id: string; name?: string } | null
+  zone?: { id: string; name?: string; colorHexCode?: string | null } | null
+}
+
+type BackendZone = {
+  id: string
+  name?: string
+  colorHexCode?: string | null
 }
 
 type BackendRouteSchedule = {
@@ -240,6 +246,27 @@ const mapCard = (card: BackendCard, userId = ''): Card & TravelCard => {
     tier,
     monthlyPrice: price,
     annualPrice: price,
+    zoneColorHexCode: card.zone?.colorHexCode ?? undefined,
+  }
+}
+
+const defaultZoneCardPrice = 20
+
+const mapZoneCard = (zone: BackendZone): Card & TravelCard => {
+  const displayName = zone.name?.trim() || `Zone ${zone.id.slice(0, 8)}`
+
+  return {
+    id: zone.id,
+    userID: '',
+    name: displayName,
+    price: defaultZoneCardPrice,
+    description: 'Zone',
+    validFrom: new Date(),
+    validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+    tier: 'monthly',
+    monthlyPrice: defaultZoneCardPrice,
+    annualPrice: defaultZoneCardPrice,
+    zoneColorHexCode: zone.colorHexCode ?? undefined,
   }
 }
 
@@ -495,15 +522,15 @@ export class CatchItApiClient {
   }
 
   async getAvailableCards(): Promise<ApiResponse<TravelCard[]>> {
-    const response = await requestJson<BackendCard[]>('/api/cards')
+    const response = await requestJson<BackendZone[]>('/api/zones')
     if (!response.success || !response.data) return { success: false, error: response.error }
     return {
       success: true,
-      data: response.data.map((card) => mapCard(card)),
+      data: response.data.map((zone) => mapZoneCard(zone)),
     }
   }
 
-  async purchaseCard(data: { userId: string; cardId: string; tier: CardTier }): Promise<ApiResponse<Card>> {
+  async purchaseCard(data: { userId: string; cardId: string }): Promise<ApiResponse<Card>> {
     const availableCards = await this.getAvailableCards()
     const selectedCard = availableCards.success && availableCards.data?.find((card) => card.id === data.cardId)
 
@@ -512,12 +539,16 @@ export class CatchItApiClient {
           price: selectedCard.price,
           validFrom: selectedCard.validFrom.toISOString(),
           validUntil: selectedCard.validUntil.toISOString(),
-          zone: null,
+          zone: {
+            id: selectedCard.id,
+            name: selectedCard.name,
+            colorHexCode: selectedCard.zoneColorHexCode ?? null,
+          },
         }
       : {
-          price: data.tier === 'weekly' ? 8 : data.tier === 'monthly' ? 20 : 200,
+          price: defaultZoneCardPrice,
           validFrom: new Date().toISOString(),
-          validUntil: new Date(Date.now() + (data.tier === 'weekly' ? 7 : data.tier === 'monthly' ? 30 : 365) * 24 * 60 * 60 * 1000).toISOString(),
+          validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
           zone: null,
         }
 
