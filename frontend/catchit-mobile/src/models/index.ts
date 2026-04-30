@@ -5,6 +5,15 @@ export interface User {
   email: string
   balance: number
   tickets: Ticket[]
+  notifications?: UserNotification[]
+}
+
+export interface UserNotification {
+  id: string
+  stopId: string
+  stopName: string
+  message: string
+  createdAt: string
 }
 
 // Ticket related types
@@ -68,6 +77,7 @@ export interface Stop {
   name: string
   latitude: number
   longitude: number
+  stopType?: string
   schedule?: StopSchedule[]
 }
 

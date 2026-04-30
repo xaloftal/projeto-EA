@@ -1,4 +1,14 @@
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/CatchItApplication.java
+/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Checkout/api/cart/CartController.java
+/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Checkout/api/cart/CartItemDTO.java
+/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Checkout/api/cart/CartItemSourceDTO.java
+/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Checkout/api/cart/CartResponseDTO.java
+/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Checkout/api/cart/CartService.java
+/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Checkout/api/checkout/CheckoutConfirmRequestDTO.java
+/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Checkout/api/checkout/CheckoutConfirmationDTO.java
+/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Checkout/api/checkout/CheckoutController.java
+/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Checkout/api/checkout/CheckoutOrderValidationDTO.java
+/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Checkout/api/checkout/CheckoutSessionResponseDTO.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/ExitManager/ButtonExit.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/ExitManager/ExitRecord.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/ExitManager/ExitStrategy.java
@@ -16,6 +26,7 @@
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Location/api/location/LocationService.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Location/api/route/RouteController.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Location/api/route/RouteRepository.java
+/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Location/api/route/RouteSearchResultDTO.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Location/api/route/RouteService.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Location/api/stop/StopController.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Location/api/stop/StopRepository.java
@@ -28,7 +39,12 @@
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Location/api/zone/ZoneService.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Services/CheckOut/CheckOutService.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Services/Payment/BalancePayment.java
+/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Services/Payment/PaymentAuthorizationRequestDTO.java
+/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Services/Payment/PaymentAuthorizationResponseDTO.java
+/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Services/Payment/PaymentServiceClient.java
+/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Services/Payment/PaymentServiceUnavailableException.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Services/Payment/PaymentStrategy.java
+/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Services/Payment/PaymentTransactionStatusDTO.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Ticketing/Card.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Ticketing/State/ActiveState.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Ticketing/State/Class.java
@@ -61,10 +77,12 @@
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Travel/api/vehicle/VehicleService.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/UserManagement/Observer.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/UserManagement/User.java
+/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/UserManagement/UserNotification.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/UserManagement/api/auth/AuthController.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/UserManagement/api/auth/AuthRequest.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/UserManagement/api/auth/AuthResponse.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/UserManagement/api/auth/AuthService.java
+/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/UserManagement/api/auth/AuthenticatedUserDTO.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/UserManagement/api/user/UserController.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/UserManagement/api/user/UserRepository.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/UserManagement/api/user/UserService.java
@@ -75,3 +93,8 @@
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/ValidationManager/api/validationrecord/ValidationRecordRepository.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/ValidationManager/api/validationrecord/ValidationRecordService.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/config/CorsConfig.java
+/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/config/DatabaseSeeder.java
+/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/config/JwtAuthenticationFilter.java
+/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/config/JwtUtil.java
+/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/config/RestExceptionHandler.java
+/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/config/SecurityConfig.java

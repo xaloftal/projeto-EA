@@ -1,5 +1,5 @@
 const viteEnv = (import.meta as ImportMeta & { env?: Record<string, string | undefined> }).env ?? {}
-const apiBaseUrl = viteEnv.VITE_API_BASE_URL ?? 'http://localhost:8080'
+const apiBaseUrl = (viteEnv.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
 
 export interface ApiResponse<T> {
   success: boolean
@@ -13,7 +13,8 @@ export const requestJson = async <T>(
 ): Promise<ApiResponse<T>> => {
   try {
     const authToken = localStorage.getItem('authToken')
-    const response = await fetch(`${apiBaseUrl}${path}`, {
+    const requestUrl = `${apiBaseUrl}${path}`
+    const response = await fetch(requestUrl, {
       ...init,
       credentials: 'include',
       headers: {

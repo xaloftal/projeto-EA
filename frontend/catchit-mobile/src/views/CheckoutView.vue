@@ -14,6 +14,10 @@
     </div>
 
     <div v-else class="checkout-content">
+      <div v-if="checkoutError" class="checkout-error" role="alert">
+        {{ checkoutError }}
+      </div>
+
       <section class="section">
         <h2>PAYMENT METHOD</h2>
         <p>Select how you want to pay</p>
@@ -80,7 +84,7 @@ import { useCheckoutViewModel } from '../viewmodels'
 
 const router = useRouter()
 const checkoutViewModel = useCheckoutViewModel()
-const { cartItems, subtotal, taxes, total, paymentMethods } = checkoutViewModel
+const { cartItems, subtotal, taxes, total, paymentMethods, fetchCart, error: checkoutError } = checkoutViewModel
 
 const selectedPaymentMethodId = ref('')
 const isProcessing = ref(false)
@@ -100,6 +104,7 @@ const labelPaymentMethod = (method: { type: string; cardLast4?: string }) => {
 }
 
 onMounted(async () => {
+  await fetchCart()
   await checkoutViewModel.fetchPaymentMethods()
   selectedPaymentMethodId.value = paymentMethods.value.find((method) => method.isDefault)?.id ?? paymentMethods.value[0]?.id ?? ''
 })
@@ -167,6 +172,15 @@ const confirmCheckout = async () => {
   padding: 1rem;
   display: grid;
   gap: 1rem;
+}
+
+.checkout-error {
+  background: #fff3f3;
+  border: 1px solid #f2b8b8;
+  color: #9b1c1c;
+  border-radius: var(--radius-md);
+  padding: 0.85rem 1rem;
+  font-weight: 600;
 }
 
 .section,

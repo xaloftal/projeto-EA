@@ -1,12 +1,20 @@
 package PSM.Location;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
+
+import com.fasterxml.jackson.annotation.JsonIdentityInfo;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.ObjectIdGenerators;
 
 import PSM.Location.Stop;
 import jakarta.persistence.*;
 
 @Entity
+@JsonIdentityInfo(generator = ObjectIdGenerators.PropertyGenerator.class, property = "id")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 @Table(name = "zone")
 public class Zone {
 	@Id
@@ -15,8 +23,11 @@ public class Zone {
 
 	private String name;
 
-	@ManyToMany
-	public ArrayList<Stop> stops = new ArrayList<Stop>();
+	private String colorHexCode;
+
+	@OneToMany(mappedBy = "zone")
+	@JsonIgnore
+	private List<Stop> stops = new ArrayList<Stop>();
 
 
 
@@ -36,11 +47,19 @@ public class Zone {
 		this.name = _name;
 	}
 
-	public ArrayList<Stop> getStops() {
+	public String getColorHexCode() {
+		return this.colorHexCode;
+	}
+
+	public void setColorHexCode(String _colorHexCode) {
+		this.colorHexCode = _colorHexCode;
+	}
+
+	public List<Stop> getStops() {
 		return this.stops;
 	}
 
-	public void setStops(ArrayList<Stop> _stops) {
+	public void setStops(List<Stop> _stops) {
 		this.stops = _stops;
 	}
 

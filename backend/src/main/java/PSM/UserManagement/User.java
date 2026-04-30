@@ -11,6 +11,7 @@ import PSM.Location.Subject;
 import PSM.Ticketing.Card;
 import PSM.Ticketing.Ticket;
 import PSM.Travel.Trip;
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -35,16 +36,21 @@ public class User implements Observer {
 	private float balance;
 
 	@ManyToMany
+	@JsonIgnore
 	private List<Trip> trips = new ArrayList<Trip>();
 
 	@OneToOne(optional = true)
 	private Card card;
 
-	@OneToMany
+	@OneToMany(mappedBy = "user")
 	private List<Ticket> tickets = new ArrayList<Ticket>();
 
 	@ManyToMany
+	@JsonIgnore
 	private List<Stop> poi = new ArrayList<Stop>();
+
+	@OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+	private List<UserNotification> notifications = new ArrayList<UserNotification>();
 
 
 
@@ -56,12 +62,24 @@ public class User implements Observer {
 		throw new UnsupportedOperationException();
 	}
 
+	@JsonIgnore
 	public List<Ticket> getActiveTickets() {
 		throw new UnsupportedOperationException();
 	}
 
+	@Override
 	public void notifyUser(Subject _stop) {
-		throw new UnsupportedOperationException();
+		if (!(_stop instanceof Stop stop)) {
+			return;
+		}
+
+		if (!this.hasPOI(stop)) {
+			return;
+		}
+
+		String message = "O autocarro chegou à paragem " + stop.getName();
+		UserNotification notification = new UserNotification(stop, message);
+		this.addNotification(notification);
 	}
 
 	public UUID getId() {
@@ -128,11 +146,60 @@ public class User implements Observer {
 		this.tickets = _tickets;
 	}
 
+	public void addTicket(Ticket ticket) {
+		if (ticket == null) {
+			return;
+		}
+		this.tickets.add(ticket);
+		ticket.setUser(this);
+	}
+
 	public List<Stop> getPOI() {
 		return this.poi;
 	}
 
 	public void setPOI(List<Stop> _poi) {
 		this.poi = _poi;
+	}
+
+	public List<UserNotification> getNotifications() {
+		return this.notifications;
+	}
+
+	public void setNotifications(List<UserNotification> _notifications) {
+		this.notifications = _notifications;
+	}
+
+	public void addPOI(Stop stop) {
+		if (stop == null || this.hasPOI(stop)) {
+			return;
+		}
+
+		this.poi.add(stop);
+	}
+
+	public void removePOI(Stop stop) {
+		if (stop == null) {
+			return;
+		}
+
+		this.poi.removeIf(existingStop -> existingStop != null && existingStop.getId() != null && existingStop.getId().equals(stop.getId()));
+	}
+
+	public boolean hasPOI(Stop stop) {
+		if (stop == null || stop.getId() == null) {
+			return false;
+		}
+
+		return this.poi.stream().anyMatch(existingStop -> existingStop != null && existingStop.getId() != null && existingStop.getId().equals(stop.getId()));
+	}
+
+	public void addNotification(UserNotification notification) {
+		if (notification == null) {
+			return;
+		}
+
+		this.notifications.add(notification);
+		notification.setUser(this);
 	}
 }

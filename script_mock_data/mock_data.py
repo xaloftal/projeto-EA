@@ -9,7 +9,7 @@ import time
 
 
 PICKLE_FILE = "BusRoutes (1).pickle"
-OUTPUT_DIR = "routes"
+OUTPUT_DIR = "./data/routes"
 MAP_FILE = "routes_map.html"
 
 

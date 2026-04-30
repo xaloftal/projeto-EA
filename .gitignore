@@ -2,7 +2,7 @@
 venv
 .env
 env
-data
+/script_mock_data/data/routes
 
 *vpp.lck
 *.vpp.bak*

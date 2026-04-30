@@ -23,5 +23,6 @@
         "**/.hg": true,
         "**/.DS_Store": true,
         "**/Thumbs.db": true
-    }
+    },
+    "java.compile.nullAnalysis.mode": "disabled"
 }

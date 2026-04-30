@@ -35,7 +35,11 @@ public class Vehicle {
 	}
 
 	public void arrived() {
-		throw new UnsupportedOperationException();
+		if (this.lastNotifiedStop == null) {
+			return;
+		}
+
+		this.lastNotifiedStop.notifyObservers();
 	}
 
 	public void getOccupancy() {
@@ -59,11 +63,14 @@ public class Vehicle {
 	}
 
 	public String getType() {
-		throw new UnsupportedOperationException();
+		return this.type != null ? this.type.toString() : null;
 	}
 
 	public void setType(String _type) {
-		throw new UnsupportedOperationException();
+		if (_type == null) {
+			return;
+		}
+		this.type = VehicleType.valueOf(_type);
 	}
 
 	public Location getLocation() {

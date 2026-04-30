@@ -6,6 +6,7 @@ import type {
   Ticket,
   TravelCard,
   Trip,
+  UserNotification,
   User,
   Vehicle,
 } from '../../models'
@@ -20,6 +21,7 @@ type BackendLocation = {
 type BackendStop = {
   id: string
   name: string
+  stopType?: string
   location?: BackendLocation | null
   latitude?: number
   longitude?: number
@@ -59,6 +61,16 @@ type BackendRoute = {
   schedules?: BackendRouteSchedule[]
 }
 
+type BackendRouteSearchResult = {
+  routeId: string
+  routeName?: string
+  fromStop?: BackendStop | null
+  toStop?: BackendStop | null
+  departureTime?: string
+  arrivalTime?: string
+  price?: number
+}
+
 type BackendTrip = {
   id: string
   startTime?: string
@@ -74,11 +86,20 @@ type BackendUser = {
   balance?: number
   card?: BackendCard | null
   tickets?: BackendTicket[]
+  notifications?: BackendNotification[]
+}
+
+type BackendNotification = {
+  id: string
+  stopId?: string
+  stopName?: string
+  message?: string
+  createdAt?: string
 }
 
 type BackendAuthResponse = {
   user: BackendUser
-  sessionId: string
+  token: string
 }
 
 type BackendCheckoutSession = {
@@ -94,6 +115,43 @@ type BackendCheckoutConfirmation = {
   items: string[]
 }
 
+type BackendCheckoutOrderValidation = {
+  orderId: string
+  paymentStatus: string
+  valid: boolean
+  message: string
+}
+
+type BackendCartItemSource = {
+  cardId?: string
+  tier?: CardTier
+  routeId?: string
+  fromStopId?: string
+  toStopId?: string
+  fromStop?: string
+  toStop?: string
+  departureTime?: string
+  arrivalTime?: string
+}
+
+type BackendCartItem = {
+  id: string
+  kind: 'card' | 'ticket'
+  title: string
+  description: string
+  quantity: number
+  unitPrice: number
+  totalPrice: number
+  source: BackendCartItemSource
+}
+
+type BackendCartResponse = {
+  items: BackendCartItem[]
+  subtotal: number
+  taxes: number
+  total: number
+}
+
 type RouteSearchResult = {
   routeId: string
   fromStop: Stop
@@ -106,6 +164,28 @@ type RouteSearchResult = {
 
 const storedPaymentMethodsKey = 'catchit.paymentMethods'
 
+const defaultPaymentMethods = (): PaymentMethod[] => [
+  {
+    id: 'balance-default',
+    type: 'digital_wallet',
+    isDefault: true,
+  },
+]
+
+const normalizePaymentMethods = (methods: PaymentMethod[]): PaymentMethod[] => {
+  const balanceMethods = methods.filter((method) => method.id.toLowerCase().startsWith('balance-'))
+  if (!balanceMethods.length) {
+    return defaultPaymentMethods()
+  }
+
+  return balanceMethods.map((method, index) => ({
+    ...method,
+    type: 'digital_wallet',
+    isDefault: index === 0,
+    cardLast4: undefined,
+  }))
+}
+
 const toDate = (value?: string) => (value ? new Date(value) : new Date())
 
 const mapStop = (stop: BackendStop): Stop => ({
@@ -113,6 +193,7 @@ const mapStop = (stop: BackendStop): Stop => ({
   name: stop.name,
   latitude: stop.location?.latitude ?? stop.latitude ?? 0,
   longitude: stop.location?.longitude ?? stop.longitude ?? 0,
+  stopType: stop.stopType,
 })
 
 const mapTicketStatus = (status?: string): TicketStatus => {
@@ -170,22 +251,46 @@ const mapVehicle = (vehicle?: BackendTrip['vehicle']): Vehicle => ({
   notifyObservers: () => {},
 })
 
+const mapNotification = (notification: BackendNotification): UserNotification => ({
+  id: notification.id,
+  stopId: notification.stopId ?? '',
+  stopName: notification.stopName ?? '',
+  message: notification.message ?? '',
+  createdAt: notification.createdAt ?? new Date().toISOString(),
+})
+
 const mapUser = (user: BackendUser): User => ({
   id: user.id,
   name: user.name ?? '',
   email: user.email ?? '',
   balance: Number(user.balance ?? 0),
   tickets: (user.tickets ?? []).map((ticket) => mapTicket(ticket, user.id)),
+  notifications: (user.notifications ?? []).map(mapNotification),
 })
 
 const loadPaymentMethods = (): PaymentMethod[] => {
   const stored = localStorage.getItem(storedPaymentMethodsKey)
-  if (!stored) return []
+  if (!stored) {
+    const seeded = defaultPaymentMethods()
+    savePaymentMethods(seeded)
+    return seeded
+  }
 
   try {
-    return JSON.parse(stored) as PaymentMethod[]
+    const parsed = JSON.parse(stored) as PaymentMethod[]
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      const seeded = defaultPaymentMethods()
+      savePaymentMethods(seeded)
+      return seeded
+    }
+
+    const normalized = normalizePaymentMethods(parsed)
+    savePaymentMethods(normalized)
+    return normalized
   } catch {
-    return []
+    const seeded = defaultPaymentMethods()
+    savePaymentMethods(seeded)
+    return seeded
   }
 }
 
@@ -212,7 +317,7 @@ export class CatchItApiClient {
       success: true,
       data: {
         user: mapUser(response.data.user),
-        token: response.data.sessionId,
+        token: response.data.token,
       },
     }
   }
@@ -234,7 +339,7 @@ export class CatchItApiClient {
       success: true,
       data: {
         user: mapUser(response.data.user),
-        token: response.data.sessionId,
+        token: response.data.token,
       },
     }
   }
@@ -253,6 +358,18 @@ export class CatchItApiClient {
     const response = await requestJson<BackendUser>(`/api/users/${userId}`)
     if (!response.success || !response.data) return { success: false, error: response.error }
     return { success: true, data: mapUser(response.data) }
+  }
+
+  async getUserNotifications(userId: string): Promise<ApiResponse<UserNotification[]>> {
+    const response = await requestJson<BackendNotification[]>(`/api/users/${userId}/notifications`)
+    if (!response.success || !response.data) return { success: false, error: response.error }
+    return { success: true, data: response.data.map(mapNotification) }
+  }
+
+  async deleteUserNotification(userId: string, notificationId: string): Promise<ApiResponse<void>> {
+    return requestJson<void>(`/api/users/${userId}/notifications/${notificationId}`, {
+      method: 'DELETE',
+    })
   }
 
   async updateUserProfile(userId: string, updates: Partial<User>): Promise<ApiResponse<User>> {
@@ -437,51 +554,38 @@ export class CatchItApiClient {
     return { success: true, data: response.data.map(mapStop) }
   }
 
+  async getRoutes(): Promise<ApiResponse<BackendRoute[]>> {
+    const response = await requestJson<BackendRoute[]>('/api/routes')
+    if (!response.success || !response.data) return { success: false, error: response.error }
+    return { success: true, data: response.data }
+  }
+
   async searchRoutes(data: {
     fromStopId: string
     toStopId: string
     departureDate: string
   }): Promise<ApiResponse<RouteSearchResult[]>> {
-    void data.departureDate
-
-    const routesResponse = await requestJson<BackendRoute[]>('/api/routes')
-    const stopsResponse = await this.getStops()
-
-    if (!routesResponse.success || !routesResponse.data || !stopsResponse.success || !stopsResponse.data) {
-      return {
-        success: false,
-        error: routesResponse.error || stopsResponse.error || 'Unable to search routes',
-      }
-    }
-
-    const routeResults = routesResponse.data.flatMap((route, index) => {
-      const schedules = [...(route.schedules ?? [])]
-        .filter((schedule): schedule is BackendRouteSchedule & { stop: BackendStop } => !!schedule.stop)
-        .sort((left, right) => (left.sequence ?? 0) - (right.sequence ?? 0))
-
-      if (schedules.length < 2) return []
-
-      const firstStop = schedules[0].stop
-      const lastStop = schedules[schedules.length - 1].stop
-
-      if (firstStop.id !== data.fromStopId || lastStop.id !== data.toStopId) {
-        return []
-      }
-
-      return [
-        {
-          routeId: route.id,
-          fromStop: mapStop(firstStop),
-          toStop: mapStop(lastStop),
-          departureTime: schedules[0].departureTime?.slice(11, 16) ?? '00:00',
-          arrivalTime: schedules[schedules.length - 1].arrivalTime?.slice(11, 16) ?? '00:00',
-          price: 19.98 + index,
-          vehicle: mapVehicle(),
-        },
-      ]
+    const searchParams = new URLSearchParams({
+      fromStopId: data.fromStopId,
+      toStopId: data.toStopId,
     })
 
-    return { success: true, data: routeResults }
+    const backendSearch = await requestJson<BackendRouteSearchResult[]>(`/api/routes/search?${searchParams.toString()}`)
+    if (!backendSearch.success || !backendSearch.data) {
+      return { success: false, error: backendSearch.error || 'Unable to search routes' }
+    }
+
+    const mappedResults = backendSearch.data.map((result) => ({
+      routeId: result.routeId,
+      fromStop: mapStop(result.fromStop ?? { id: data.fromStopId, name: 'Origin', latitude: 0, longitude: 0 }),
+      toStop: mapStop(result.toStop ?? { id: data.toStopId, name: 'Destination', latitude: 0, longitude: 0 }),
+      departureTime: result.departureTime ?? '00:00',
+      arrivalTime: result.arrivalTime ?? '00:00',
+      price: Number(result.price ?? 0),
+      vehicle: mapVehicle(),
+    }))
+
+    return { success: true, data: mappedResults }
   }
 
   async bookTravel(data: { userId: string; routeId: string; tripId: string }): Promise<ApiResponse<Trip>> {
@@ -519,42 +623,48 @@ export class CatchItApiClient {
     }
   }
 
-  async createCheckoutSession(data: {
-    userId: string
-    items: Array<{
-      type: 'ticket' | 'card'
-      itemId: string
-      quantity: number
-    }>
-  }): Promise<ApiResponse<BackendCheckoutSession>> {
-    void data.userId
-    const subtotal = data.items.reduce((sum, item) => sum + item.quantity * 19.98, 0)
-    const taxes = subtotal * 0.1
+  async getCart(): Promise<ApiResponse<BackendCartResponse>> {
+    return requestJson<BackendCartResponse>('/api/cart')
+  }
 
-    return {
-      success: true,
-      data: {
-        sessionId: `session_${Date.now()}`,
-        subtotal,
-        taxes,
-        total: subtotal + taxes,
-      },
-    }
+  async upsertCartItem(item: BackendCartItem): Promise<ApiResponse<BackendCartResponse>> {
+    return requestJson<BackendCartResponse>('/api/cart/items', {
+      method: 'POST',
+      body: JSON.stringify(item),
+    })
+  }
+
+  async removeCartItem(itemId: string): Promise<ApiResponse<BackendCartResponse>> {
+    return requestJson<BackendCartResponse>(`/api/cart/items/${itemId}`, {
+      method: 'DELETE',
+    })
+  }
+
+  async clearCart(): Promise<ApiResponse<BackendCartResponse>> {
+    return requestJson<BackendCartResponse>('/api/cart', {
+      method: 'DELETE',
+    })
+  }
+
+  async createCheckoutSession(): Promise<ApiResponse<BackendCheckoutSession>> {
+    return requestJson<BackendCheckoutSession>('/api/checkout/session', {
+      method: 'POST',
+      body: JSON.stringify({}),
+    })
   }
 
   async confirmCheckout(data: {
     sessionId: string
     paymentMethodId: string
   }): Promise<ApiResponse<BackendCheckoutConfirmation>> {
-    void data.paymentMethodId
-    return {
-      success: true,
-      data: {
-        orderId: `order_${Date.now()}`,
-        confirmationNumber: Math.random().toString(36).substring(2, 11).toUpperCase(),
-        items: [data.sessionId],
-      },
-    }
+    return requestJson<BackendCheckoutConfirmation>('/api/checkout/confirm', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async validateCheckoutOrder(orderId: string): Promise<ApiResponse<BackendCheckoutOrderValidation>> {
+    return requestJson<BackendCheckoutOrderValidation>(`/api/checkout/orders/${orderId}/validation`)
   }
 
   async getPaymentMethods(userId: string): Promise<ApiResponse<PaymentMethod[]>> {
@@ -565,15 +675,12 @@ export class CatchItApiClient {
   async addPaymentMethod(userId: string, data: Partial<PaymentMethod>): Promise<ApiResponse<PaymentMethod>> {
     void userId
     const paymentMethod: PaymentMethod = {
-      id: `payment_${Date.now()}`,
-      type: data.type || 'credit_card',
-      isDefault: data.isDefault ?? false,
-      cardLast4: data.cardLast4 || '0000',
+      id: `balance-${Date.now()}`,
+      type: 'digital_wallet',
+      isDefault: true,
     }
 
-    const currentMethods = loadPaymentMethods()
-    currentMethods.push(paymentMethod)
-    savePaymentMethods(currentMethods)
+    savePaymentMethods([paymentMethod])
 
     return { success: true, data: paymentMethod }
   }

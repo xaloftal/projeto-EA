@@ -3,22 +3,26 @@ package PSM.UserManagement.api.auth;
 import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import PSM.UserManagement.User;
 import PSM.UserManagement.api.user.UserRepository;
+import PSM.config.JwtUtil;
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpSession;
 
 @Service
 public class AuthService {
     private final UserRepository userRepository;
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+    private final JwtUtil jwtUtil;
 
-    public AuthService(UserRepository userRepository) {
+    public AuthService(UserRepository userRepository, JwtUtil jwtUtil) {
         this.userRepository = userRepository;
+        this.jwtUtil = jwtUtil;
     }
 
     public AuthResponse register(AuthRequest request, HttpServletRequest httpRequest) {
@@ -32,13 +36,12 @@ public class AuthService {
         user.setName(request.name());
         user.setEmail(request.email());
         user.setPasswordHash(passwordEncoder.encode(request.password()));
-        user.setBalance(0);
+        user.setBalance(30000);
 
         User savedUser = userRepository.save(user);
-        HttpSession session = httpRequest.getSession(true);
-        session.setAttribute("userId", savedUser.getId().toString());
+        String token = jwtUtil.generateToken(savedUser.getId(), savedUser.getEmail());
 
-        return new AuthResponse(new AuthenticatedUserDTO(savedUser), session.getId());
+        return new AuthResponse(new AuthenticatedUserDTO(savedUser), token);
     }
 
     public AuthResponse login(AuthRequest request, HttpServletRequest httpRequest) {
@@ -51,20 +54,19 @@ public class AuthService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
         }
 
-        HttpSession session = httpRequest.getSession(true);
-        session.setAttribute("userId", user.getId().toString());
+        String token = jwtUtil.generateToken(user.getId(), user.getEmail());
 
-        return new AuthResponse(new AuthenticatedUserDTO(user), session.getId());
+        return new AuthResponse(new AuthenticatedUserDTO(user), token);
     }
 
     public User currentUser(HttpServletRequest httpRequest) {
-        HttpSession session = httpRequest.getSession(false);
-        if (session == null) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || authentication.getPrincipal() == null) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated");
         }
 
-        Object userId = session.getAttribute("userId");
-        if (!(userId instanceof String userIdString)) {
+        Object principal = authentication.getPrincipal();
+        if (!(principal instanceof String userIdString)) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated");
         }
 
@@ -74,10 +76,12 @@ public class AuthService {
     }
 
     public void logout(HttpServletRequest httpRequest) {
-        HttpSession session = httpRequest.getSession(false);
-        if (session != null) {
-            session.invalidate();
+        String token = jwtUtil.extractTokenFromRequest(httpRequest);
+        if (token != null && !token.isBlank()) {
+            jwtUtil.revokeToken(token);
         }
+
+        SecurityContextHolder.clearContext();
     }
 
     private void validateCredentials(String name, String email, String password) {

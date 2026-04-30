@@ -2,11 +2,11 @@ package PSM.Ticketing;
 
 import PSM.Location.Zone;
 import jakarta.persistence.Entity;
+import jakarta.persistence.DiscriminatorValue;
 import jakarta.persistence.OneToOne;
-import jakarta.persistence.Table;
 
 @Entity
-@Table(name = "card")
+@DiscriminatorValue("card")
 public class Card extends Title {
 	@OneToOne
 	public Zone zone;
