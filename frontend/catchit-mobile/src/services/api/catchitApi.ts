@@ -739,6 +739,24 @@ export class CatchItApiClient {
     if (!response.success || !response.data) return { success: false, error: response.error }
     return { success: true, data: mapTicket(response.data) }
   }
+
+  async addPOI(userId: string, stopId: string): Promise<ApiResponse<void>> {
+    return requestJson<void>(`/api/stops/${stopId}/observers/${userId}`, {
+      method: 'POST',
+    })
+  }
+
+  async removePOI(userId: string, stopId: string): Promise<ApiResponse<void>> {
+    return requestJson<void>(`/api/stops/${stopId}/observers/${userId}`, {
+      method: 'DELETE',
+    })
+  }
+
+  async getUserPOI(userId: string): Promise<ApiResponse<Stop[]>> {
+    const response = await requestJson<BackendStop[]>(`/api/users/${userId}/poi`)
+    if (!response.success || !response.data) return { success: false, error: response.error }
+    return { success: true, data: response.data.map(mapStop) }
+  }
 }
 
 export const catchitApi = new CatchItApiClient()

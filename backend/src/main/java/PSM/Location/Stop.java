@@ -152,9 +152,7 @@ public class Stop implements Subject {
 
 	public List<Observer> getObservers() {
 		return this.observers;
-
 	}
-
 	public Zone getZone() {
 		return this.zone;
 	}
