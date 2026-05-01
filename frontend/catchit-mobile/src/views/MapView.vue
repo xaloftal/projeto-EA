@@ -174,6 +174,7 @@ const bottomSheetRef = ref<HTMLElement | null>(null)
 const stopQuery = ref('')
 const showSuggestions = ref(false)
 const stops = ref<StopFeature[]>([])
+const rawGeoJson = ref<any>(null)
 const apiError = ref('')
 const selectedStopId = ref<string>('')
 const selectedBusId = ref<string>('')
@@ -487,27 +488,29 @@ const busMarkerIcon = (lineLabel: string, isActive: boolean) =>
     iconAnchor: [33, 14],
   })
 
+// Replace manual loops with this in drawStopMarkers
 const drawStopMarkers = () => {
-  if (!map || !stopMarkersLayer) return
+  if (!map || !stopMarkersLayer || !rawGeoJson.value) return;
 
-  stopMarkersLayer.clearLayers()
-  stopMarkers.clear()
+  stopMarkersLayer.clearLayers();
 
-  for (const stop of stops.value) {
-    const isActive = stop.id === selectedStopId.value
-    const marker = L.marker([stop.latitude, stop.longitude], {
-      icon: stopMarkerIcon(stop.code, isActive),
-    })
-      .on('click', async () => {
-        sheetMode.value = 'stop'
-        selectedStopId.value = stop.id
-        selectedBusId.value = ''
-        await openSheetWithAnimation()
-      })
-      .addTo(stopMarkersLayer)
-    stopMarkers.set(stop.id, marker)
-  }
-}
+  // Use the optimized L.geoJSON method[cite: 5]
+  L.geoJSON(rawGeoJson.value, {
+    pointToLayer: (feature, latlng) => {
+      const isActive = feature.properties.id === selectedStopId.value;
+      return L.marker(latlng, {
+        icon: stopMarkerIcon(feature.properties.code, isActive)
+      });
+    },
+    onEachFeature: (feature, layer) => {
+      layer.on('click', async () => {
+        sheetMode.value = 'stop';
+        selectedStopId.value = feature.properties.id;
+        await openSheetWithAnimation();
+      });
+    }
+  }).addTo(stopMarkersLayer);
+};
 
 const drawBusMarkers = () => {
   if (!map || !busMarkersLayer) return
@@ -563,51 +566,40 @@ const onSearchInput = () => {
 
 const loadBackendStops = async () => {
   apiError.value = ''
-
-  const [stopsResponse, routesResponse] = await Promise.all([
-    catchitApi.getStops(),
+  
+  // Start both requests, but prioritize the GeoJSON from Redis[cite: 2, 3]
+  const [geoJsonResponse, routesResponse] = await Promise.all([
+    catchitApi.getStopsGeoJson(),
     catchitApi.getRoutes(),
   ])
 
-  if (!stopsResponse.success || !stopsResponse.data) {
-    apiError.value = stopsResponse.error || 'Unable to load stops from backend'
-    stops.value = []
-    routeDefinitions.value = []
-    selectedStopId.value = ''
-    selectedBusId.value = ''
-    drawStopMarkers()
-    drawBusMarkers()
+  if (!geoJsonResponse.success || !geoJsonResponse.data) {
+    apiError.value = geoJsonResponse.error || 'Failed to load stops'
     return
   }
 
-  stops.value = stopsResponse.data
-    .filter((stop) => Number.isFinite(stop.latitude) && Number.isFinite(stop.longitude))
-    .map((stop) => {
-      const numericCode = stop.name.match(/\d{1,4}/)?.[0] ?? stop.id.replace(/-/g, '').slice(0, 4).toUpperCase()
-      return {
-        id: stop.id,
-        name: stop.name,
-        latitude: stop.latitude,
-        longitude: stop.longitude,
-        code: numericCode,
-        stopType: stop.stopType,
-      }
-    })
+  rawGeoJson.value = geoJsonResponse.data
 
-  if (!routesResponse.success || !routesResponse.data) {
-    apiError.value = routesResponse.error || 'Unable to load routes from backend'
-    routeDefinitions.value = []
-  } else {
+  // Rapidly map GeoJSON features to internal state[cite: 1]
+  stops.value = geoJsonResponse.data.features.map((f: any) => ({
+    id: f.properties.id,
+    name: f.properties.name,
+    latitude: f.properties.latitude,
+    longitude: f.properties.longitude,
+    code: f.properties.code,
+    stopType: f.properties.stopType,
+  }))
+
+  if (routesResponse.success && routesResponse.data) {
     seedRouteDefinitions(routesResponse.data)
   }
 
-  selectedStopId.value = ''
-  selectedBusId.value = ''
   drawStopMarkers()
   drawBusMarkers()
 
+  // Zoom to content if needed, but the map is already visible[cite: 1]
   if (map && stops.value.length > 0) {
-    const bounds = L.latLngBounds(stops.value.map((stop) => [stop.latitude, stop.longitude] as [number, number]))
+    const bounds = L.latLngBounds(stops.value.map(s => [s.latitude, s.longitude]))
     map.fitBounds(bounds, { padding: [24, 24], maxZoom: 15 })
   }
 }
@@ -642,28 +634,34 @@ onMounted(async () => {
   await nextTick()
   if (!mapContainer.value) return
 
-  measureTopOverlayHeight()
+  // PORTUGAL NORTH BOUNDS[cite: 1]
+  const portugalNorthBounds = L.latLngBounds([40.5, -9.0], [42.0, -7.5])
 
+  // INITIALIZE IMMEDIATELY with view to start tile loading[cite: 1]
   map = L.map(mapContainer.value, {
     zoomControl: false,
-  }).setView([41.4057, -8.5332], 13)
+    minZoom: 10,
+    maxZoom: 18,
+    maxBounds: portugalNorthBounds,
+    maxBoundsViscosity: 1.0,
+  }).setView([41.1629, -8.6291], 13)
+
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; OpenStreetMap contributors',
   }).addTo(map)
+
   L.control.zoom({ position: 'bottomleft' }).addTo(map)
 
   stopMarkersLayer = L.layerGroup().addTo(map)
   busMarkersLayer = L.layerGroup().addTo(map)
-  await loadBackendStops()
-  await nextTick()
-  measureSheetHeight()
+
+  // Fetch data in background while map is already interactive[cite: 1]
+  loadBackendStops()
+
   measureTopOverlayHeight()
+  measureSheetHeight()
   window.addEventListener('resize', measureSheetHeight)
   window.addEventListener('resize', measureTopOverlayHeight)
-
-  tickIntervalId = window.setInterval(() => {
-    nowTick.value = Date.now()
-  }, 30000)
 })
 
 onUnmounted(() => {

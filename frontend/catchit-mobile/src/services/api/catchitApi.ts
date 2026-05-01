@@ -27,6 +27,43 @@ type BackendStop = {
   longitude?: number
 }
 
+// GeoJSON Types
+type GeoJSONPoint = {
+  type: 'Point'
+  coordinates: [number, number] // [longitude, latitude]
+}
+
+type GeoJSONFeatureProperties = {
+  id: string
+  name: string
+  code: string
+  stopType: string
+  latitude: number
+  longitude: number
+}
+
+type GeoJSONFeature = {
+  type: 'Feature'
+  geometry: GeoJSONPoint
+  properties: GeoJSONFeatureProperties
+}
+
+export type GeoJSONFeatureCollection = {
+  type: 'FeatureCollection'
+  features: Array<{
+    type: 'Feature'
+    geometry: { type: 'Point'; coordinates: [number, number] }
+    properties: {
+      id: string
+      name: string
+      code: string
+      stopType: string
+      latitude: number
+      longitude: number
+    }
+  }>
+}
+
 type BackendTicket = {
   id: string
   userID?: string
@@ -552,6 +589,14 @@ export class CatchItApiClient {
     const response = await requestJson<BackendStop[]>('/api/stops')
     if (!response.success || !response.data) return { success: false, error: response.error }
     return { success: true, data: response.data.map(mapStop) }
+  }
+
+  /**
+   * Fetches stops as a GeoJSON FeatureCollection.
+   * This is the optimized endpoint for map rendering, reducing frontend processing.
+   */   
+  async getStopsGeoJson(): Promise<ApiResponse<GeoJSONFeatureCollection>> {
+    return requestJson<GeoJSONFeatureCollection>('/api/stops/geojson')
   }
 
   async getRoutes(): Promise<ApiResponse<BackendRoute[]>> {
