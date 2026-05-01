@@ -64,6 +64,9 @@ export type GeoJSONFeatureCollection = {
   }>
 }
 
+let cachedStopsGeoJson: GeoJSONFeatureCollection | null = null
+let cachedStopsGeoJsonPromise: Promise<ApiResponse<GeoJSONFeatureCollection>> | null = null
+
 type BackendTicket = {
   id: string
   userID?: string
@@ -595,8 +598,36 @@ export class CatchItApiClient {
    * Fetches stops as a GeoJSON FeatureCollection.
    * This is the optimized endpoint for map rendering, reducing frontend processing.
    */   
-  async getStopsGeoJson(): Promise<ApiResponse<GeoJSONFeatureCollection>> {
-    return requestJson<GeoJSONFeatureCollection>('/api/stops/geojson')
+  async getStopsGeoJson(forceRefresh = false): Promise<ApiResponse<GeoJSONFeatureCollection>> {
+    if (!forceRefresh && cachedStopsGeoJson) {
+      return { success: true, data: cachedStopsGeoJson }
+    }
+
+    if (!forceRefresh && cachedStopsGeoJsonPromise) {
+      return cachedStopsGeoJsonPromise
+    }
+
+    const request = requestJson<GeoJSONFeatureCollection>('/api/stops/geojson').then((response) => {
+      if (response.success && response.data) {
+        cachedStopsGeoJson = response.data
+      }
+
+      return response
+    })
+
+    if (!forceRefresh) {
+      cachedStopsGeoJsonPromise = request.finally(() => {
+        cachedStopsGeoJsonPromise = null
+      })
+      return cachedStopsGeoJsonPromise
+    }
+
+    return request
+  }
+
+  clearStopsGeoJsonCache() {
+    cachedStopsGeoJson = null
+    cachedStopsGeoJsonPromise = null
   }
 
   async getRoutes(): Promise<ApiResponse<BackendRoute[]>> {
