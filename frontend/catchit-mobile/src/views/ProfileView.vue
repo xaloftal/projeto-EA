@@ -28,6 +28,30 @@
           <span>Support</span>
           <span class="chevron"><ChevronRight class="icon-sm" /></span>
         </a>
+        <a href="#" class="menu-item" @click.prevent="togglePOIMenu">
+          <span class="menu-icon"><Star class="icon-md" /></span>
+          <span>Favorite Stops</span>
+          <span class="chevron" :style="{ transform: showPOIMenu ? 'rotate(90deg)' : 'rotate(0deg)' }"><ChevronRight class="icon-sm" /></span>
+        </a>
+        <div v-if="showPOIMenu" class="poi-submenu">
+          <div v-if="poiList.length === 0" class="no-poi">
+            <p>No favorite stops yet. Add stops from the map!</p>
+          </div>
+          <div v-for="stop in poiList" :key="stop.id" class="poi-item">
+            <div class="poi-info">
+              <p class="poi-name">{{ stop.name }}</p>
+              <small class="poi-type">{{ stop.stopType || 'STOP' }}</small>
+            </div>
+            <button
+              class="poi-remove-btn"
+              @click.prevent="removeStopFromPOI(stop.id)"
+              :disabled="isLoadingRemove"
+              title="Remove from favorites"
+            >
+              <X :size="18" />
+            </button>
+          </div>
+        </div>
         <a href="#" class="menu-item">
           <span class="menu-icon"><Bus class="icon-md" /></span>
           <span>Travel History</span>
@@ -53,23 +77,80 @@
 </template>
 
 <script setup lang="ts">
-import { ArrowLeft, Bus, ChevronRight, CircleHelp, House, LogOut, Pencil, Map, Settings, ShoppingCart, User, Ticket } from 'lucide-vue-next'
+import { ref, onMounted } from 'vue'
+import { ArrowLeft, Bus, ChevronRight, CircleHelp, House, LogOut, Pencil, Map, Settings, ShoppingCart, User, Ticket, Star, X } from 'lucide-vue-next'
 import { useRouter } from 'vue-router'
 import { useAuthViewModel, useProfileViewModel } from '../viewmodels'
+import { catchitApi } from '../services/api/catchitApi'
+import type { Stop } from '../models'
 
 const router = useRouter()
 const { logout } = useAuthViewModel()
 const profileViewModel = useProfileViewModel()
+const showPOIMenu = ref(false)
+const poiList = ref<Stop[]>([])
+const isLoadingRemove = ref(false)
+
+const togglePOIMenu = async () => {
+  showPOIMenu.value = !showPOIMenu.value
+  if (showPOIMenu.value && poiList.value.length === 0) {
+    await loadPOIs()
+  }
+}
+
+const loadPOIs = async () => {
+  if (!profileViewModel.currentUser?.value?.id) {
+    console.warn('User not available, skipping POI load')
+    return
+  }
+
+  try {
+    const response = await catchitApi.getUserPOI(profileViewModel.currentUser.value.id)
+    if (response.success && response.data) {
+      poiList.value = response.data
+      console.log('Loaded', poiList.value.length, 'POIs')
+    } else {
+      console.warn('Error loading POIs:', response.error)
+      poiList.value = []
+    }
+  } catch (error) {
+    console.error('Error loading user POIs:', error)
+    poiList.value = []
+  }
+}
+
+const removeStopFromPOI = async (stopId: string) => {
+  if (!profileViewModel.currentUser?.value?.id) return
+  if (isLoadingRemove.value) return
+
+  isLoadingRemove.value = true
+  try {
+    const response = await catchitApi.removePOI(profileViewModel.currentUser.value.id, stopId)
+    if (response.success) {
+      poiList.value = poiList.value.filter((stop) => stop.id !== stopId)
+      console.log('Removed POI:', stopId)
+    } else {
+      console.error('Error removing POI:', response.error)
+    }
+  } catch (error) {
+    console.error('Error removing POI:', error)
+  } finally {
+    isLoadingRemove.value = false
+  }
+}
 
 const handleLogout = async () => {
   await logout()
   void router.push('/login')
 }
+
+onMounted(async () => {
+  // Load POIs when profile is mounted
+  await loadPOIs()
+})
 </script>
 
 <style scoped>
-
-
 .profile-content {
   flex: 1;
   overflow-y: auto;
@@ -152,14 +233,82 @@ const handleLogout = async () => {
 }
 
 .chevron {
-
   width: 1.25rem;
   height: 1.25rem;
+  transition: transform 0.2s ease;
 }
 
+.poi-submenu {
+  background: #f9fafb;
+  padding: 0;
+  border-bottom: 1px solid #e0e0e0;
+}
 
-  .bottom-nav {
-    margin-top: auto;
+.no-poi {
+  padding: 1rem;
+  text-align: center;
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+.poi-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #e5e7eb;
+  background: white;
+  gap: 0.5rem;
+}
+
+.poi-item:last-child {
+  border-bottom: none;
+}
+
+.poi-info {
+  flex: 1;
+}
+
+.poi-name {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #111827;
+  font-weight: 500;
+}
+
+.poi-type {
+  margin: 0.2rem 0 0 0;
+  display: block;
+  color: #6b7280;
+  font-size: 0.8rem;
+}
+
+.poi-remove-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: none;
+  background: transparent;
+  color: #dc2626;
+  cursor: pointer;
+  transition: color 0.2s ease;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.poi-remove-btn:hover {
+  color: #b91c1c;
+}
+
+.poi-remove-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.bottom-nav {
+  margin-top: auto;
 }
 
 .nav-item:hover {
