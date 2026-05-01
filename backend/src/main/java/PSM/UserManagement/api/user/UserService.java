@@ -9,6 +9,7 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import PSM.Location.Stop;
 import PSM.UserManagement.User;
 import PSM.UserManagement.UserNotification;
 import PSM.UserManagement.notification.NotificationCacheService;
@@ -74,6 +75,13 @@ public class UserService {
         findById(id);
         return repository.save(entity);
     }
+
+	@Transactional(readOnly = true)
+	public List<Stop> getUserPOI(UUID userId) {
+		User user = repository.findById(userId)
+			.orElseThrow(() -> new RuntimeException("User not found"));
+		return user.getPOI();
+	}
 
 	@Transactional
     public void delete(UUID id) {
