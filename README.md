@@ -207,3 +207,39 @@ No frontend mobile, define `VITE_API_BASE_URL` para:
 - Android Emulator: `http://10.0.2.2:8080`
 - Dispositivo físico: `http://<ip-da-tua-maquina>:8080`
 
+## Mapa e GeoJSON
+
+Para acelerar o carregamento do mapa, o projeto passou a usar GeoJSON no backend e um cache em Redis para servir os stops de forma rápida.
+
+### GeoJSON generator
+
+O serviço [GeoJsonGeneratorService](backend/src/main/java/PSM/Location/api/stop/GeoJsonGeneratorService.java) é o ponto central da geração do mapa. Ele:
+- lê os `Stop` da base de dados,
+- converte cada stop para uma `Feature` GeoJSON,
+- monta uma `FeatureCollection`,
+- guarda o resultado em Redis com TTL,
+- e volta a gerar o ficheiro em caso de cache miss.
+
+A cache é inicializada quando a aplicação termina o arranque, depois do seed automático do backend. Se não houver dados seedados, o serviço continua a funcionar e gera o GeoJSON normalmente quando for necessário.
+
+### Integração com Redis
+
+O Redis passou a ser a store principal para o GeoJSON dos stops:
+- chave: `catchit:geojson:stops`
+- tipo: `RedisTemplate<String, Object>`
+- expiração: 24 horas
+
+O backend já traz o serviço Redis no `docker compose`, por isso não é preciso configurar nada extra para esta cache funcionar.
+
+### Mudanças no MapView
+
+O frontend foi otimizado para renderizar o mapa mais depressa e reutilizar o que já foi carregado:
+- o mapa abre logo centrado no Porto,
+- o zoom inicial deixa de mostrar todos os stops ao mesmo tempo,
+- os stops GeoJSON são carregados em memória no frontend para evitar pedidos repetidos,
+- o mapa usa `L.geoJSON(...)` para desenhar os stops de forma mais eficiente,
+- a rota do mapa ficou em `keep-alive`, para o ecrã não ser destruído quando mudas de página e voltas,
+- o carregamento das rotas foi separado do carregamento dos stops, para o mapa aparecer primeiro e o resto vir depois.
+
+Em conjunto, estas alterações reduzem o tempo de espera e fazem o mapa ficar pronto mais cedo quando entras na página.
+
