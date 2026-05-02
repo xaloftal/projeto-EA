@@ -1,6 +1,7 @@
 package PSM.Location.api.stop;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -19,14 +20,56 @@ import PSM.UserManagement.User;
 @RequestMapping("/api/stops")
 public class StopController {
     private final StopService service;
+    private final GeoJsonGeneratorService geoJsonGeneratorService;
 
-    public StopController(StopService service) {
+    public StopController(StopService service, GeoJsonGeneratorService geoJsonGeneratorService) {
         this.service = service;
+        this.geoJsonGeneratorService = geoJsonGeneratorService;
     }
 
     @GetMapping
     public List<Stop> getAll() {
         return service.findAll();
+    }
+
+    /**
+     * Returns all stops as a GeoJSON FeatureCollection (Redis-cached).
+     * This endpoint optimizes frontend performance by serving pre-cached GeoJSON from Redis.
+     * The cache is generated on application startup and can be refreshed via /geojson/refresh.
+     * GeoJSON format is ideal for map rendering with Leaflet and reduces mobile resource usage.
+     *
+     * @return Cached GeoJSON FeatureCollection containing all stops with location data
+     */
+    @GetMapping("/geojson")
+    public Map<String, Object> getStopsAsGeoJson() {
+        return geoJsonGeneratorService.getStopsGeoJson();
+    }
+
+    /**
+     * Refreshes the GeoJSON cache in Redis.
+     * Useful when stops are updated and you want immediate map updates.
+     * This endpoint triggers a full regeneration of the cache from database.
+     *
+     * @return Updated GeoJSON FeatureCollection and cache info
+     */
+    @PostMapping("/geojson/refresh")
+    public Map<String, Object> refreshGeoJsonCache() {
+        geoJsonGeneratorService.refreshCache();
+        Map<String, Object> status = geoJsonGeneratorService.getCacheStatus();
+        status.put("success", true);
+        status.put("message", "GeoJSON cache refreshed in Redis");
+        return status;
+    }
+
+    /**
+     * Gets cache status information.
+     * Useful for debugging and monitoring Redis cache health.
+     *
+     * @return Cache status details
+     */
+    @GetMapping("/geojson/status")
+    public Map<String, Object> getGeoJsonCacheStatus() {
+        return geoJsonGeneratorService.getCacheStatus();
     }
 
     @GetMapping("/{id}")

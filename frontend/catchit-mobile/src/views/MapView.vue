@@ -112,12 +112,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
-import { House, Map as MapIcon, Search, ShoppingCart, Ticket, User, Star } from 'lucide-vue-next'
+import { computed, nextTick, onActivated, onMounted, onUnmounted, ref, watch } from 'vue'
+import { House, Map as MapIcon, Search, ShoppingCart, User, Ticket, Star } from 'lucide-vue-next'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { catchitApi } from '../services/api/catchitApi'
 import { useAuthViewModel } from '../viewmodels'
+
+defineOptions({ name: 'MapView' })
 
 type StopFeature = {
   id: string
@@ -185,6 +187,7 @@ const bottomSheetRef = ref<HTMLElement | null>(null)
 const stopQuery = ref('')
 const showSuggestions = ref(false)
 const stops = ref<StopFeature[]>([])
+const rawGeoJson = ref<any>(null)
 const apiError = ref('')
 const selectedStopId = ref<string>('')
 const selectedBusId = ref<string>('')
@@ -211,6 +214,8 @@ let selectedBusDashOffset = 0
 let tickIntervalId: number | null = null
 const stopMarkers = new Map<string, L.Marker>()
 const busMarkers = new Map<string, L.Marker>()
+const portoCenter: [number, number] = [41.1579, -8.6291]
+const portugalNorthBounds = L.latLngBounds([40.5, -9.0], [42.0, -7.5])
 
 const routeDefinitions = ref<RouteDefinition[]>([])
 
@@ -612,26 +617,28 @@ const updateSelectedBusArrow = () => {
 }
 
 const drawStopMarkers = () => {
-  if (!map || !stopMarkersLayer) return
+  if (!map || !stopMarkersLayer || !rawGeoJson.value) return
 
-  stopMarkersLayer.clearLayers()
+  stopMarkersLayer.clearLayers();
   stopMarkers.clear()
 
-  for (const stop of stops.value) {
-    const isActive = stop.id === selectedStopId.value
-    const marker = L.marker([stop.latitude, stop.longitude], {
-      icon: stopMarkerIcon(stop.code, isActive),
-    })
-      .on('click', async () => {
+  L.geoJSON(rawGeoJson.value, {
+    pointToLayer: (feature, latlng) => {
+      const isActive = feature.properties.id === selectedStopId.value
+      return L.marker(latlng, {
+        icon: stopMarkerIcon(feature.properties.code, isActive)
+      });
+    },
+    onEachFeature: (feature, layer) => {
+      layer.on('click', async () => {
         sheetMode.value = 'stop'
-        selectedStopId.value = stop.id
+        selectedStopId.value = feature.properties.id
         selectedBusId.value = ''
         await openSheetWithAnimation()
-      })
-      .addTo(stopMarkersLayer)
-    stopMarkers.set(stop.id, marker)
-  }
-}
+      });
+    }
+  }).addTo(stopMarkersLayer);
+};
 
 const drawBusMarkers = () => {
   if (!map || !busMarkersLayer) return
@@ -690,52 +697,44 @@ const onSearchInput = () => {
 const loadBackendStops = async () => {
   apiError.value = ''
 
-  const [stopsResponse, routesResponse] = await Promise.all([
-    catchitApi.getStops(),
-    catchitApi.getRoutes(),
-  ])
+  const geoJsonResponse = await catchitApi.getStopsGeoJson()
 
-  if (!stopsResponse.success || !stopsResponse.data) {
-    apiError.value = stopsResponse.error || 'Unable to load stops from backend'
-    stops.value = []
-    routeDefinitions.value = []
-    selectedStopId.value = ''
-    selectedBusId.value = ''
-    drawStopMarkers()
-    drawBusMarkers()
+  if (!geoJsonResponse.success || !geoJsonResponse.data) {
+    apiError.value = geoJsonResponse.error || 'Failed to load stops'
     return
   }
 
-  stops.value = stopsResponse.data
-    .filter((stop) => Number.isFinite(stop.latitude) && Number.isFinite(stop.longitude))
-    .map((stop) => {
-      const numericCode = stop.name.match(/\d{1,4}/)?.[0] ?? stop.id.replace(/-/g, '').slice(0, 4).toUpperCase()
-      return {
-        id: stop.id,
-        name: stop.name,
-        latitude: stop.latitude,
-        longitude: stop.longitude,
-        code: numericCode,
-        stopType: stop.stopType,
-      }
-    })
+  rawGeoJson.value = geoJsonResponse.data
 
-  if (!routesResponse.success || !routesResponse.data) {
-    apiError.value = routesResponse.error || 'Unable to load routes from backend'
-    routeDefinitions.value = []
-  } else {
-    seedRouteDefinitions(routesResponse.data)
-  }
+  stops.value = geoJsonResponse.data.features.map((f: any) => ({
+    id: f.properties.id,
+    name: f.properties.name,
+    latitude: f.properties.latitude,
+    longitude: f.properties.longitude,
+    code: f.properties.code,
+    stopType: f.properties.stopType,
+  }))
 
   selectedStopId.value = ''
   selectedBusId.value = ''
   drawStopMarkers()
   drawBusMarkers()
 
-  if (map && stops.value.length > 0) {
-    const bounds = L.latLngBounds(stops.value.map((stop) => [stop.latitude, stop.longitude] as [number, number]))
-    map.fitBounds(bounds, { padding: [24, 24], maxZoom: 15 })
+  void loadRouteData()
+}
+
+const loadRouteData = async () => {
+  const routesResponse = await catchitApi.getRoutes()
+
+  if (!routesResponse.success || !routesResponse.data) {
+    console.warn(routesResponse.error || 'Unable to load routes from backend')
+    routeDefinitions.value = []
+    drawBusMarkers()
+    return
   }
+
+  seedRouteDefinitions(routesResponse.data)
+  drawBusMarkers()
 }
 
 const reloadMapData = async () => {
@@ -841,11 +840,13 @@ onMounted(async () => {
   await nextTick()
   if (!mapContainer.value) return
 
-  measureTopOverlayHeight()
-
   map = L.map(mapContainer.value, {
     zoomControl: false,
-  }).setView([41.4057, -8.5332], 13)
+    minZoom: 10,
+    maxZoom: 18,
+    maxBounds: portugalNorthBounds,
+    maxBoundsViscosity: 1.0,
+  }).setView(portoCenter, 13)
 
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; OpenStreetMap contributors',
@@ -859,17 +860,19 @@ onMounted(async () => {
   // Load user POIs before loading stops
   await loadUserPOIs()
   
-  await loadBackendStops()
-  await nextTick()
-  measureSheetHeight()
-  measureTopOverlayHeight()
 
+  void loadBackendStops()
+
+  measureTopOverlayHeight()
+  measureSheetHeight()
   window.addEventListener('resize', measureSheetHeight)
   window.addEventListener('resize', measureTopOverlayHeight)
+})
 
-  tickIntervalId = window.setInterval(() => {
-    nowTick.value = Date.now()
-  }, 30000)
+
+
+(() => {
+  map?.invalidateSize()
 })
 
 onUnmounted(() => {
