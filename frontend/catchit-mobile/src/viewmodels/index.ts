@@ -247,14 +247,13 @@ export function useCardViewModel() {
     }
   }
 
-  const purchaseCard = async (cardId: string, tier: CardTier) => {
+  const purchaseCard = async (cardId: string) => {
     if (!currentUser.value) return false
     isLoading.value = true
     try {
       const response = await catchitApi.purchaseCard({
         userId: currentUser.value.id,
         cardId,
-        tier,
       })
       if (response.success && response.data) {
         userCards.value.push(response.data)

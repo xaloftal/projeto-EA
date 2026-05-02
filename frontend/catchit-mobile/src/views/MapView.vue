@@ -35,7 +35,6 @@
           </button>
         </li>
       </ul>
-
     </header>
 
     <section
@@ -44,9 +43,10 @@
       class="bottom-sheet"
       :class="{ 'is-dragging': isDragging }"
       :style="bottomSheetStyle"
-      @pointerdown="onSheetPointerDown"
     >
-      <div class="drag-handle"></div>
+      <div class="drag-area" @pointerdown="onSheetPointerDown">
+        <div class="drag-handle"></div>
+      </div>
 
       <div v-if="sheetMode === 'stop' && selectedStop" class="sheet-header">
         <h2>{{ selectedStop.name }}</h2>
@@ -99,7 +99,6 @@
           <span>{{ selectedBus.etaLabel }}</span>
         </div>
       </template>
-
     </section>
 
     <nav class="bottom-nav">
@@ -114,7 +113,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
-import { House, Map as MapIcon, Search, ShoppingCart, User, Ticket, Star } from 'lucide-vue-next'
+import { House, Map as MapIcon, Search, ShoppingCart, Ticket, User, Star } from 'lucide-vue-next'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { catchitApi } from '../services/api/catchitApi'
@@ -205,6 +204,10 @@ const { currentUser } = useAuthViewModel()
 let map: L.Map | null = null
 let stopMarkersLayer: L.LayerGroup | null = null
 let busMarkersLayer: L.LayerGroup | null = null
+let selectedBusArrowLayer: L.LayerGroup | null = null
+let selectedBusDashLine: L.Polyline | null = null
+let selectedBusDashAnimationId: number | null = null
+let selectedBusDashOffset = 0
 let tickIntervalId: number | null = null
 const stopMarkers = new Map<string, L.Marker>()
 const busMarkers = new Map<string, L.Marker>()
@@ -373,6 +376,14 @@ const selectedBus = computed(() =>
   activeBuses.value.find((bus) => bus.busId === selectedBusId.value) ?? null
 )
 
+const stopById = computed(() => {
+  const map = new Map<string, StopFeature>()
+  for (const stop of stops.value) {
+    map.set(stop.id, stop)
+  }
+  return map
+})
+
 const nextStopName = computed(() => {
   if (!selectedStop.value || stops.value.length < 2) return 'No next stop available'
   const selectedIndex = stops.value.findIndex((stop) => stop.id === selectedStop.value?.id)
@@ -506,6 +517,100 @@ const busMarkerIcon = (lineLabel: string, isActive: boolean) =>
     iconAnchor: [33, 14],
   })
 
+const getBrandColor = () => {
+  const fallbackColor = '#4f46e5'
+  if (typeof window === 'undefined') return fallbackColor
+
+  const cssBrandColor = getComputedStyle(document.documentElement)
+    .getPropertyValue('--color-brand')
+    .trim()
+
+  return cssBrandColor || fallbackColor
+}
+
+const stopSelectedBusArrowAnimation = () => {
+  if (selectedBusDashAnimationId !== null) {
+    cancelAnimationFrame(selectedBusDashAnimationId)
+    selectedBusDashAnimationId = null
+  }
+  selectedBusDashLine = null
+}
+
+const animateSelectedBusArrow = () => {
+  if (!selectedBusDashLine || !selectedBusId.value) {
+    stopSelectedBusArrowAnimation()
+    return
+  }
+
+  selectedBusDashOffset = (selectedBusDashOffset + 0.30) % 100
+  selectedBusDashLine.setStyle({ dashOffset: `${-selectedBusDashOffset}` })
+  selectedBusDashAnimationId = requestAnimationFrame(animateSelectedBusArrow)
+}
+
+const startSelectedBusArrowAnimation = () => {
+  if (!selectedBusDashLine) return
+  if (selectedBusDashAnimationId !== null) return
+
+  selectedBusDashOffset = 0
+  selectedBusDashAnimationId = requestAnimationFrame(animateSelectedBusArrow)
+}
+
+const updateSelectedBusArrow = () => {
+  if (!selectedBusArrowLayer) return
+
+  selectedBusArrowLayer.clearLayers()
+  selectedBusDashLine = null
+
+  if (!selectedBusId.value || !selectedBus.value) {
+    stopSelectedBusArrowAnimation()
+    return
+  }
+
+  const destinationStop = stopById.value.get(selectedBus.value.nextStopId)
+  if (!destinationStop) {
+    stopSelectedBusArrowAnimation()
+    return
+  }
+
+  const busPoint = L.latLng(selectedBus.value.latitude, selectedBus.value.longitude)
+  const stopPoint = L.latLng(destinationStop.latitude, destinationStop.longitude)
+  const brandColor = getBrandColor()
+
+  const glowLine = L.polyline([busPoint, stopPoint], {
+    color: brandColor,
+    weight: 10,
+    opacity: 0.2,
+    lineCap: 'round',
+    interactive: false,
+  })
+
+  const mainLine = L.polyline([busPoint, stopPoint], {
+    color: brandColor,
+    weight: 4,
+    opacity: 0.98,
+    dashArray: '10 9',
+    dashOffset: '0',
+    lineCap: 'round',
+    interactive: false,
+  })
+
+  const destinationRing = L.circleMarker(stopPoint, {
+    radius: 8,
+    color: brandColor,
+    weight: 2,
+    fillColor: '#ffffff',
+    fillOpacity: 1,
+    interactive: false,
+  })
+
+  selectedBusArrowLayer.addLayer(glowLine)
+  selectedBusArrowLayer.addLayer(mainLine)
+  selectedBusArrowLayer.addLayer(destinationRing)
+
+  selectedBusDashLine = mainLine
+  startSelectedBusArrowAnimation()
+}
+
 const drawStopMarkers = () => {
   if (!map || !stopMarkersLayer) return
 
@@ -549,6 +654,8 @@ const drawBusMarkers = () => {
       .addTo(busMarkersLayer)
     busMarkers.set(bus.busId, marker)
   }
+
+  updateSelectedBusArrow()
 }
 
 const focusStop = async (stopId: string) => {
@@ -704,14 +811,20 @@ const loadUserPOIs = async () => {
 
 watch(selectedStopId, () => {
   drawStopMarkers()
+  updateSelectedBusArrow()
 })
 
-watch(activeBuses, () => {
-  drawBusMarkers()
-}, { deep: true })
+watch(
+  activeBuses,
+  () => {
+    drawBusMarkers()
+  },
+  { deep: true }
+)
 
 watch(selectedBusId, () => {
   drawBusMarkers()
+  updateSelectedBusArrow()
 })
 
 watch(selectedStop, async () => {
@@ -733,9 +846,11 @@ onMounted(async () => {
   map = L.map(mapContainer.value, {
     zoomControl: false,
   }).setView([41.4057, -8.5332], 13)
+
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; OpenStreetMap contributors',
   }).addTo(map)
+
   L.control.zoom({ position: 'bottomleft' }).addTo(map)
 
   stopMarkersLayer = L.layerGroup().addTo(map)
@@ -748,6 +863,7 @@ onMounted(async () => {
   await nextTick()
   measureSheetHeight()
   measureTopOverlayHeight()
+
   window.addEventListener('resize', measureSheetHeight)
   window.addEventListener('resize', measureTopOverlayHeight)
 
@@ -758,20 +874,23 @@ onMounted(async () => {
 
 onUnmounted(() => {
   stopDragging()
+  stopSelectedBusArrowAnimation()
   window.removeEventListener('resize', measureSheetHeight)
   window.removeEventListener('resize', measureTopOverlayHeight)
+
   if (tickIntervalId) {
     window.clearInterval(tickIntervalId)
     tickIntervalId = null
   }
+
   map?.remove()
   map = null
   stopMarkersLayer = null
   busMarkersLayer = null
+  selectedBusArrowLayer = null
   stopMarkers.clear()
   busMarkers.clear()
 })
-
 </script>
 
 <style scoped>
@@ -907,11 +1026,19 @@ onUnmounted(() => {
   box-shadow: 0 -8px 18px rgba(15, 23, 42, 0.12);
   z-index: 650;
   transition: transform 0.22s ease;
-  touch-action: none;
+  max-height: 50vh;
+  overflow-y: auto;
 }
 
 .bottom-sheet.is-dragging {
   transition: none;
+}
+
+.drag-area {
+  padding: 0.5rem 0;
+  margin-top: -0.5rem;
+  touch-action: none;
+  cursor: grab;
 }
 
 .drag-handle {
@@ -919,7 +1046,7 @@ onUnmounted(() => {
   height: 4px;
   border-radius: 999px;
   background: #d1d5db;
-  margin: 0.2rem auto 0.8rem;
+  margin: 0 auto;
 }
 
 .sheet-header {
@@ -964,9 +1091,10 @@ onUnmounted(() => {
 
 .sheet-header h2 {
   margin: 0;
-  font-size: 1.95rem;
+  font-size: 1.4rem;
   font-weight: 700;
   color: #111827;
+  line-height: 1.1;
 }
 
 .provider-badge {
