@@ -1,5 +1,10 @@
 {
   "appId": "org.capacitor.quasar.app",
   "appName": "CatchIt",
-  "webDir": "www"
+  "webDir": "www",
+  "server": {
+    "url": "http://localhost:9000",
+    "cleartext": true
+  }
 }
+

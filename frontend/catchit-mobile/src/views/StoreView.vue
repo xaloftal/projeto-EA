@@ -35,32 +35,41 @@
       <div class="swipe-track" :class="{ 'is-dragging': isDragging }" :style="swipeTrackStyle">
         <div class="swipe-pane cards-pane">
           <div class="cards-list">
-            <article
-              v-for="card in sortedPlans"
-              :key="card.id"
-              class="card-option"
-              :class="cardClass(card.tier)"
-            >
-              <div class="card-content">
-                <div class="card-head">
-                  <p class="card-tier">{{ card.name }}</p>
-                  <p class="price">€{{ card.price.toFixed(2) }}</p>
-                </div>
+            <div v-if="cardViewModel.isLoading.value" class="zones-loading">
+              <LoaderCircle class="spinner-icon" />
+            </div>
 
-                <p>{{ card.description }}</p>
-
-                <p v-if="currentTier === card.tier" class="status status-owned">Current plan</p>
-                <p v-else-if="canUpgrade(card.tier)" class="status status-upgrade">Upgrade available</p>
-                <p v-else-if="!currentTier" class="status status-buy">Available to buy</p>
-                <p v-else class="status status-hidden">Not available from your current tier</p>
-
-                <button v-if="actionLabel(card.tier)" class="price-btn" @click="addCardToCart(card)">
-                  Add to cart
-                </button>
+            <template v-else>
+              <div class="zone-search">
+                <Search class="zone-search__icon" />
+                <input
+                  v-model="zoneSearch"
+                  type="text"
+                  class="zone-search__input"
+                  placeholder="Search zone cards"
+                />
               </div>
-            </article>
+
+              <p v-if="filteredZoneCards.length === 0" class="zone-search__empty">
+                No zones match your search.
+              </p>
+
+              <ZoneCard
+                v-for="zone in filteredZoneCards"
+                :key="zone.id"
+                :zone-name="zone.name"
+                :zone-color="zone.zoneColorHexCode || '#111111'"
+                :valid-until="''"
+              >
+                <template #actions>
+                  <button class="price-btn" @click="purchaseZone(zone)">
+                    Buy card
+                  </button>
+                </template>
+              </ZoneCard>
+            </template>
+            </div>
           </div>
-        </div>
 
         <div class="swipe-pane tickets-pane">
           <div class="tickets-section">
@@ -178,11 +187,12 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { ArrowLeft, House, Map, MapPin, ShoppingCart, Ticket, User } from 'lucide-vue-next'
+import { ArrowLeft, House, LoaderCircle, Map, MapPin, Search, ShoppingCart, Ticket, User } from 'lucide-vue-next'
 import { useRoute } from 'vue-router'
 import { useCardViewModel, useCheckoutViewModel, useTravelViewModel } from '../viewmodels'
 import { catchitApi } from '../services/api/catchitApi'
-import type { CardTier, Stop, Vehicle } from '../models'
+import ZoneCard from '../components/ZoneCard.vue'
+import type { Stop, Vehicle } from '../models'
 
 type RouteResult = {
   routeId: string
@@ -213,40 +223,17 @@ const fromStopId = ref('')
 const toStopId = ref('')
 const departureDate = ref(new Date().toISOString().split('T')[0])
 const ticketMessage = ref('')
+const zoneSearch = ref('')
 
-const tierOrder: CardTier[] = ['weekly', 'monthly', 'yearly']
-
-const sortedPlans = computed(() =>
-  [...cardViewModel.availableCards.value].sort(
-    (left, right) => tierOrder.indexOf(left.tier ?? 'weekly') - tierOrder.indexOf(right.tier ?? 'weekly')
-  )
+const zoneCards = computed(() =>
+  [...cardViewModel.availableCards.value].sort((left, right) => left.name.localeCompare(right.name))
 )
 
-const currentTier = computed<CardTier | null>(() => {
-  const ownedTiers = cardViewModel.userCards.value
-    .map((card) => card.tier)
-    .filter((tier): tier is CardTier => !!tier)
-  return ownedTiers.sort((left, right) => tierOrder.indexOf(right) - tierOrder.indexOf(left))[0] ?? null
-})
+const filteredZoneCards = computed(() => {
+  const query = zoneSearch.value.trim().toLowerCase()
+  if (!query) return zoneCards.value
 
-const tierIndex = (tier: CardTier) => tierOrder.indexOf(tier)
-
-const canUpgrade = (tier?: CardTier) => {
-  if (!tier || !currentTier.value) return false
-  return tierIndex(tier) > tierIndex(currentTier.value)
-}
-
-const actionLabel = (tier?: CardTier) => {
-  if (!tier) return ''
-  if (!currentTier.value) return 'Buy'
-  if (tier === currentTier.value) return 'Renew'
-  if (canUpgrade(tier)) return 'Upgrade'
-  return ''
-}
-
-const cardClass = (tier?: CardTier) => ({
-  'card-option-owned': tier && tier === currentTier.value,
-  'card-option-disabled': !!tier && !!currentTier.value && tierIndex(tier) < tierIndex(currentTier.value),
+  return zoneCards.value.filter((zone) => zone.name.toLowerCase().includes(query))
 })
 
 const canSearchTickets = computed(() =>
@@ -419,9 +406,9 @@ const searchTickets = async () => {
   }
 }
 
-const addCardToCart = (card: { id: string; name: string; price: number; description?: string; tier?: CardTier }) => {
-  void checkoutViewModel.addCardToCart(card as any)
-  ticketMessage.value = ''
+const purchaseZone = async (zone: { id: string; name: string }) => {
+  const purchased = await cardViewModel.purchaseCard(zone.id)
+  ticketMessage.value = purchased ? `${zone.name} card purchased.` : 'Unable to purchase card.'
 }
 
 const addTicketToCart = (result: RouteResult) => {
@@ -442,7 +429,6 @@ onMounted(async () => {
   updateViewportWidth()
   window.addEventListener('resize', updateViewportWidth)
 
-  await cardViewModel.fetchUserCards()
   await cardViewModel.fetchAvailableCards()
 
   const stopsResponse = await catchitApi.getStops()
@@ -525,6 +511,46 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+}
+
+.zone-search {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.8rem 0.9rem;
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.05);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.zone-search__icon {
+  width: 1rem;
+  height: 1rem;
+  color: #64748b;
+  flex-shrink: 0;
+}
+
+.zone-search__input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  font-size: 0.96rem;
+  color: #111827;
+}
+
+.zone-search__input:focus {
+  outline: none;
+}
+
+.zone-search__input::placeholder {
+  color: #94a3b8;
+}
+
+.zone-search__empty {
+  margin: 0;
+  padding: 0.25rem 0.1rem;
+  color: #64748b;
+  font-size: 0.9rem;
 }
 
 .card-option {
