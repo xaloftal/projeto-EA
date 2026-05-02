@@ -506,21 +506,7 @@ const openSheetWithAnimation = async () => {
   })
 }
 
-const stopMarkerIcon = (code: string, isActive: boolean) =>
-  L.divIcon({
-    className: '',
-    html: `<span class="stop-sign${isActive ? ' is-active' : ''}"><span class="stop-sign-top">${code}</span><span class="stop-sign-pole"></span></span>`,
-    iconSize: [34, 52],
-    iconAnchor: [17, 44],
-  })
 
-const busMarkerIcon = (lineLabel: string, isActive: boolean) =>
-  L.divIcon({
-    className: '',
-    html: `<span class="bus-pill${isActive ? ' is-active' : ''}">BUS ${lineLabel}</span>`,
-    iconSize: [66, 28],
-    iconAnchor: [33, 14],
-  })
 
 const getBrandColor = () => {
   const fallbackColor = '#4f46e5'
@@ -531,6 +517,20 @@ const getBrandColor = () => {
     .trim()
 
   return cssBrandColor || fallbackColor
+}
+
+const getTransportTypeColor = (stopType?: string) => {
+  const type = stopType?.toUpperCase()
+  switch (type) {
+    case 'BUS':
+      return { color: '#0ea5e9', fillColor: '#0ea5e9', label: 'Bus' } // Azul
+    case 'TRAIN':
+      return { color: '#f97316', fillColor: '#f97316', label: 'Train' } // Laranja
+    case 'METRO':
+      return { color: '#ec4899', fillColor: '#ec4899', label: 'Metro' } // Rosa
+    default:
+      return { color: '#64748b', fillColor: '#64748b', label: 'Stop' } // Cinzento
+  }
 }
 
 const stopSelectedBusArrowAnimation = () => {
@@ -625,8 +625,17 @@ const drawStopMarkers = () => {
   L.geoJSON(rawGeoJson.value, {
     pointToLayer: (feature, latlng) => {
       const isActive = feature.properties.id === selectedStopId.value
-      return L.marker(latlng, {
-        icon: stopMarkerIcon(feature.properties.code, isActive)
+      const typeColors = getTransportTypeColor(feature.properties.stopType)
+      const radius = isActive ? 6 : 4
+      const color = isActive ? '#111827' : typeColors.color
+      const fillColor = isActive ? '#111827' : typeColors.fillColor
+      
+      return L.circleMarker(latlng, {
+        radius: radius,
+        color: color,
+        weight: 1.5,
+        fillColor: fillColor,
+        fillOpacity: 0.8,
       });
     },
     onEachFeature: (feature, layer) => {
@@ -648,8 +657,16 @@ const drawBusMarkers = () => {
 
   for (const bus of activeBuses.value) {
     const isActive = bus.busId === selectedBusId.value
-    const marker = L.marker([bus.latitude, bus.longitude], {
-      icon: busMarkerIcon(bus.lineLabel, isActive),
+    const radius = isActive ? 7 : 5.5
+    // Bus markers are always BUS type (vehicles), but show as active or inactive
+    const color = isActive ? '#111827' : '#0ea5e9'
+    
+    const marker = L.circleMarker([bus.latitude, bus.longitude], {
+      radius: radius,
+      color: color,
+      weight: 2,
+      fillColor: color,
+      fillOpacity: 0.9,
       zIndexOffset: 300,
     })
       .on('click', async () => {
@@ -1173,61 +1190,7 @@ onUnmounted(() => {
   height: 1rem;
 }
 
-:global(.stop-sign) {
-  display: inline-flex;
-  flex-direction: column;
-  align-items: center;
-}
 
-:global(.stop-sign-top) {
-  min-width: 28px;
-  height: 24px;
-  border-radius: 6px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 0.35rem;
-  font-size: 0.85rem;
-  font-weight: 700;
-  background: rgba(255, 255, 255, 0.98);
-  color: #111827;
-  border: 1px solid #cbd5e1;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
-}
-
-:global(.stop-sign-pole) {
-  width: 2px;
-  height: 16px;
-  background: #64748b;
-}
-
-:global(.stop-sign.is-active .stop-sign-top) {
-  background: #111827;
-  color: #fff;
-  border-color: #111827;
-}
-
-:global(.bus-pill) {
-  height: 26px;
-  border-radius: 999px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 0.55rem;
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.02em;
-  background: #f8fafc;
-  color: #111827;
-  border: 1px solid #cbd5e1;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.15);
-}
-
-:global(.bus-pill.is-active) {
-  background: #0f172a;
-  color: #fff;
-  border-color: #0f172a;
-}
 
 :global(.leaflet-bottom) {
   bottom: var(--leaflet-controls-bottom, 88px);
