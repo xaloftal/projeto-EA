@@ -869,9 +869,7 @@ onMounted(async () => {
   window.addEventListener('resize', measureTopOverlayHeight)
 })
 
-
-
-(() => {
+onActivated(() => {
   map?.invalidateSize()
 })
 
