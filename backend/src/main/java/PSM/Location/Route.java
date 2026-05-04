@@ -14,6 +14,8 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 
@@ -26,6 +28,10 @@ public class Route {
 	private UUID id;
 
 	private String name;
+
+	@ManyToMany(cascade = CascadeType.ALL)
+	@JoinTable(name = "route_stops", joinColumns = @JoinColumn(name = "route_id"), inverseJoinColumns = @JoinColumn(name = "stop_id"))
+	public List<Stop> stops = new ArrayList<Stop>();
 
 	@OneToMany(mappedBy = "route", cascade = CascadeType.ALL)
 	public List<StopSchedule> schedules = new ArrayList<StopSchedule>();
@@ -53,4 +59,10 @@ public class Route {
 	}
 
 	public void setName(String _name) { this.name = _name; }
+
+	public List<Stop> getStops() {
+		return this.stops;
+	}
+
+	public void setStops(List<Stop> _stops) { this.stops = _stops; }
 }
