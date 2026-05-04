@@ -116,7 +116,7 @@ import { computed, nextTick, onActivated, onMounted, onUnmounted, ref, watch } f
 import { House, Map as MapIcon, Search, ShoppingCart, User, Ticket, Star } from 'lucide-vue-next'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { catchitApi } from '../services/api/catchitApi'
+import { catchitApi, type BackendVehicleSimulationSnapshot } from '../services/api/catchitApi'
 import { useAuthViewModel } from '../viewmodels'
 
 defineOptions({ name: 'MapView' })
@@ -175,10 +175,13 @@ type ActiveBus = {
   routeId: string
   latitude: number
   longitude: number
+  previousStopId: string
+  previousStopName: string
   nextStopId: string
   nextStopName: string
-  etaMinutes: number
+  progress: number
   etaLabel: string
+  updatedAt: string
 }
 
 const mapContainer = ref<HTMLElement | null>(null)
@@ -200,6 +203,7 @@ const dragOffset = ref(0)
 const dragStartY = ref(0)
 const dragStartOffset = ref(0)
 const nowTick = ref(Date.now())
+const simulationBuses = ref<ActiveBus[]>([])
 const poiStops = ref<Set<string>>(new Set())
 const isLoadingPOI = ref(false)
 const { currentUser } = useAuthViewModel()
@@ -213,11 +217,12 @@ let selectedBusDashAnimationId: number | null = null
 let selectedBusDashOffset = 0
 let tickIntervalId: number | null = null
 const stopMarkers = new Map<string, L.Marker>()
-const busMarkers = new Map<string, L.Marker>()
+const busMarkers = new Map<string, L.CircleMarker>()
 const portoCenter: [number, number] = [41.1579, -8.6291]
 const portugalNorthBounds = L.latLngBounds([40.5, -9.0], [42.0, -7.5])
 
 const routeDefinitions = ref<RouteDefinition[]>([])
+const simulationPollMs = 3000
 
 const toDateOrNull = (value?: string | null) => {
   if (!value) return null
@@ -330,52 +335,7 @@ const stopRouteInfo = computed(() => {
     .sort((left, right) => left.nextTime.localeCompare(right.nextTime))
 })
 
-const activeBuses = computed(() => {
-  const now = new Date(nowTick.value)
-  const active: ActiveBus[] = []
-
-  for (const route of routeDefinitions.value) {
-    const sortedSchedules = [...route.schedules].sort((left, right) => left.sequence - right.sequence)
-
-    for (let index = 0; index < sortedSchedules.length - 1; index += 1) {
-      const fromSchedule = sortedSchedules[index]
-      const toSchedule = sortedSchedules[index + 1]
-      const fromTime = scheduleTime(fromSchedule)
-      const toTime = scheduleTime(toSchedule)
-
-      if (!fromTime || !toTime || toTime <= fromTime) {
-        continue
-      }
-
-      if (now < fromTime || now > toTime) {
-        continue
-      }
-
-      const totalMinutes = Math.max(1, Math.round((toTime.getTime() - fromTime.getTime()) / 60000))
-      const elapsedMinutes = Math.max(0, (now.getTime() - fromTime.getTime()) / 60000)
-      const fraction = Math.min(Math.max(elapsedMinutes / totalMinutes, 0), 1)
-      const latitude = fromSchedule.latitude + (toSchedule.latitude - fromSchedule.latitude) * fraction
-      const longitude = fromSchedule.longitude + (toSchedule.longitude - fromSchedule.longitude) * fraction
-      const etaMinutes = Math.max(1, Math.ceil((toTime.getTime() - now.getTime()) / 60000))
-
-      active.push({
-        busId: route.busId,
-        lineLabel: route.lineLabel,
-        routeId: route.routeId,
-        latitude,
-        longitude,
-        nextStopId: toSchedule.stopId,
-        nextStopName: toSchedule.stopName,
-        etaMinutes,
-        etaLabel: `${etaMinutes} min`,
-      })
-
-      break
-    }
-  }
-
-  return active
-})
+const activeBuses = computed(() => simulationBuses.value)
 
 const selectedBus = computed(() =>
   activeBuses.value.find((bus) => bus.busId === selectedBusId.value) ?? null
@@ -657,17 +617,24 @@ const drawBusMarkers = () => {
 
   for (const bus of activeBuses.value) {
     const isActive = bus.busId === selectedBusId.value
-    const radius = isActive ? 7 : 5.5
-    // Bus markers are always BUS type (vehicles), but show as active or inactive
-    const color = isActive ? '#111827' : '#0ea5e9'
+    const color = isActive ? '#111827' : '#0284c7'
+    const haloColor = isActive ? '#111827' : '#38bdf8'
+
+    L.circleMarker([bus.latitude, bus.longitude], {
+      radius: isActive ? 15 : 12,
+      weight: 2,
+      fillColor: haloColor,
+      fillOpacity: isActive ? 0.18 : 0.14,
+      interactive: false,
+    }).addTo(busMarkersLayer)
     
     const marker = L.circleMarker([bus.latitude, bus.longitude], {
-      radius: radius,
+      radius: isActive ? 8.5 : 7,
       color: color,
-      weight: 2,
+      weight: 3,
       fillColor: color,
-      fillOpacity: 0.9,
-      zIndexOffset: 300,
+      fillOpacity: 1,
+      opacity: 1,
     })
       .on('click', async () => {
         sheetMode.value = 'bus'
@@ -676,6 +643,8 @@ const drawBusMarkers = () => {
         await openSheetWithAnimation()
       })
       .addTo(busMarkersLayer)
+
+    marker.bringToFront()
     busMarkers.set(bus.busId, marker)
   }
 
@@ -752,6 +721,43 @@ const loadRouteData = async () => {
 
   seedRouteDefinitions(routesResponse.data)
   drawBusMarkers()
+  void loadVehicleSimulation()
+}
+
+const mapSimulationSnapshotToBus = (snapshot: BackendVehicleSimulationSnapshot): ActiveBus => {
+  const progress = Math.max(0, Math.min(1, snapshot.progress ?? 0))
+  const lineLabel = snapshot.routeName?.trim() || snapshot.routeId.slice(0, 8)
+
+  return {
+    busId: snapshot.vehicleId,
+    lineLabel,
+    routeId: snapshot.routeId,
+    latitude: snapshot.latitude,
+    longitude: snapshot.longitude,
+    previousStopId: snapshot.previousStopId,
+    previousStopName: snapshot.previousStopName,
+    nextStopId: snapshot.nextStopId,
+    nextStopName: snapshot.nextStopName,
+    progress,
+    etaLabel: `${Math.round(progress * 100)}% route`,
+    updatedAt: snapshot.updatedAt,
+  }
+}
+
+const loadVehicleSimulation = async () => {
+  const simulationResponse = await catchitApi.getVehicleSimulation()
+
+  if (!simulationResponse.success || !simulationResponse.data) {
+    console.warn(simulationResponse.error || 'Unable to load vehicle simulation')
+    simulationBuses.value = []
+    return
+  }
+
+  simulationBuses.value = simulationResponse.data.map(mapSimulationSnapshotToBus)
+
+  if (selectedBusId.value && !simulationBuses.value.some((bus) => bus.busId === selectedBusId.value)) {
+    selectedBusId.value = ''
+  }
 }
 
 const reloadMapData = async () => {
@@ -873,12 +879,19 @@ onMounted(async () => {
 
   stopMarkersLayer = L.layerGroup().addTo(map)
   busMarkersLayer = L.layerGroup().addTo(map)
+  selectedBusArrowLayer = L.layerGroup().addTo(map)
   
   // Load user POIs before loading stops
   await loadUserPOIs()
   
 
   void loadBackendStops()
+  void loadVehicleSimulation()
+
+  tickIntervalId = window.setInterval(() => {
+    nowTick.value = Date.now()
+    void loadVehicleSimulation()
+  }, simulationPollMs)
 
   measureTopOverlayHeight()
   measureSheetHeight()
