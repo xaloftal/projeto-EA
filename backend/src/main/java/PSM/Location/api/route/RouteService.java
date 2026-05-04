@@ -7,10 +7,11 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.stereotype.Service;
+
 import PSM.Location.Route;
 import PSM.Location.Stop;
 import PSM.Location.StopSchedule;
-import org.springframework.stereotype.Service;
 
 @Service
 public class RouteService {
@@ -71,15 +72,15 @@ public class RouteService {
             StopSchedule fromSchedule = schedules.get(fromIndex);
             StopSchedule toSchedule = schedules.get(toIndex);
 
-            LocalTime departureTime = fromSchedule.getDepartureTime() != null
-                    ? fromSchedule.getDepartureTime().toLocalTime()
-                    : fromSchedule.getArrivalTime() != null ? fromSchedule.getArrivalTime().toLocalTime() : null;
+                    LocalTime departureTime = fromSchedule.getDepartureTime() != null
+                        ? fromSchedule.getDepartureTime().toLocalTime()
+                        : fromSchedule.getArrivalTime() != null ? fromSchedule.getArrivalTime().toLocalTime() : null;
 
             if (departureAfter != null && departureTime != null && departureTime.isBefore(departureAfter)) {
                 continue;
             }
 
-            LocalTime arrivalTime = toSchedule.getArrivalTime() != null
+                LocalTime arrivalTime = toSchedule.getArrivalTime() != null
                     ? toSchedule.getArrivalTime().toLocalTime()
                     : toSchedule.getDepartureTime() != null ? toSchedule.getDepartureTime().toLocalTime() : null;
 

@@ -46,8 +46,10 @@ public class DatabaseSeeder implements CommandLineRunner {
     private static final Path STOPS_CSV = DATA_DIR.resolve("stops.csv");
     private static final Path STOP_SCHEDULES_CSV = DATA_DIR.resolve("schedule.csv");
     private static final Path ZONES_CSV = DATA_DIR.resolve("zones.csv");
-    private static final LocalDate SEED_BASE_DATE = LocalDate.of(2000, 1, 1);
     
+    
+    private static final LocalDate SEED_BASE_DATE = LocalDate.of(2000, 1, 1);
+
     private static final int THREAD_POOL_SIZE = Runtime.getRuntime().availableProcessors();
 
     private static final int COL_STOP_ID = 0;

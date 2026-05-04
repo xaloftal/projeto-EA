@@ -28,6 +28,7 @@
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Location/api/route/RouteRepository.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Location/api/route/RouteSearchResultDTO.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Location/api/route/RouteService.java
+/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Location/api/stop/GeoJsonGeneratorService.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Location/api/stop/StopController.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Location/api/stop/StopRepository.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Location/api/stop/StopService.java
@@ -75,6 +76,9 @@
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Travel/api/vehicle/VehicleController.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Travel/api/vehicle/VehicleRepository.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Travel/api/vehicle/VehicleService.java
+/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Travel/api/vehicle/VehicleSimulationController.java
+/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Travel/api/vehicle/VehicleSimulationService.java
+/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Travel/api/vehicle/VehicleSimulationSnapshotDTO.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/UserManagement/Observer.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/UserManagement/User.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/UserManagement/UserNotification.java
@@ -84,8 +88,11 @@
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/UserManagement/api/auth/AuthService.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/UserManagement/api/auth/AuthenticatedUserDTO.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/UserManagement/api/user/UserController.java
+/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/UserManagement/api/user/UserNotificationRepository.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/UserManagement/api/user/UserRepository.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/UserManagement/api/user/UserService.java
+/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/UserManagement/notification/NotificationCacheService.java
+/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/UserManagement/notification/NotificationRetentionService.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/ValidationManager/QRCodeValidation.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/ValidationManager/ValidationRecord.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/ValidationManager/ValidationStrategy.java
@@ -96,5 +103,6 @@
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/config/DatabaseSeeder.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/config/JwtAuthenticationFilter.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/config/JwtUtil.java
+/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/config/RedisConfig.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/config/RestExceptionHandler.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/config/SecurityConfig.java

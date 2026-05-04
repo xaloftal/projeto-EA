@@ -116,7 +116,7 @@ import { computed, nextTick, onActivated, onMounted, onUnmounted, ref, watch } f
 import { House, Map as MapIcon, Search, ShoppingCart, User, Ticket, Star } from 'lucide-vue-next'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { catchitApi } from '../services/api/catchitApi'
+import { catchitApi, type BackendVehicleSimulationSnapshot } from '../services/api/catchitApi'
 import { useAuthViewModel } from '../viewmodels'
 
 defineOptions({ name: 'MapView' })
@@ -175,10 +175,13 @@ type ActiveBus = {
   routeId: string
   latitude: number
   longitude: number
+  previousStopId: string
+  previousStopName: string
   nextStopId: string
   nextStopName: string
-  etaMinutes: number
+  progress: number
   etaLabel: string
+  updatedAt: string
 }
 
 const mapContainer = ref<HTMLElement | null>(null)
@@ -200,6 +203,7 @@ const dragOffset = ref(0)
 const dragStartY = ref(0)
 const dragStartOffset = ref(0)
 const nowTick = ref(Date.now())
+const simulationBuses = ref<ActiveBus[]>([])
 const poiStops = ref<Set<string>>(new Set())
 const isLoadingPOI = ref(false)
 const { currentUser } = useAuthViewModel()
@@ -213,11 +217,12 @@ let selectedBusDashAnimationId: number | null = null
 let selectedBusDashOffset = 0
 let tickIntervalId: number | null = null
 const stopMarkers = new Map<string, L.Marker>()
-const busMarkers = new Map<string, L.Marker>()
+const busMarkers = new Map<string, L.CircleMarker>()
 const portoCenter: [number, number] = [41.1579, -8.6291]
 const portugalNorthBounds = L.latLngBounds([40.5, -9.0], [42.0, -7.5])
 
 const routeDefinitions = ref<RouteDefinition[]>([])
+const simulationPollMs = 3000
 
 const toDateOrNull = (value?: string | null) => {
   if (!value) return null
@@ -330,52 +335,7 @@ const stopRouteInfo = computed(() => {
     .sort((left, right) => left.nextTime.localeCompare(right.nextTime))
 })
 
-const activeBuses = computed(() => {
-  const now = new Date(nowTick.value)
-  const active: ActiveBus[] = []
-
-  for (const route of routeDefinitions.value) {
-    const sortedSchedules = [...route.schedules].sort((left, right) => left.sequence - right.sequence)
-
-    for (let index = 0; index < sortedSchedules.length - 1; index += 1) {
-      const fromSchedule = sortedSchedules[index]
-      const toSchedule = sortedSchedules[index + 1]
-      const fromTime = scheduleTime(fromSchedule)
-      const toTime = scheduleTime(toSchedule)
-
-      if (!fromTime || !toTime || toTime <= fromTime) {
-        continue
-      }
-
-      if (now < fromTime || now > toTime) {
-        continue
-      }
-
-      const totalMinutes = Math.max(1, Math.round((toTime.getTime() - fromTime.getTime()) / 60000))
-      const elapsedMinutes = Math.max(0, (now.getTime() - fromTime.getTime()) / 60000)
-      const fraction = Math.min(Math.max(elapsedMinutes / totalMinutes, 0), 1)
-      const latitude = fromSchedule.latitude + (toSchedule.latitude - fromSchedule.latitude) * fraction
-      const longitude = fromSchedule.longitude + (toSchedule.longitude - fromSchedule.longitude) * fraction
-      const etaMinutes = Math.max(1, Math.ceil((toTime.getTime() - now.getTime()) / 60000))
-
-      active.push({
-        busId: route.busId,
-        lineLabel: route.lineLabel,
-        routeId: route.routeId,
-        latitude,
-        longitude,
-        nextStopId: toSchedule.stopId,
-        nextStopName: toSchedule.stopName,
-        etaMinutes,
-        etaLabel: `${etaMinutes} min`,
-      })
-
-      break
-    }
-  }
-
-  return active
-})
+const activeBuses = computed(() => simulationBuses.value)
 
 const selectedBus = computed(() =>
   activeBuses.value.find((bus) => bus.busId === selectedBusId.value) ?? null
@@ -506,21 +466,7 @@ const openSheetWithAnimation = async () => {
   })
 }
 
-const stopMarkerIcon = (code: string, isActive: boolean) =>
-  L.divIcon({
-    className: '',
-    html: `<span class="stop-sign${isActive ? ' is-active' : ''}"><span class="stop-sign-top">${code}</span><span class="stop-sign-pole"></span></span>`,
-    iconSize: [34, 52],
-    iconAnchor: [17, 44],
-  })
 
-const busMarkerIcon = (lineLabel: string, isActive: boolean) =>
-  L.divIcon({
-    className: '',
-    html: `<span class="bus-pill${isActive ? ' is-active' : ''}">BUS ${lineLabel}</span>`,
-    iconSize: [66, 28],
-    iconAnchor: [33, 14],
-  })
 
 const getBrandColor = () => {
   const fallbackColor = '#4f46e5'
@@ -531,6 +477,20 @@ const getBrandColor = () => {
     .trim()
 
   return cssBrandColor || fallbackColor
+}
+
+const getTransportTypeColor = (stopType?: string) => {
+  const type = stopType?.toUpperCase()
+  switch (type) {
+    case 'BUS':
+      return { color: '#0ea5e9', fillColor: '#0ea5e9', label: 'Bus' } // Azul
+    case 'TRAIN':
+      return { color: '#f97316', fillColor: '#f97316', label: 'Train' } // Laranja
+    case 'METRO':
+      return { color: '#ec4899', fillColor: '#ec4899', label: 'Metro' } // Rosa
+    default:
+      return { color: '#64748b', fillColor: '#64748b', label: 'Stop' } // Cinzento
+  }
 }
 
 const stopSelectedBusArrowAnimation = () => {
@@ -625,8 +585,17 @@ const drawStopMarkers = () => {
   L.geoJSON(rawGeoJson.value, {
     pointToLayer: (feature, latlng) => {
       const isActive = feature.properties.id === selectedStopId.value
-      return L.marker(latlng, {
-        icon: stopMarkerIcon(feature.properties.code, isActive)
+      const typeColors = getTransportTypeColor(feature.properties.stopType)
+      const radius = isActive ? 6 : 4
+      const color = isActive ? '#111827' : typeColors.color
+      const fillColor = isActive ? '#111827' : typeColors.fillColor
+      
+      return L.circleMarker(latlng, {
+        radius: radius,
+        color: color,
+        weight: 1.5,
+        fillColor: fillColor,
+        fillOpacity: 0.8,
       });
     },
     onEachFeature: (feature, layer) => {
@@ -648,9 +617,24 @@ const drawBusMarkers = () => {
 
   for (const bus of activeBuses.value) {
     const isActive = bus.busId === selectedBusId.value
-    const marker = L.marker([bus.latitude, bus.longitude], {
-      icon: busMarkerIcon(bus.lineLabel, isActive),
-      zIndexOffset: 300,
+    const color = isActive ? '#111827' : '#0284c7'
+    const haloColor = isActive ? '#111827' : '#38bdf8'
+
+    L.circleMarker([bus.latitude, bus.longitude], {
+      radius: isActive ? 15 : 12,
+      weight: 2,
+      fillColor: haloColor,
+      fillOpacity: isActive ? 0.18 : 0.14,
+      interactive: false,
+    }).addTo(busMarkersLayer)
+    
+    const marker = L.circleMarker([bus.latitude, bus.longitude], {
+      radius: isActive ? 8.5 : 7,
+      color: color,
+      weight: 3,
+      fillColor: color,
+      fillOpacity: 1,
+      opacity: 1,
     })
       .on('click', async () => {
         sheetMode.value = 'bus'
@@ -659,6 +643,8 @@ const drawBusMarkers = () => {
         await openSheetWithAnimation()
       })
       .addTo(busMarkersLayer)
+
+    marker.bringToFront()
     busMarkers.set(bus.busId, marker)
   }
 
@@ -735,6 +721,43 @@ const loadRouteData = async () => {
 
   seedRouteDefinitions(routesResponse.data)
   drawBusMarkers()
+  void loadVehicleSimulation()
+}
+
+const mapSimulationSnapshotToBus = (snapshot: BackendVehicleSimulationSnapshot): ActiveBus => {
+  const progress = Math.max(0, Math.min(1, snapshot.progress ?? 0))
+  const lineLabel = snapshot.routeName?.trim() || snapshot.routeId.slice(0, 8)
+
+  return {
+    busId: snapshot.vehicleId,
+    lineLabel,
+    routeId: snapshot.routeId,
+    latitude: snapshot.latitude,
+    longitude: snapshot.longitude,
+    previousStopId: snapshot.previousStopId,
+    previousStopName: snapshot.previousStopName,
+    nextStopId: snapshot.nextStopId,
+    nextStopName: snapshot.nextStopName,
+    progress,
+    etaLabel: `${Math.round(progress * 100)}% route`,
+    updatedAt: snapshot.updatedAt,
+  }
+}
+
+const loadVehicleSimulation = async () => {
+  const simulationResponse = await catchitApi.getVehicleSimulation()
+
+  if (!simulationResponse.success || !simulationResponse.data) {
+    console.warn(simulationResponse.error || 'Unable to load vehicle simulation')
+    simulationBuses.value = []
+    return
+  }
+
+  simulationBuses.value = simulationResponse.data.map(mapSimulationSnapshotToBus)
+
+  if (selectedBusId.value && !simulationBuses.value.some((bus) => bus.busId === selectedBusId.value)) {
+    selectedBusId.value = ''
+  }
 }
 
 const reloadMapData = async () => {
@@ -856,12 +879,19 @@ onMounted(async () => {
 
   stopMarkersLayer = L.layerGroup().addTo(map)
   busMarkersLayer = L.layerGroup().addTo(map)
+  selectedBusArrowLayer = L.layerGroup().addTo(map)
   
   // Load user POIs before loading stops
   await loadUserPOIs()
   
 
   void loadBackendStops()
+  void loadVehicleSimulation()
+
+  tickIntervalId = window.setInterval(() => {
+    nowTick.value = Date.now()
+    void loadVehicleSimulation()
+  }, simulationPollMs)
 
   measureTopOverlayHeight()
   measureSheetHeight()
@@ -1173,61 +1203,7 @@ onUnmounted(() => {
   height: 1rem;
 }
 
-:global(.stop-sign) {
-  display: inline-flex;
-  flex-direction: column;
-  align-items: center;
-}
 
-:global(.stop-sign-top) {
-  min-width: 28px;
-  height: 24px;
-  border-radius: 6px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 0.35rem;
-  font-size: 0.85rem;
-  font-weight: 700;
-  background: rgba(255, 255, 255, 0.98);
-  color: #111827;
-  border: 1px solid #cbd5e1;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
-}
-
-:global(.stop-sign-pole) {
-  width: 2px;
-  height: 16px;
-  background: #64748b;
-}
-
-:global(.stop-sign.is-active .stop-sign-top) {
-  background: #111827;
-  color: #fff;
-  border-color: #111827;
-}
-
-:global(.bus-pill) {
-  height: 26px;
-  border-radius: 999px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 0.55rem;
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.02em;
-  background: #f8fafc;
-  color: #111827;
-  border: 1px solid #cbd5e1;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.15);
-}
-
-:global(.bus-pill.is-active) {
-  background: #0f172a;
-  color: #fff;
-  border-color: #0f172a;
-}
 
 :global(.leaflet-bottom) {
   bottom: var(--leaflet-controls-bottom, 88px);
