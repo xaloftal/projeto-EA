@@ -21,7 +21,7 @@ import jakarta.persistence.Table;
 
 @Entity
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
-@Table(name = "route")
+@Table(name = "route", schema = "catchit")
 public class Route {
 	@Id
 	@GeneratedValue(strategy=GenerationType.UUID)

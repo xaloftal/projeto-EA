@@ -10,7 +10,7 @@ import PSM.Location.Stop;
 import jakarta.persistence.*;
 
 @Entity
-@Table(name = "trip")
+@Table(name = "trip", schema = "catchit")
 public class Trip {
 	@Id
 	@GeneratedValue(strategy= GenerationType.UUID)

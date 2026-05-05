@@ -22,7 +22,7 @@ import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 
 @Entity
-@Table(name = "users")
+@Table(name = "users", schema = "catchit")
 public class User implements Observer {
 	@Id
 	@GeneratedValue(strategy= GenerationType.UUID)

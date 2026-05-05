@@ -10,6 +10,7 @@ services:
       - "${DB_PORT:-5433}:5432"
     volumes:
       - catchit_postgres_data:/var/lib/postgresql/data
+      - ./db:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-catchitdb}"]
       interval: 5s
@@ -38,6 +39,7 @@ services:
       DB_URL: jdbc:postgresql://db:5432/${DB_NAME:-catchitdb}
       DB_USER: ${DB_USER:-postgres}
       DB_PASSWORD: ${DB_PASSWORD:-1234}
+      SPRING_JPA_PROPERTIES_HIBERNATE_DEFAULT_SCHEMA: catchit
       REDIS_HOST: redis
       REDIS_PORT: 6379
       PAYMENT_SERVICE_BASE_URL: http://payment-service:8081
@@ -66,6 +68,7 @@ services:
       PAYMENT_DB_URL: jdbc:postgresql://db:5432/${DB_NAME:-catchitdb}
       PAYMENT_DB_USER: ${DB_USER:-postgres}
       PAYMENT_DB_PASSWORD: ${DB_PASSWORD:-1234}
+      SPRING_JPA_PROPERTIES_HIBERNATE_DEFAULT_SCHEMA: payment
     ports:
       - "${PAYMENT_SERVICE_PORT:-8081}:8081"
     depends_on:

@@ -15,7 +15,7 @@ import jakarta.persistence.*;
 @Entity
 @JsonIdentityInfo(generator = ObjectIdGenerators.PropertyGenerator.class, property = "id")
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
-@Table(name = "zone")
+@Table(name = "zone", schema = "catchit")
 public class Zone {
 	@Id
 	@GeneratedValue(strategy= GenerationType.UUID)

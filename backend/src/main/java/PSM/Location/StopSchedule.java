@@ -16,7 +16,7 @@ import jakarta.persistence.Table;
 
 @Entity
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
-@Table(name = "stopschedule")
+@Table(name = "stopschedule", schema = "catchit")
 public class StopSchedule {
 	@Id
 	@GeneratedValue(strategy= GenerationType.UUID)

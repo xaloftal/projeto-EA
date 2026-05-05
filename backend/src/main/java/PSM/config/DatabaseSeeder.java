@@ -83,10 +83,21 @@ public class DatabaseSeeder implements CommandLineRunner {
     @Override
     @Transactional
     public void run(String... args) {
-        if (routeRepository.count() > 0 || zoneRepository.count() > 0 || stopRepository.count() > 0 || stopScheduleRepository.count() > 0) {
+        logger.info("DatabaseSeeder.run() called");
+        long routeCount = routeRepository.count();
+        long zoneCount = zoneRepository.count();
+        long stopCount = stopRepository.count();
+        long scheduleCount = stopScheduleRepository.count();
+        
+        logger.info("Database counts - routes: {}, zones: {}, stops: {}, schedules: {}", 
+            routeCount, zoneCount, stopCount, scheduleCount);
+        
+        if (routeCount > 0 || zoneCount > 0 || stopCount > 0 || scheduleCount > 0) {
+            logger.info("Database already seeded, skipping...");
             return;
         }
 
+        logger.info("Starting database seeding from CSV files");
         seedFromCsv();
     }
 
@@ -94,23 +105,34 @@ public class DatabaseSeeder implements CommandLineRunner {
         ExecutorService executor = Executors.newFixedThreadPool(THREAD_POOL_SIZE);
         
         try {
+            logger.info("Loading data from CSV files...");
             CompletableFuture<RoutesData> routesFuture = CompletableFuture.supplyAsync(this::loadRoutes, executor);
             CompletableFuture<ZonesData> zonesFuture = CompletableFuture.supplyAsync(this::loadZones, executor);
             CompletableFuture<StopsData> stopsFuture = CompletableFuture.supplyAsync(this::loadStops, executor);
 
             RoutesData routesData = routesFuture.join();
+            logger.info("Loaded {} routes", routesData.routesToSave.size());
+            
             ZonesData zonesData = zonesFuture.join();
+            logger.info("Loaded {} zones", zonesData.zonesToSave.size());
+            
             StopsData stopsData = stopsFuture.join();
+            logger.info("Loaded {} stops and {} locations", stopsData.stopsToSave.size(), stopsData.locationsToSave.size());
 
+            logger.info("Saving zones...");
             zoneRepository.saveAll(zonesData.zonesToSave);
+            logger.info("Zones saved");
 
+            logger.info("Saving locations...");
             List<Location> savedLocations = locationRepository.saveAll(stopsData.locationsToSave.values());
             Map<String, Location> savedLocationsById = new LinkedHashMap<>();
             int locationIndex = 0;
             for (String locationId : stopsData.locationsToSave.keySet()) {
                 savedLocationsById.put(locationId, savedLocations.get(locationIndex++));
             }
+            logger.info("Locations saved: {}", savedLocations.size());
 
+            logger.info("Linking stops to locations and zones...");
             for (Stop stop : stopsData.stopsToSave) {
                 String locationId = stopsData.stopCodeToLocationId.get(stop.getStopCode());
                 String zoneId = stopsData.stopCodeToZoneId.get(stop.getStopCode());
@@ -130,11 +152,18 @@ public class DatabaseSeeder implements CommandLineRunner {
                 zone.getStops().add(stop);
             }
 
+            logger.info("Saving stops...");
             stopRepository.saveAll(stopsData.stopsToSave);
+            logger.info("Stops saved");
             
+            logger.info("Loading and saving stop schedules...");
             loadStopSchedules(routesData.routesByCode, stopsData.stopsByCode);
+            logger.info("Saving routes...");
             routeRepository.saveAll(routesData.routesToSave);
             logger.info("Database seeding completed successfully.");
+        } catch (Exception e) {
+            logger.error("Error during database seeding", e);
+            throw e;
         } finally {
             executor.shutdown();
         }
