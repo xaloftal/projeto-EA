@@ -32,6 +32,11 @@ public class RouteController {
         return service.findAll();
     }
 
+    @GetMapping("/stop-arrivals")
+    public List<StopRouteArrivalDTO> getStopArrivals(@RequestParam UUID stopId) {
+        return service.findStopArrivals(stopId);
+    }
+
     @GetMapping("/search")
     public List<RouteSearchResultDTO> search(
             @RequestParam UUID fromStopId,

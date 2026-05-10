@@ -107,6 +107,12 @@ type BackendRoute = {
   schedules?: BackendRouteSchedule[]
 }
 
+type BackendStopRouteArrival = {
+  routeId: string
+  routeName?: string | null
+  nextArrivalAt: string
+}
+
 export type BackendVehicleSimulationSnapshot = {
   vehicleId: string
   routeId: string
@@ -677,6 +683,12 @@ export class CatchItApiClient {
 
   async getRoutes(): Promise<ApiResponse<BackendRoute[]>> {
     const response = await requestJson<BackendRoute[]>('/api/routes')
+    if (!response.success || !response.data) return { success: false, error: response.error }
+    return { success: true, data: response.data }
+  }
+
+  async getStopRouteArrivals(stopId: string): Promise<ApiResponse<BackendStopRouteArrival[]>> {
+    const response = await requestJson<BackendStopRouteArrival[]>(`/api/routes/stop-arrivals?stopId=${encodeURIComponent(stopId)}`)
     if (!response.success || !response.data) return { success: false, error: response.error }
     return { success: true, data: response.data }
   }

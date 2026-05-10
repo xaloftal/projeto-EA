@@ -67,7 +67,7 @@
       <template v-if="sheetMode === 'stop' && selectedStop">
         <p class="line-name">{{ selectedStop.stopType || 'STOP' }} stop information</p>
         <p class="ids-line">Stop ID: {{ selectedStop.code }}</p>
-        <p class="next-stop">Next Stop: {{ nextStopName }}</p>
+        <p class="next-stop">Next arrival: {{ nextArrivalLabel }}</p>
 
         <h3 class="route-title">Routes at this stop</h3>
         <div
@@ -130,43 +130,18 @@ type StopFeature = {
   stopType?: string
 }
 
-type BackendStopLocation = {
-  latitude?: number
-  longitude?: number
+type BackendStopRouteArrival = {
+  routeId: string
+  routeName?: string | null
+  nextArrivalAt: string
 }
 
-type BackendRouteSchedule = {
-  sequence?: number
-  arrivalTime?: string | null
-  departureTime?: string | null
-  stop?: {
-    id: string
-    name: string
-    location?: BackendStopLocation | null
-    latitude?: number
-    longitude?: number
-  } | null
-}
-
-type BackendRoute = {
-  id: string
-  name?: string
-  schedules?: BackendRouteSchedule[]
-}
-
-type RouteDefinition = {
+type StopRouteInfo = {
   routeId: string
   lineLabel: string
-  busId: string
-  schedules: Array<{
-    stopId: string
-    stopName: string
-    latitude: number
-    longitude: number
-    sequence: number
-    arrivalTime: Date | null
-    departureTime: Date | null
-  }>
+  nextArrivalAt: Date
+  nextTime: string
+  etaLabel: string
 }
 
 type ActiveBus = {
@@ -206,6 +181,7 @@ const nowTick = ref(Date.now())
 const simulationBuses = ref<ActiveBus[]>([])
 const poiStops = ref<Set<string>>(new Set())
 const isLoadingPOI = ref(false)
+const stopRouteArrivals = ref<BackendStopRouteArrival[]>([])
 const { currentUser } = useAuthViewModel()
 
 let map: L.Map | null = null
@@ -216,58 +192,30 @@ let selectedBusDashLine: L.Polyline | null = null
 let selectedBusDashAnimationId: number | null = null
 let selectedBusDashOffset = 0
 let tickIntervalId: number | null = null
+let clockIntervalId: number | null = null
 const stopMarkers = new Map<string, L.Marker>()
 const busMarkers = new Map<string, L.CircleMarker>()
 const portoCenter: [number, number] = [41.1579, -8.6291]
 const portugalNorthBounds = L.latLngBounds([40.5, -9.0], [42.0, -7.5])
 
-const routeDefinitions = ref<RouteDefinition[]>([])
 const simulationPollMs = 3000
+const clockTickMs = 1000
 
-const toDateOrNull = (value?: string | null) => {
-  if (!value) return null
-  const parsed = new Date(value)
-  return Number.isNaN(parsed.getTime()) ? null : parsed
-}
+const formatCountdown = (milliseconds: number) => {
+  const safeMilliseconds = Math.max(0, milliseconds)
+  const totalSeconds = Math.ceil(safeMilliseconds / 1000)
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
 
-const scheduleTime = (schedule: { arrivalTime: Date | null; departureTime: Date | null }) =>
-  schedule.departureTime ?? schedule.arrivalTime
-
-const seedRouteDefinitions = (routes: BackendRoute[]) => {
-  if (stops.value.length < 2 || routes.length === 0) {
-    routeDefinitions.value = []
-    return
+  if (hours > 0) {
+    return `in ${hours}h ${minutes.toString().padStart(2, '0')}m`
   }
 
-  routeDefinitions.value = routes
-    .map((route) => {
-      const schedules = [...(route.schedules ?? [])]
-        .filter((schedule): schedule is BackendRouteSchedule & { stop: NonNullable<BackendRouteSchedule['stop']> } => !!schedule.stop)
-        .map((schedule) => {
-          const latitude = schedule.stop.location?.latitude ?? schedule.stop.latitude ?? 0
-          const longitude = schedule.stop.location?.longitude ?? schedule.stop.longitude ?? 0
+  if (minutes > 0) {
+    return `in ${minutes}m`
+  }
 
-          return {
-            stopId: schedule.stop.id,
-            stopName: schedule.stop.name,
-            latitude,
-            longitude,
-            sequence: schedule.sequence ?? 0,
-            arrivalTime: toDateOrNull(schedule.arrivalTime),
-            departureTime: toDateOrNull(schedule.departureTime),
-          }
-        })
-        .filter((schedule) => Number.isFinite(schedule.latitude) && Number.isFinite(schedule.longitude))
-        .sort((left, right) => left.sequence - right.sequence)
-
-      return {
-        routeId: route.id,
-        lineLabel: route.name?.trim() || route.id.slice(0, 8),
-        busId: `bus-${route.id.slice(0, 8)}`,
-        schedules,
-      }
-    })
-    .filter((route) => route.schedules.length >= 2)
+  return 'due now'
 }
 
 const filteredStops = computed(() => {
@@ -288,51 +236,41 @@ const isStopPOI = computed(() =>
 
 const stopRouteInfo = computed(() => {
   if (!selectedStop.value) {
-    return [] as Array<{
-      routeId: string
-      lineLabel: string
-      busId: string
-      nextTime: string
-      etaLabel: string
-    }>
+    return [] as StopRouteInfo[]
   }
 
-  const selectedId = selectedStop.value.id
   const now = new Date(nowTick.value)
 
-  return routeDefinitions.value
-    .filter((route) => route.schedules.some((schedule) => schedule.stopId === selectedId))
-    .map((route) => {
-      const matchingSchedule = [...route.schedules]
-        .filter((schedule) => schedule.stopId === selectedId)
-        .map((schedule) => ({
-          ...schedule,
-          displayTime: scheduleTime(schedule),
-        }))
-        .filter((schedule) => schedule.displayTime)
-        .sort((left, right) => left.displayTime!.getTime() - right.displayTime!.getTime())[0]
-
-      if (!matchingSchedule?.displayTime) {
+  return stopRouteArrivals.value
+    .map((arrival) => {
+      const nextArrivalAt = new Date(arrival.nextArrivalAt)
+      if (Number.isNaN(nextArrivalAt.getTime())) {
         return null
       }
 
-      const diffMinutes = Math.round((matchingSchedule.displayTime.getTime() - now.getTime()) / 60000)
-      const etaLabel = diffMinutes < -1
-        ? `left ${Math.abs(diffMinutes)} min ago`
-        : diffMinutes <= 1
-          ? 'due now'
-          : `in ${diffMinutes} min`
+      if (nextArrivalAt.getTime() <= now.getTime()) {
+        return null
+      }
 
       return {
-        routeId: route.routeId,
-        lineLabel: route.lineLabel,
-        busId: route.busId,
-        nextTime: matchingSchedule.displayTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        etaLabel,
+        routeId: arrival.routeId,
+        lineLabel: arrival.routeName?.trim() || arrival.routeId.slice(0, 8),
+        nextArrivalAt,
+        nextTime: nextArrivalAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        etaLabel: formatCountdown(nextArrivalAt.getTime() - now.getTime()),
       }
     })
-    .filter((entry): entry is { routeId: string; lineLabel: string; busId: string; nextTime: string; etaLabel: string } => !!entry)
-    .sort((left, right) => left.nextTime.localeCompare(right.nextTime))
+    .filter((entry): entry is StopRouteInfo => !!entry)
+    .sort((left, right) => left.nextArrivalAt.getTime() - right.nextArrivalAt.getTime())
+})
+
+const nextArrivalLabel = computed(() => {
+  const nextArrival = stopRouteInfo.value[0]
+  if (!nextArrival) {
+    return 'No upcoming arrivals'
+  }
+
+  return `${nextArrival.nextTime} (${nextArrival.etaLabel})`
 })
 
 const activeBuses = computed(() => simulationBuses.value)
@@ -347,13 +285,6 @@ const stopById = computed(() => {
     map.set(stop.id, stop)
   }
   return map
-})
-
-const nextStopName = computed(() => {
-  if (!selectedStop.value || stops.value.length < 2) return 'No next stop available'
-  const selectedIndex = stops.value.findIndex((stop) => stop.id === selectedStop.value?.id)
-  const nextIndex = (selectedIndex + 1) % stops.value.length
-  return stops.value[nextIndex]?.name ?? 'No next stop available'
 })
 
 const resultCount = computed(() =>
@@ -703,25 +634,21 @@ const loadBackendStops = async () => {
 
   selectedStopId.value = ''
   selectedBusId.value = ''
+  stopRouteArrivals.value = []
   drawStopMarkers()
   drawBusMarkers()
-
-  void loadRouteData()
 }
 
-const loadRouteData = async () => {
-  const routesResponse = await catchitApi.getRoutes()
+const loadStopRouteArrivals = async (stopId: string) => {
+  const routesResponse = await catchitApi.getStopRouteArrivals(stopId)
 
   if (!routesResponse.success || !routesResponse.data) {
-    console.warn(routesResponse.error || 'Unable to load routes from backend')
-    routeDefinitions.value = []
-    drawBusMarkers()
+    console.warn(routesResponse.error || 'Unable to load stop route arrivals')
+    stopRouteArrivals.value = []
     return
   }
 
-  seedRouteDefinitions(routesResponse.data)
-  drawBusMarkers()
-  void loadVehicleSimulation()
+  stopRouteArrivals.value = routesResponse.data
 }
 
 const mapSimulationSnapshotToBus = (snapshot: BackendVehicleSimulationSnapshot): ActiveBus => {
@@ -834,6 +761,11 @@ const loadUserPOIs = async () => {
 watch(selectedStopId, () => {
   drawStopMarkers()
   updateSelectedBusArrow()
+  if (selectedStopId.value) {
+    void loadStopRouteArrivals(selectedStopId.value)
+  } else {
+    stopRouteArrivals.value = []
+  }
 })
 
 watch(
@@ -893,6 +825,10 @@ onMounted(async () => {
     void loadVehicleSimulation()
   }, simulationPollMs)
 
+  clockIntervalId = window.setInterval(() => {
+    nowTick.value = Date.now()
+  }, clockTickMs)
+
   measureTopOverlayHeight()
   measureSheetHeight()
   window.addEventListener('resize', measureSheetHeight)
@@ -912,6 +848,11 @@ onUnmounted(() => {
   if (tickIntervalId) {
     window.clearInterval(tickIntervalId)
     tickIntervalId = null
+  }
+
+  if (clockIntervalId) {
+    window.clearInterval(clockIntervalId)
+    clockIntervalId = null
   }
 
   map?.remove()
