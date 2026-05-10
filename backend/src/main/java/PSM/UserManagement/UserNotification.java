@@ -14,7 +14,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
 @Entity
-@Table(name = "user_notifications")
+@Table(name = "user_notifications", schema = "catchit")
 public class UserNotification {
 
 	@Id

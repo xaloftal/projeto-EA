@@ -19,8 +19,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import PSM.Location.Route;
+import PSM.Location.RouteStop;
 import PSM.Location.Stop;
-import PSM.Location.StopSchedule;
 import jakarta.annotation.PostConstruct;
 
 @Service
@@ -152,17 +152,17 @@ public class VehicleSimulationService {
     }
 
     private RouteTrack buildRouteTrack(Route route) {
-        List<StopSchedule> schedules = new ArrayList<>(route.schedules);
-        logger.debug("Route {} has {} schedules from DB", route.getName(), schedules.size());
-        schedules.sort(Comparator.comparingInt(StopSchedule::getSequence));
+        List<RouteStop> routeStops = new ArrayList<>(route.routeStops);
+        logger.debug("Route {} has {} routeStops from DB", route.getName(), routeStops.size());
+        routeStops.sort(Comparator.comparingInt(RouteStop::getSequence));
 
         List<TrackPoint> points = new ArrayList<>();
         long offsetSeconds = 0L;
 
-        for (StopSchedule schedule : schedules) {
-            Stop stop = schedule.getStop();
+        for (RouteStop routeStop : routeStops) {
+            Stop stop = routeStop.getStop();
             if (stop == null) {
-                logger.debug("  Schedule has null stop");
+                logger.debug("  RouteStop has null stop");
                 continue;
             }
             if (stop.getLocation() == null) {

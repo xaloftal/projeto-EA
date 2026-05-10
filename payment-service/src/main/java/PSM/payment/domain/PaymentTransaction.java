@@ -20,7 +20,7 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 
 @Entity
-@Table(name = "payment_transactions")
+@Table(name = "payment_transactions", schema = "payment")
 public class PaymentTransaction {
 
     @Id

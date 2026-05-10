@@ -30,7 +30,7 @@ import jakarta.persistence.Transient;
 @Entity
 @JsonIdentityInfo(generator = ObjectIdGenerators.PropertyGenerator.class, property = "id")
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
-@Table(name = "stop")
+@Table(name = "stop", schema = "catchit")
 public class Stop implements Subject {
 	@Id
 	@GeneratedValue(strategy= GenerationType.UUID)

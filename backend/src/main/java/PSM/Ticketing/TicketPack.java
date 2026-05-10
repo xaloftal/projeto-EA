@@ -7,7 +7,7 @@ import java.util.UUID;
 import jakarta.persistence.*;
 
 @Entity
-@Table(name = "ticketpack")
+@Table(name = "ticketpack", schema = "catchit")
 public class TicketPack {
 	@Id
 	@GeneratedValue(strategy= GenerationType.UUID)
