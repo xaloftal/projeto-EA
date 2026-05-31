@@ -1,8 +1,10 @@
 package PSM.Ticketing;
 
+import java.time.LocalDateTime;
+
 import PSM.Location.Stop;
-import jakarta.persistence.Entity;
 import jakarta.persistence.DiscriminatorValue;
+import jakarta.persistence.Entity;
 import jakarta.persistence.ManyToOne;
 
 @Entity
@@ -33,6 +35,11 @@ public class Ticket extends Title {
 	@Override
 	public void expire() {
 		this.status.expire(this);
+	}
+
+	@Override
+	public boolean isValid() {
+		return LocalDateTime.now().isBefore(this.validUntil) && this.getStateName().equals("UNUSED");
 	}
 
 	public Stop getTo() { return this.to; }

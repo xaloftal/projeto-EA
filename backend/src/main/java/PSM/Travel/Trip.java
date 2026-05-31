@@ -2,11 +2,14 @@ package PSM.Travel;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.UUID;
 
 import PSM.ValidationManager.ValidationRecord;
+import PSM.ExitManager.ExitRecord;
 import PSM.Location.Route;
 import PSM.Location.Stop;
+import PSM.Location.StopSchedule;
 import jakarta.persistence.*;
 
 @Entity
@@ -20,6 +23,9 @@ public class Trip {
 
 	@OneToMany(mappedBy = "trip", cascade = CascadeType.ALL)
 	public ArrayList<ValidationRecord> validationRecords = new ArrayList<ValidationRecord>();
+
+	@OneToMany(mappedBy = "trip", cascade = CascadeType.ALL)
+	public ArrayList<ExitRecord> exitRecords = new ArrayList<ExitRecord>();
 
 	@ManyToOne
 	public Vehicle vehicle;
@@ -42,7 +48,12 @@ public class Trip {
 	}
 
 	public Stop getCurrentStop() {
-		throw new UnsupportedOperationException();
+		LocalDateTime now = LocalDateTime.now();
+		return route.schedules.stream()
+			.filter(schedule -> schedule.getDepartureTime().isBefore(now))
+			.max(Comparator.comparingInt(StopSchedule::getSequence))
+			.map(schedule -> schedule.stop)
+			.orElse(null);
 	}
 
 	public UUID getId() {

@@ -4,9 +4,9 @@ import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
-
-import com.fasterxml.jackson.annotation.JsonIgnore;
+import java.io.ByteArrayOutputStream;
 
 import PSM.Ticketing.State.ActiveState;
 import PSM.Ticketing.State.ExpiredState;
@@ -15,17 +15,26 @@ import PSM.Ticketing.State.UnusedState;
 import PSM.Ticketing.State.UsedState;
 import PSM.Ticketing.State.ValidatedState;
 import PSM.Travel.Trip;
+import PSM.UserManagement.User;
+import jakarta.persistence.DiscriminatorColumn;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
-import jakarta.persistence.DiscriminatorColumn;
 import jakarta.persistence.Id;
 import jakarta.persistence.Inheritance;
 import jakarta.persistence.InheritanceType;
+import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.PostLoad;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.Transient;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.google.zxing.BarcodeFormat;
+import com.google.zxing.common.BitMatrix;
+import com.google.zxing.qrcode.QRCodeWriter;
+import com.google.zxing.client.j2se.MatrixToImageWriter;
 
 @Entity
 @Table(name = "title")
@@ -33,7 +42,7 @@ import jakarta.persistence.Transient;
 @DiscriminatorColumn(name = "title_type")
 public abstract class Title {
 	@Id
-	@GeneratedValue(strategy= GenerationType.UUID)
+	@GeneratedValue(strategy = GenerationType.UUID)
 	private UUID id;
 	private LocalDateTime createdAt;
 	private LocalDateTime validFrom;
@@ -46,7 +55,7 @@ public abstract class Title {
 	public TitleState status;
 
 	@ManyToMany
-	public ArrayList<Trip> trips = new ArrayList<Trip>();
+	public List<Trip> trips = new ArrayList<Trip>();
 
 	
 	@PostLoad
@@ -60,39 +69,45 @@ public abstract class Title {
 		}
 	}
 
-	public void renew() {
-		throw new UnsupportedOperationException();
-	}
+	@ManyToOne
+	@JoinColumn(name = "user_id")
+	@JsonIgnore
+	private User user;
 
-	public void expire() {
-		throw new UnsupportedOperationException();
-	}
+	public void activate() { throw new UnsupportedOperationException(); }
+
+	public void renew() { throw new UnsupportedOperationException(); }
+	
+	public void expire() { throw new UnsupportedOperationException(); }
+
+	@JsonIgnore
+	public String getStateName() { return this.status.getStateName(); }
+
+	public void use() { throw new UnsupportedOperationException(); }
+
+	public boolean validate() { throw new UnsupportedOperationException(); }
 
 	@JsonIgnore
 	public boolean isValid() {
 		return LocalDateTime.now().isBefore(this.validUntil);
 	}
 
-	private void generateQrCode() {
-		throw new UnsupportedOperationException();
-	}
-
-	public boolean validate() {
-		throw new UnsupportedOperationException();
+	public void generateQrCode(String text, int size) {
+		try {
+			QRCodeWriter writer = new QRCodeWriter();
+			BitMatrix matrix = writer.encode(text, BarcodeFormat.QR_CODE, size, size);
+			try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+				MatrixToImageWriter.writeToStream(matrix, "PNG", baos);
+				this.qrCode = baos.toByteArray();
+			}
+		} catch (Exception e) {
+			throw new RuntimeException("Unable to generate QR code", e);
+		}
 	}
 
 	@JsonIgnore
 	public Duration getRemainingValidity() {
 		return Duration.between(LocalDateTime.now(), this.validUntil);
-	}
-
-	@JsonIgnore
-	public String getStateName() {
-		throw new UnsupportedOperationException();
-	}
-
-	public void use() {
-		throw new UnsupportedOperationException();
 	}
 
 	public UUID getId() {
@@ -151,12 +166,20 @@ public abstract class Title {
 		this.status = _status;
 	}
 
-	public ArrayList<Trip> getTrips() {
+	public List<Trip> getTrips() {
 		return this.trips;
 	}
 
-	public void setTrips(ArrayList<Trip> _trips) {
+	public void setTrips(List<Trip> _trips) {
 		this.trips = _trips;
+	}
+
+	public User getUser() {
+		return this.user;
+	}
+
+	public void setUser(User _user) {
+		this.user = _user;
 	}
 
 }

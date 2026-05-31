@@ -1,6 +1,7 @@
 package PSM.Location;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 import PSM.Location.Stop;
@@ -16,7 +17,7 @@ public class Zone {
 	private String name;
 
 	@ManyToMany
-	public ArrayList<Stop> stops = new ArrayList<Stop>();
+	private List<Stop> stops = new ArrayList<Stop>();
 
 
 
@@ -36,7 +37,7 @@ public class Zone {
 		this.name = _name;
 	}
 
-	public ArrayList<Stop> getStops() {
+	public List<Stop> getStops() {
 		return this.stops;
 	}
 
