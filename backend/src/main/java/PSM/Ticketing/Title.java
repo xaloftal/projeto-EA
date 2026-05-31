@@ -8,7 +8,12 @@ import java.util.UUID;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
+import PSM.Ticketing.State.ActiveState;
+import PSM.Ticketing.State.ExpiredState;
 import PSM.Ticketing.State.TitleState;
+import PSM.Ticketing.State.UnusedState;
+import PSM.Ticketing.State.UsedState;
+import PSM.Ticketing.State.ValidatedState;
 import PSM.Travel.Trip;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -18,6 +23,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Inheritance;
 import jakarta.persistence.InheritanceType;
 import jakarta.persistence.ManyToMany;
+import jakarta.persistence.PostLoad;
 import jakarta.persistence.Table;
 import jakarta.persistence.Transient;
 
@@ -31,9 +37,10 @@ public abstract class Title {
 	private UUID id;
 	private LocalDateTime createdAt;
 	private LocalDateTime validFrom;
-	private LocalDateTime validUntil;
+	public LocalDateTime validUntil;
 	private BigDecimal price;
 	private byte[] qrCode;
+	private String stateName;
 
 	@Transient
 	public TitleState status;
@@ -41,9 +48,19 @@ public abstract class Title {
 	@ManyToMany
 	public ArrayList<Trip> trips = new ArrayList<Trip>();
 
+	
+	@PostLoad
+	private void restoreState() {
+		switch (this.stateName) {
+			case "UNUSED" -> this.status = new UnusedState();
+			case "ACTIVE" -> this.status = new ActiveState();
+			case "VALIDATED" -> this.status = new ValidatedState();
+			case "EXPIRED" -> this.status = new ExpiredState();
+			case "USED" -> this.status = new UsedState();
+		}
+	}
 
-
-	public void activate() {
+	public void renew() {
 		throw new UnsupportedOperationException();
 	}
 
@@ -53,7 +70,7 @@ public abstract class Title {
 
 	@JsonIgnore
 	public boolean isValid() {
-		throw new UnsupportedOperationException();
+		return LocalDateTime.now().isBefore(this.validUntil);
 	}
 
 	private void generateQrCode() {
@@ -66,7 +83,7 @@ public abstract class Title {
 
 	@JsonIgnore
 	public Duration getRemainingValidity() {
-		throw new UnsupportedOperationException();
+		return Duration.between(LocalDateTime.now(), this.validUntil);
 	}
 
 	@JsonIgnore

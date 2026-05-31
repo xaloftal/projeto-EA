@@ -11,8 +11,14 @@ public class Card extends Title {
 	@OneToOne
 	public Zone zone;
 
-	public boolean renew() {
-		throw new UnsupportedOperationException();
+	@Override
+	public void renew() {
+		this.status.activate(this);
+	}
+
+	@Override
+	public void expire() {
+		this.status.expire(this);
 	}
 
 	public Zone getZone() { return this.zone; }

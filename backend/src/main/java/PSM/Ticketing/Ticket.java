@@ -4,7 +4,6 @@ import PSM.Location.Stop;
 import jakarta.persistence.Entity;
 import jakarta.persistence.DiscriminatorValue;
 import jakarta.persistence.ManyToOne;
-import jakarta.persistence.OneToOne;
 
 @Entity
 @DiscriminatorValue("ticket")
@@ -16,6 +15,25 @@ public class Ticket extends Title {
 	public Stop from;
 
 
+	@Override
+	public boolean validate() {
+		try {
+			this.status.validate(this);
+			return true;
+		} catch (UnsupportedOperationException e) {
+			return false;
+		}
+	}
+
+	@Override
+	public void use() {
+		this.status.use(this);
+	}
+
+	@Override
+	public void expire() {
+		this.status.expire(this);
+	}
 
 	public Stop getTo() { return this.to; }
 
