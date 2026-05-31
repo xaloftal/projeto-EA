@@ -3,6 +3,7 @@ package PSM.Services.CheckOut;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -17,18 +18,23 @@ import org.springframework.web.server.ResponseStatusException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import PSM.Checkout.api.cart.CartItemDTO;
+import PSM.Checkout.api.cart.CartItemSourceDTO;
 import PSM.Checkout.api.cart.CartResponseDTO;
 import PSM.Checkout.api.cart.CartService;
 import PSM.Checkout.api.checkout.CheckoutConfirmRequestDTO;
 import PSM.Checkout.api.checkout.CheckoutConfirmationDTO;
 import PSM.Checkout.api.checkout.CheckoutOrderValidationDTO;
 import PSM.Checkout.api.checkout.CheckoutSessionResponseDTO;
+import PSM.Location.Stop;
+import PSM.Location.api.stop.StopRepository;
 import PSM.Services.Payment.PaymentAuthorizationRequestDTO;
 import PSM.Services.Payment.PaymentAuthorizationResponseDTO;
 import PSM.Services.Payment.PaymentServiceClient;
 import PSM.Services.Payment.PaymentStrategy;
 import PSM.Services.Payment.PaymentTransactionStatusDTO;
+import PSM.Ticketing.Ticket;
 import PSM.Ticketing.Title;
+import PSM.Ticketing.api.ticket.TicketRepository;
 import PSM.UserManagement.User;
 import PSM.UserManagement.api.user.UserRepository;
 
@@ -40,6 +46,8 @@ public class CheckOutService {
 	private final CartService cartService;
 	private final PaymentServiceClient paymentServiceClient;
 	private final UserRepository userRepository;
+	private final TicketRepository ticketRepository;
+	private final StopRepository stopRepository;
 	private final StringRedisTemplate redisTemplate;
 	private final ObjectMapper objectMapper;
 	private final Duration sessionTtl;
@@ -48,12 +56,16 @@ public class CheckOutService {
 			CartService cartService,
 			PaymentServiceClient paymentServiceClient,
 			UserRepository userRepository,
+			TicketRepository ticketRepository,
+			StopRepository stopRepository,
 			StringRedisTemplate redisTemplate,
 			ObjectMapper objectMapper,
 			@Value("${checkout.session-ttl-minutes:15}") long sessionTtlMinutes) {
 		this.cartService = cartService;
 		this.paymentServiceClient = paymentServiceClient;
 		this.userRepository = userRepository;
+		this.ticketRepository = ticketRepository;
+		this.stopRepository = stopRepository;
 		this.redisTemplate = redisTemplate;
 		this.objectMapper = objectMapper;
 		this.sessionTtl = Duration.ofMinutes(Math.max(1, sessionTtlMinutes));
@@ -72,6 +84,7 @@ public class CheckOutService {
 		stored.setSubtotal(cart.getSubtotal());
 		stored.setTaxes(cart.getTaxes());
 		stored.setTotal(cart.getTotal());
+		stored.setItems(new ArrayList<>(cart.getItems()));
 		stored.setItemIds(cart.getItems().stream().map(CartItemDTO::getId).toList());
 
 		saveSession(userId, sessionId, stored);
@@ -130,6 +143,44 @@ public class CheckOutService {
 		if (!paymentResponse.isApproved()) {
 			throw new ResponseStatusException(HttpStatus.PAYMENT_REQUIRED,
 					"Payment was declined: " + paymentResponse.getMessage());
+		}
+
+		List<CartItemDTO> purchasedItems = session.getItems();
+		if (purchasedItems == null || purchasedItems.isEmpty()) {
+			purchasedItems = cartService.getCart(userId).getItems().stream()
+					.filter(item -> session.getItemIds().contains(item.getId()))
+					.toList();
+		}
+
+		for (CartItemDTO item : purchasedItems) {
+			if (!"ticket".equalsIgnoreCase(item.getKind())) {
+				continue;
+			}
+
+			int quantity = Math.max(1, item.getQuantity());
+			for (int i = 0; i < quantity; i++) {
+				Ticket ticket = new Ticket();
+				ticket.setCreatedAt(LocalDateTime.now());
+				ticket.setPrice(BigDecimal.valueOf(item.getUnitPrice()).setScale(2, RoundingMode.HALF_UP));
+
+				CartItemSourceDTO source = item.getSource();
+				if (source != null) {
+					ticket.setFrom(resolveStop(source.getFromStopId()));
+					ticket.setTo(resolveStop(source.getToStopId()));
+				}
+				ticket.setValidFrom(LocalDateTime.now());
+				ticket.setValidUntil(LocalDateTime.now().plusWeeks(1));
+				ticket.setUser(user);
+				ticketRepository.save(ticket);
+				try {
+					String qrText = orderId + ":" + ticket.getId();
+					ticket.generateQrCode(qrText, 300);
+					ticketRepository.save(ticket);
+				} catch (Exception e) {
+					System.err.println("QR generation failed for ticket " + ticket.getId() + ": " + e.getMessage());
+				}
+				user.addTicket(ticket);
+			}
 		}
 
 		BigDecimal newBalance = currentBalance.subtract(totalAmount).setScale(2, RoundingMode.HALF_UP);
@@ -205,12 +256,25 @@ public class CheckOutService {
 		return SESSION_PREFIX + userId + ":" + sessionId;
 	}
 
+	private Stop resolveStop(String stopId) {
+		if (stopId == null || stopId.isBlank()) {
+			return null;
+		}
+
+		try {
+			return stopRepository.findById(UUID.fromString(stopId)).orElse(null);
+		} catch (IllegalArgumentException e) {
+			return null;
+		}
+	}
+
 	static class StoredCheckoutSession {
 		private String sessionId;
 		private double subtotal;
 		private double taxes;
 		private double total;
 		private List<String> itemIds = new ArrayList<>();
+		private List<CartItemDTO> items = new ArrayList<>();
 
 		public String getSessionId() {
 			return sessionId;
@@ -250,6 +314,14 @@ public class CheckOutService {
 
 		public void setItemIds(List<String> itemIds) {
 			this.itemIds = itemIds;
+		}
+
+		public List<CartItemDTO> getItems() {
+			return items;
+		}
+
+		public void setItems(List<CartItemDTO> items) {
+			this.items = items;
 		}
 	}
 }
