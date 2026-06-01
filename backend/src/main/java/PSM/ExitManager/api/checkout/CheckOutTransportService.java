@@ -68,12 +68,14 @@ public class CheckOutTransportService {
         return to.equals(trip.getCurrentStop());
     }
 
-    public void getValidatedTitles() {
+    public void processAutomatedCheckOut() {
         List<Title> titles = titleRepository.findByStateName("VALIDATED");
         for (Title title : titles) {
+            if (title.trips == null || title.trips.isEmpty()) continue;
+            Trip lastTrip = title.trips.get(title.trips.size() - 1);
             title.use();
             titleRepository.save(title);
-            //saveExitRecord(title, , null, true);
+            saveExitRecord(title, lastTrip, false, true);
         }
     }
 

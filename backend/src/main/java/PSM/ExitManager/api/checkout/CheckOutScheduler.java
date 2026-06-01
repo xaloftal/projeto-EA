@@ -13,7 +13,7 @@ public class CheckOutScheduler {
 
     @Scheduled(cron = "0 0 0 * * *")
     public void automatedCheckOut() {
-
+        checkOutService.processAutomatedCheckOut();
     }
     
 }

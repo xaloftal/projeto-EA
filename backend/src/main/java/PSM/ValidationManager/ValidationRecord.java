@@ -11,7 +11,7 @@ import PSM.Travel.Trip;
 import jakarta.persistence.*;
 
 @Entity
-@Table(name = "validationrecord")
+@Table(name = "validationrecord", schema = "catchit")
 public class ValidationRecord {
 	@Id
 	@GeneratedValue(strategy= GenerationType.UUID)

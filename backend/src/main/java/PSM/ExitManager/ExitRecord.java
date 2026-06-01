@@ -11,7 +11,7 @@ import PSM.Location.Stop;
 import jakarta.persistence.*;
 
 @Entity
-@Table(name = "exitrecord")
+@Table(name = "exitrecord", schema = "catchit")
 public class ExitRecord {
 	@Id
 	@GeneratedValue(strategy= GenerationType.UUID)
@@ -29,7 +29,11 @@ public class ExitRecord {
 
 	@ManyToOne
 	public Trip trip;
+<<<<<<< HEAD
 
+=======
+	
+>>>>>>> cr/feat-checkin
 
 	public UUID getId() {
 		return this.id;

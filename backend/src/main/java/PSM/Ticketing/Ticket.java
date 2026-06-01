@@ -5,16 +5,19 @@ import java.time.LocalDateTime;
 import PSM.Location.Stop;
 import jakarta.persistence.DiscriminatorValue;
 import jakarta.persistence.Entity;
+import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 
 @Entity
 @DiscriminatorValue("ticket")
 public class Ticket extends Title {
 	@ManyToOne
-	public Stop to;
+	@JoinColumn(name = "to_id")
+	public Stop toStop;
 
 	@ManyToOne
-	public Stop from;
+	@JoinColumn(name = "from_id")
+	public Stop fromStop;
 
 
 	@Override
@@ -42,11 +45,11 @@ public class Ticket extends Title {
 		return LocalDateTime.now().isBefore(this.validUntil) && this.getStateName().equals("UNUSED");
 	}
 
-	public Stop getTo() { return this.to; }
+	public Stop getTo() { return this.toStop; }
 
-	public void setTo(Stop _to) { this.to = _to; }
+	public void setTo(Stop _toStop) { this.toStop = _toStop; }
 
-	public Stop getFrom() { return this.from; }
+	public Stop getFrom() { return this.fromStop; }
 
-	public void setFrom(Stop _from) { this.from = _from; }
+	public void setFrom(Stop _fromStop) { this.fromStop = _fromStop; }
 }

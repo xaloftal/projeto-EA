@@ -1,11 +1,13 @@
 package PSM.Location;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 
 import java.util.UUID;
 
 @Entity
-@Table(name = "location")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+@Table(name = "location", schema = "catchit")
 public class Location {
 	@Id
 	@GeneratedValue(strategy= GenerationType.UUID)

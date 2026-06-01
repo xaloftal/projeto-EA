@@ -26,12 +26,16 @@ import PSM.Checkout.api.checkout.CheckoutConfirmationDTO;
 import PSM.Checkout.api.checkout.CheckoutOrderValidationDTO;
 import PSM.Checkout.api.checkout.CheckoutSessionResponseDTO;
 import PSM.Location.Stop;
+import PSM.Location.Zone;
 import PSM.Location.api.stop.StopRepository;
 import PSM.Services.Payment.PaymentAuthorizationRequestDTO;
 import PSM.Services.Payment.PaymentAuthorizationResponseDTO;
 import PSM.Services.Payment.PaymentServiceClient;
 import PSM.Services.Payment.PaymentStrategy;
 import PSM.Services.Payment.PaymentTransactionStatusDTO;
+import PSM.Ticketing.Card;
+import PSM.Ticketing.api.card.CardRepository;
+import PSM.Location.api.zone.ZoneRepository;
 import PSM.Ticketing.Ticket;
 import PSM.Ticketing.Title;
 import PSM.Ticketing.api.ticket.TicketRepository;
@@ -51,6 +55,8 @@ public class CheckOutService {
 	private final StringRedisTemplate redisTemplate;
 	private final ObjectMapper objectMapper;
 	private final Duration sessionTtl;
+	private final ZoneRepository zoneRepository;
+	private final CardRepository cardRepository;
 
 	public CheckOutService(
 			CartService cartService,
@@ -60,6 +66,8 @@ public class CheckOutService {
 			StopRepository stopRepository,
 			StringRedisTemplate redisTemplate,
 			ObjectMapper objectMapper,
+			ZoneRepository zoneRepository,
+			CardRepository cardRepository,
 			@Value("${checkout.session-ttl-minutes:15}") long sessionTtlMinutes) {
 		this.cartService = cartService;
 		this.paymentServiceClient = paymentServiceClient;
@@ -68,6 +76,8 @@ public class CheckOutService {
 		this.stopRepository = stopRepository;
 		this.redisTemplate = redisTemplate;
 		this.objectMapper = objectMapper;
+		this.zoneRepository = zoneRepository;
+		this.cardRepository = cardRepository;
 		this.sessionTtl = Duration.ofMinutes(Math.max(1, sessionTtlMinutes));
 	}
 
@@ -153,33 +163,49 @@ public class CheckOutService {
 		}
 
 		for (CartItemDTO item : purchasedItems) {
-			if (!"ticket".equalsIgnoreCase(item.getKind())) {
-				continue;
-			}
-
-			int quantity = Math.max(1, item.getQuantity());
-			for (int i = 0; i < quantity; i++) {
-				Ticket ticket = new Ticket();
-				ticket.setCreatedAt(LocalDateTime.now());
-				ticket.setPrice(BigDecimal.valueOf(item.getUnitPrice()).setScale(2, RoundingMode.HALF_UP));
-
+			if ("card".equalsIgnoreCase(item.getKind())) {
 				CartItemSourceDTO source = item.getSource();
-				if (source != null) {
-					ticket.setFrom(resolveStop(source.getFromStopId()));
-					ticket.setTo(resolveStop(source.getToStopId()));
-				}
-				ticket.setValidFrom(LocalDateTime.now());
-				ticket.setValidUntil(LocalDateTime.now().plusWeeks(1));
-				ticket.setUser(user);
-				ticketRepository.save(ticket);
-				try {
-					String qrText = orderId + ":" + ticket.getId();
-					ticket.generateQrCode(qrText, 300);
+				if (source == null || source.getCardId() == null) continue;
+
+				Zone zone = zoneRepository.findById(UUID.fromString(source.getCardId())).orElse(null);
+				if (zone == null) continue;
+
+				Card card = new Card();
+				card.setCreatedAt(LocalDateTime.now());
+				card.setPrice(BigDecimal.valueOf(item.getUnitPrice()).setScale(2, RoundingMode.HALF_UP));
+				card.setValidFrom(LocalDateTime.now());
+				card.setValidUntil(LocalDateTime.now().plusMonths(1));
+				card.setUser(user);
+				card.zone = zone;
+				card.setStateName("ACTIVE");
+				Card savedCard = cardRepository.save(card);
+				user.setCard(savedCard);
+
+			} else if ("ticket".equalsIgnoreCase(item.getKind())) {
+				int quantity = Math.max(1, item.getQuantity());
+				for (int i = 0; i < quantity; i++) {
+					Ticket ticket = new Ticket();
+					ticket.setCreatedAt(LocalDateTime.now());
+					ticket.setPrice(BigDecimal.valueOf(item.getUnitPrice()).setScale(2, RoundingMode.HALF_UP));
+
+					CartItemSourceDTO source = item.getSource();
+					if (source != null) {
+						ticket.setFrom(resolveStop(source.getFromStopId()));
+						ticket.setTo(resolveStop(source.getToStopId()));
+					}
+					ticket.setValidFrom(LocalDateTime.now());
+					ticket.setValidUntil(LocalDateTime.now().plusWeeks(1));
+					ticket.setUser(user);
 					ticketRepository.save(ticket);
-				} catch (Exception e) {
-					System.err.println("QR generation failed for ticket " + ticket.getId() + ": " + e.getMessage());
+					try {
+						String qrText = orderId + ":" + ticket.getId();
+						ticket.generateQrCode(qrText, 300);
+						ticketRepository.save(ticket);
+					} catch (Exception e) {
+						System.err.println("QR generation failed for ticket " + ticket.getId() + ": " + e.getMessage());
+					}
+					user.addTicket(ticket);
 				}
-				user.addTicket(ticket);
 			}
 		}
 

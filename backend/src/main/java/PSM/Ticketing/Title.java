@@ -16,6 +16,7 @@ import PSM.Ticketing.State.UsedState;
 import PSM.Ticketing.State.ValidatedState;
 import PSM.Travel.Trip;
 import PSM.UserManagement.User;
+import jakarta.persistence.Column;
 import jakarta.persistence.DiscriminatorColumn;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -37,7 +38,7 @@ import com.google.zxing.qrcode.QRCodeWriter;
 import com.google.zxing.client.j2se.MatrixToImageWriter;
 
 @Entity
-@Table(name = "title")
+@Table(name = "title", schema = "catchit")
 @Inheritance(strategy = InheritanceType.SINGLE_TABLE)
 @DiscriminatorColumn(name = "title_type")
 public abstract class Title {
@@ -49,6 +50,8 @@ public abstract class Title {
 	public LocalDateTime validUntil;
 	private BigDecimal price;
 	private byte[] qrCode;
+
+	@Column(name = "state_name")
 	private String stateName;
 
 	@Transient
@@ -79,9 +82,6 @@ public abstract class Title {
 	public void renew() { throw new UnsupportedOperationException(); }
 	
 	public void expire() { throw new UnsupportedOperationException(); }
-
-	@JsonIgnore
-	public String getStateName() { return this.status.getStateName(); }
 
 	public void use() { throw new UnsupportedOperationException(); }
 
@@ -156,6 +156,14 @@ public abstract class Title {
 
 	public void setQrCode(byte[] _qrCode) {
 		this.qrCode = _qrCode;
+	}
+
+	public String getStateName() {
+		return this.stateName;
+	}
+
+	public void setStateName(String stateName) {
+		this.stateName = stateName;
 	}
 
 	public TitleState getStatus() {

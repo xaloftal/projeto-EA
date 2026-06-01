@@ -13,6 +13,7 @@ C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\b
 C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\config\DatabaseSeeder.java
 C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\config\JwtAuthenticationFilter.java
 C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\config\JwtUtil.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\config\RedisConfig.java
 C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\config\RestExceptionHandler.java
 C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\config\SecurityConfig.java
 C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\ExitManager\api\exitrecord\ExitRecordController.java
@@ -28,6 +29,10 @@ C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\b
 C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Location\api\route\RouteRepository.java
 C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Location\api\route\RouteSearchResultDTO.java
 C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Location\api\route\RouteService.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Location\api\route\RouteWithSchedulesDTO.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Location\api\route\StopRouteArrivalDTO.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Location\api\routestop\RouteStopRepository.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Location\api\stop\GeoJsonGeneratorService.java
 C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Location\api\stop\StopController.java
 C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Location\api\stop\StopRepository.java
 C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Location\api\stop\StopService.java
@@ -39,6 +44,7 @@ C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\b
 C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Location\api\zone\ZoneService.java
 C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Location\Location.java
 C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Location\Route.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Location\RouteStop.java
 C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Location\Stop.java
 C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Location\StopSchedule.java
 C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Location\Subject.java
@@ -78,6 +84,9 @@ C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\b
 C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Travel\api\vehicle\VehicleController.java
 C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Travel\api\vehicle\VehicleRepository.java
 C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Travel\api\vehicle\VehicleService.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Travel\api\vehicle\VehicleSimulationController.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Travel\api\vehicle\VehicleSimulationService.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Travel\api\vehicle\VehicleSimulationSnapshotDTO.java
 C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Travel\Trip.java
 C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Travel\Vehicle.java
 C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Travel\VehicleType.java
@@ -87,10 +96,14 @@ C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\b
 C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\UserManagement\api\auth\AuthResponse.java
 C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\UserManagement\api\auth\AuthService.java
 C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\UserManagement\api\user\UserController.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\UserManagement\api\user\UserNotificationRepository.java
 C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\UserManagement\api\user\UserRepository.java
 C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\UserManagement\api\user\UserService.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\UserManagement\notification\NotificationCacheService.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\UserManagement\notification\NotificationRetentionService.java
 C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\UserManagement\Observer.java
 C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\UserManagement\User.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\UserManagement\UserNotification.java
 C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\ValidationManager\api\validationrecord\ValidationRecordController.java
 C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\ValidationManager\api\validationrecord\ValidationRecordRepository.java
 C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\ValidationManager\api\validationrecord\ValidationRecordService.java

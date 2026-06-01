@@ -3,8 +3,7 @@
     <!-- Header -->
     <header class="app-header">
       <h1>
-        <img src="../assets/app-logo-wt.png" alt="CatchIt" class="logo" /> 
-
+        <img src="../assets/app-logo-wt.png" alt="CatchIt" class="logo" />
       </h1>
       <router-link to="/notifications" class="profile-icon" aria-label="Profile">
         <Bell class="icon-md" />
@@ -42,57 +41,86 @@
         <div class="swipe-pane">
           <div class="tab-content">
             <div class="card-display">
-              <div v-if="currentCard" class="card-visual">
-                <div class="card-logo">{{ currentCard.name }}</div>
-                <div class="card-details">
-                  <p>{{ currentCard.description || 'Your active CatchIt plan' }}</p>
-                  <p class="date">Valid until {{ formatDate(currentCard.validUntil) }}</p>
-                </div>
+              <div v-if="isCardsLoading" class="card-visual card-visual-skeleton">
+                <LoaderCircle class="spinner-icon" />
               </div>
+              <template v-else>
+                <ZoneCard
+                  v-if="currentCard"
+                  class="card-visual"
+                  :zone-name="currentCard.name"
+                  :zone-color="currentCard.zoneColorHexCode || '#111111'"
+                  :valid-until="formatDate(currentCard.validUntil)"
+                  :owner-name="currentUserName"
+                  owned
+                />
 
-              <div v-else class="card-visual card-visual-empty">
-                <div class="card-logo">My Card</div>
-                <div class="card-details">
-                  <p>No CatchIt card yet</p>
-                  <p class="date">Buy one to unlock full access</p>
+                <div v-else class="card-visual card-visual-empty">
+                  <div class="card-logo">My Card</div>
+                  <div class="card-details">
+                    <p>No CatchIt card yet</p>
+                    <p class="date">Buy one to unlock full access</p>
+                  </div>
                 </div>
-              </div>
 
-              <div class="card-bottom">
-                <router-link to="/cards" class="btn-primary card-action-btn">{{ currentCard ? 'Renew' : 'Buy Card' }}</router-link>
-                <div v-if="currentCard" class="card-qr">
-                  <QrCode class="card-qr-icon" />
+                <div class="card-bottom">
+                  <router-link to="/cards" class="btn-primary card-action-btn">{{ currentCard ? 'Renew' : 'Buy Card' }}</router-link>
+                  <div class="card-qr" @click="showQrModal = true" style="cursor: pointer;">
+                    <QrCode class="card-qr-icon" />
+                  </div>
                 </div>
-              </div>
+              </template>
             </div>
           </div>
         </div>
 
         <div class="swipe-pane">
           <div class="tab-content">
-            <div v-if="tickets.length === 0" class="empty-state">
-              <p><Ticket class="empty-icon" /> No tickets yet</p>
-              <router-link :to="{ path: '/cards', query: { tab: 'tickets' } }" class="btn-primary">Buy Tickets</router-link>
+            <div v-if="isTicketsLoading" class="ticket-item ticket-skeleton">
+              <LoaderCircle class="spinner-icon spinner-icon-dark" />
             </div>
 
-            <div v-else>
-              <div v-for="ticket in tickets" :key="ticket.id" class="ticket-item">
-                <div class="ticket-header">
-                  <h3>Ticket</h3>
-                  <span class="status-badge" :class="ticket.status.toLowerCase()">
-                    {{ formatStatus(ticket.status) }}
-                  </span>
-                </div>
-                <p class="expiry">Expires on {{ formatDate(ticket.validUntil) }}</p>
-                <div class="ticket-stops">
-                  <p><MapPin class="icon-sm" /> {{ getTicketFromStop(ticket) }}</p>
-                  <p><MapPin class="icon-sm" /> {{ getTicketToStop(ticket) }}</p>
-                </div>
-                <div class="qr-code"><QrCode class="icon-md" /></div>
+            <template v-else>
+              <div v-if="tickets.length === 0" class="empty-state">
+                <p><Ticket class="empty-icon" /> No tickets yet</p>
+                <router-link :to="{ path: '/cards', query: { tab: 'tickets' } }" class="btn-primary">Buy Tickets</router-link>
               </div>
-            </div>
+
+              <div v-else>
+                <div v-for="ticket in tickets" :key="ticket.id" class="ticket-item">
+                  <div class="ticket-header">
+                    <h3>Ticket</h3>
+                    <span class="status-badge" :class="ticket.status.toLowerCase()">
+                      {{ formatStatus(ticket.status) }}
+                    </span>
+                  </div>
+                  <p class="expiry">Expires on {{ formatDate(ticket.validUntil) }}</p>
+                  <div class="ticket-stops">
+                    <p><MapPin class="icon-sm" /> {{ getTicketFromStop(ticket) }}</p>
+                    <p><MapPin class="icon-sm" /> {{ getTicketToStop(ticket) }}</p>
+                  </div>
+                  <div class="qr-code">
+                    <img
+                      v-if="getQrCodeSrc(ticket.qrCode)"
+                      :src="getQrCodeSrc(ticket.qrCode)"
+                      alt="Ticket QR code"
+                      class="ticket-qr-image"
+                    />
+                    <span v-else class="qr-fallback">QR code unavailable</span>
+                  </div>
+                </div>
+              </div>
+            </template>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- QR Modal -->
+    <div v-if="showQrModal" class="qr-modal" @click="showQrModal = false">
+      <div class="qr-modal-content">
+        <QrCode class="qr-modal-icon" />
+        <p>Tap to close</p>
       </div>
     </div>
 
@@ -119,8 +147,9 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { Bell, House, MapPin, QrCode, Map, ShoppingCart, Ticket, User } from 'lucide-vue-next'
-import { useTicketViewModel, useCardViewModel } from '../viewmodels'
+import { Bell, House, MapPin, QrCode, Map, ShoppingCart, Ticket, User, LoaderCircle } from 'lucide-vue-next'
+import ZoneCard from '../components/ZoneCard.vue'
+import { useTicketViewModel, useCardViewModel, currentUser } from '../viewmodels'
 import type { Ticket as UserTicket } from '../models'
 
 const activeTab = ref<'cards' | 'tickets'>('cards')
@@ -134,6 +163,11 @@ const cardViewModel = useCardViewModel()
 const tickets = computed(() => ticketViewModel.tickets.value)
 const userCards = computed(() => cardViewModel.userCards.value)
 const currentCard = computed(() => userCards.value[0] ?? null)
+const currentUserName = computed(() => currentUser.value?.name ?? '')
+const isInitialLoad = ref(true)
+const isCardsLoading = computed(() => isInitialLoad.value || cardViewModel.isLoading.value)
+const isTicketsLoading = computed(() => isInitialLoad.value || ticketViewModel.isLoading.value)
+const showQrModal = ref(false)
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
 
@@ -141,9 +175,7 @@ const blendColor = (from: string, to: string, amount: number) => {
   const progress = clamp(amount, 0, 1)
   const fromRGB = from.match(/[A-Fa-f0-9]{2}/g)?.map((hex) => parseInt(hex, 16))
   const toRGB = to.match(/[A-Fa-f0-9]{2}/g)?.map((hex) => parseInt(hex, 16))
-
   if (!fromRGB || !toRGB || fromRGB.length !== 3 || toRGB.length !== 3) return to
-
   const mixed = fromRGB.map((value, index) => Math.round(value + (toRGB[index] - value) * progress))
   return `rgb(${mixed[0]}, ${mixed[1]}, ${mixed[2]})`
 }
@@ -155,11 +187,7 @@ const updateViewportWidth = () => {
 const tabProgress = computed(() => {
   const width = viewportWidth.value || 1
   const dragRatio = clamp(Math.abs(currentDragX.value) / width, 0, 1)
-
-  if (activeTab.value === 'cards') {
-    return dragRatio
-  }
-
+  if (activeTab.value === 'cards') return dragRatio
   return 1 - dragRatio
 })
 
@@ -177,13 +205,9 @@ const swipeTrackStyle = computed(() => {
       transform: activeTab.value === 'cards' ? 'translate3d(0, 0, 0)' : 'translate3d(-100%, 0, 0)',
     }
   }
-
   const baseOffset = activeTab.value === 'cards' ? 0 : -width
   const offset = baseOffset + currentDragX.value
-
-  return {
-    transform: `translate3d(${offset}px, 0, 0)`,
-  }
+  return { transform: `translate3d(${offset}px, 0, 0)` }
 })
 
 const setActiveTab = (tab: 'cards' | 'tickets') => {
@@ -200,33 +224,24 @@ const onTouchStart = (event: TouchEvent) => {
 
 const onTouchMove = (event: TouchEvent) => {
   if (!isDragging.value || !event.touches.length) return
-
   const deltaX = event.touches[0].clientX - touchStartX.value
   const width = viewportWidth.value || 1
   const maxDrag = width * 0.8
-
   if (activeTab.value === 'cards') {
     currentDragX.value = clamp(deltaX, -maxDrag, 0)
     return
   }
-
   currentDragX.value = clamp(deltaX, 0, maxDrag)
 }
 
 const onTouchEnd = () => {
   if (!isDragging.value) return
-
   const width = viewportWidth.value || 1
   const threshold = width * 0.2
   const shouldMoveToTickets = activeTab.value === 'cards' && currentDragX.value <= -threshold
   const shouldMoveToCards = activeTab.value === 'tickets' && currentDragX.value >= threshold
-
-  if (shouldMoveToTickets) {
-    activeTab.value = 'tickets'
-  } else if (shouldMoveToCards) {
-    activeTab.value = 'cards'
-  }
-
+  if (shouldMoveToTickets) activeTab.value = 'tickets'
+  else if (shouldMoveToCards) activeTab.value = 'cards'
   currentDragX.value = 0
   isDragging.value = false
 }
@@ -234,9 +249,11 @@ const onTouchEnd = () => {
 onMounted(async () => {
   updateViewportWidth()
   window.addEventListener('resize', updateViewportWidth)
-
-  await ticketViewModel.fetchUserTickets()
-  await cardViewModel.fetchUserCards()
+  await Promise.all([
+    ticketViewModel.fetchUserTickets(),
+    cardViewModel.fetchUserCards(),
+  ])
+  isInitialLoad.value = false
 })
 
 onBeforeUnmount(() => {
@@ -266,11 +283,16 @@ const getTicketFromStop = (ticket: UserTicket) =>
 
 const getTicketToStop = (ticket: UserTicket) =>
   ticket.stopTo?.name ?? 'Route details unavailable'
+
+const getQrCodeSrc = (qrCode: string) => {
+  if (!qrCode) return ''
+  if (qrCode.startsWith('data:image/')) return qrCode
+  if (qrCode.startsWith('http://') || qrCode.startsWith('https://')) return qrCode
+  return `data:image/png;base64,${qrCode}`
+}
 </script>
 
 <style scoped>
-
-
 .home-container .app-header h1 {
   display: flex;
   align-items: left;
@@ -402,20 +424,16 @@ const getTicketToStop = (ticket: UserTicket) =>
   justify-content: center;
 }
 
-.btn-qr {
-  width: 100%;
-  padding: 0.75rem;
-  background: #e8e8e8;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 600;
-  text-decoration: none;
-  color: inherit;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
+.ticket-qr-image {
+  width: 180px;
+  height: 180px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.qr-fallback {
+  color: #999;
+  font-size: 0.9rem;
 }
 
 .card-bottom {
@@ -447,6 +465,31 @@ const getTicketToStop = (ticket: UserTicket) =>
   width: 10.5rem;
   height: 10.5rem;
   color: #0b0b0b;
+}
+
+.qr-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.qr-modal-content {
+  background: white;
+  border-radius: 16px;
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.qr-modal-icon {
+  width: 18rem;
+  height: 18rem;
 }
 
 .card-display {
@@ -553,5 +596,37 @@ const getTicketToStop = (ticket: UserTicket) =>
   margin-top: auto;
 }
 
+.card-visual-skeleton {
+  background: linear-gradient(135deg, #d1d5db 0%, #9ca3af 100%);
+  min-height: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0;
+}
 
+.ticket-skeleton {
+  min-height: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f3f4f6;
+  width: 100%;
+}
+
+.spinner-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  animation: spin 1s linear infinite;
+  color: #ffffff;
+}
+
+.spinner-icon-dark {
+  color: #9ca3af;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
 </style>

@@ -1,12 +1,22 @@
 package PSM.Location;
 
-import jakarta.persistence.*;
-
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+
 @Entity
-@Table(name = "stopschedule")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+@Table(name = "stopschedule", schema = "catchit")
 public class StopSchedule {
 	@Id
 	@GeneratedValue(strategy= GenerationType.UUID)
@@ -19,7 +29,10 @@ public class StopSchedule {
 	@ManyToOne
 	public Stop stop;
 
-
+	@ManyToOne
+	@JoinColumn(name = "route_id")
+	@JsonIgnore
+	public Route route;
 
 	public UUID getId() {
 		return this.id;
@@ -51,5 +64,21 @@ public class StopSchedule {
 
 	public void setSequence(int _sequence) {
 		this.sequence = _sequence;
+	}
+
+	public Stop getStop() {
+		return this.stop;
+	}
+
+	public void setStop(Stop _stop) {
+		this.stop = _stop;
+	}
+
+	public Route getRoute() {
+		return this.route;
+	}
+
+	public void setRoute(Route _route) {
+		this.route = _route;
 	}
 }

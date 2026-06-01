@@ -2,6 +2,7 @@ package PSM.Location.api.zone;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 
@@ -16,7 +17,9 @@ public class ZoneService {
     }
 
     public List<Zone> findAll() {
-        return repository.findAll();
+        return repository.findAll().stream()
+                .filter(zone -> zone.getName() == null || !"OUT".equalsIgnoreCase(zone.getName().trim()))
+                .collect(Collectors.toList());
     }
 
     public Zone findById(UUID id) {
