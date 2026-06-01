@@ -29,11 +29,6 @@ public class ExitRecord {
 
 	@ManyToOne
 	public Trip trip;
-<<<<<<< HEAD
-
-=======
-	
->>>>>>> cr/feat-checkin
 
 	public UUID getId() {
 		return this.id;
