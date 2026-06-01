@@ -42,55 +42,76 @@
         <div class="swipe-pane">
           <div class="tab-content">
             <div class="card-display">
-              <div v-if="currentCard" class="card-visual">
-                <div class="card-logo">{{ currentCard.name }}</div>
-                <div class="card-details">
-                  <p>{{ currentCard.description || 'Your active CatchIt plan' }}</p>
-                  <p class="date">Valid until {{ formatDate(currentCard.validUntil) }}</p>
-                </div>
+              <div v-if="isCardsLoading" class="card-visual card-visual-skeleton">
+                 <LoaderCircle class="spinner-icon" />
               </div>
+              <template v-else>
+                <ZoneCard
+                  v-if="currentCard"
+                  class="card-visual"
+                  :zone-name="currentCard.name"
+                  :zone-color="currentCard.zoneColorHexCode || '#111111'"
+                  :valid-until="formatDate(currentCard.validUntil)"
+                  :owner-name="currentUserName"
+                  owned
+                />
 
-              <div v-else class="card-visual card-visual-empty">
-                <div class="card-logo">My Card</div>
-                <div class="card-details">
-                  <p>No CatchIt card yet</p>
-                  <p class="date">Buy one to unlock full access</p>
+                <div v-else class="card-visual card-visual-empty">
+                  <div class="card-logo">My Card</div>
+                  <div class="card-details">
+                    <p>No CatchIt card yet</p>
+                    <p class="date">Buy one to unlock full access</p>
+                  </div>
                 </div>
-              </div>
 
-              <div class="card-bottom">
-                <router-link to="/cards" class="btn-primary card-action-btn">{{ currentCard ? 'Renew' : 'Buy Card' }}</router-link>
-                <div v-if="currentCard" class="card-qr">
-                  <QrCode class="card-qr-icon" />
+                <div class="card-bottom">
+                  <router-link to="/cards" class="btn-primary card-action-btn">{{ currentCard ? 'Renew' : 'Buy Card' }}</router-link>
+                  <div v-if="currentCard" class="card-qr">
+                    <QrCode class="card-qr-icon" />
+                  </div>
                 </div>
-              </div>
+              </template>
             </div>
           </div>
         </div>
 
         <div class="swipe-pane">
           <div class="tab-content">
-            <div v-if="tickets.length === 0" class="empty-state">
-              <p><Ticket class="empty-icon" /> No tickets yet</p>
-              <router-link :to="{ path: '/cards', query: { tab: 'tickets' } }" class="btn-primary">Buy Tickets</router-link>
+            <div v-if="isTicketsLoading" class="ticket-item ticket-skeleton">
+               <LoaderCircle class="spinner-icon spinner-icon-dark" />
             </div>
 
-            <div v-else>
-              <div v-for="ticket in tickets" :key="ticket.id" class="ticket-item">
-                <div class="ticket-header">
-                  <h3>Ticket</h3>
-                  <span class="status-badge" :class="ticket.status.toLowerCase()">
-                    {{ formatStatus(ticket.status) }}
-                  </span>
-                </div>
-                <p class="expiry">Expires on {{ formatDate(ticket.validUntil) }}</p>
-                <div class="ticket-stops">
-                  <p><MapPin class="icon-sm" /> {{ getTicketFromStop(ticket) }}</p>
-                  <p><MapPin class="icon-sm" /> {{ getTicketToStop(ticket) }}</p>
-                </div>
-                <div class="qr-code"><QrCode class="icon-md" /></div>
+            <template v-else>
+              <div v-if="tickets.length === 0" class="empty-state">
+                <p><Ticket class="empty-icon" /> No tickets yet</p>
+                <router-link :to="{ path: '/cards', query: { tab: 'tickets' } }" class="btn-primary">Buy Tickets</router-link>
               </div>
-            </div>
+
+              <div v-else>
+                <div v-for="ticket in tickets" :key="ticket.id" class="ticket-item">
+                  <div class="ticket-header">
+                    <h3>Ticket</h3>
+                    <span class="status-badge" :class="ticket.status.toLowerCase()">
+                      {{ formatStatus(ticket.status) }}
+                    </span>
+                  </div>
+                  <p class="expiry">Expires on {{ formatDate(ticket.validUntil) }}</p>
+                  <div class="ticket-stops">
+                    <p><MapPin class="icon-sm" /> {{ getTicketFromStop(ticket) }}</p>
+                    <p><MapPin class="icon-sm" /> {{ getTicketToStop(ticket) }}</p>
+                  </div>
+                  <div class="qr-code">
+                    <img
+                      v-if="getQrCodeSrc(ticket.qrCode)"
+                      :src="getQrCodeSrc(ticket.qrCode)"
+                      alt="Ticket QR code"
+                      class="ticket-qr-image"
+                    />
+                    <span v-else class="qr-fallback">QR code unavailable</span>
+                  </div>
+                </div>
+              </div>
+            </template>
           </div>
         </div>
       </div>
@@ -119,8 +140,9 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { Bell, House, MapPin, QrCode, Map, ShoppingCart, Ticket, User } from 'lucide-vue-next'
-import { useTicketViewModel, useCardViewModel } from '../viewmodels'
+import { Bell, House, MapPin, QrCode, Map, ShoppingCart, Ticket, User, LoaderCircle } from 'lucide-vue-next'
+import ZoneCard from '../components/ZoneCard.vue'
+import { useTicketViewModel, useCardViewModel, currentUser } from '../viewmodels'
 import type { Ticket as UserTicket } from '../models'
 
 const activeTab = ref<'cards' | 'tickets'>('cards')
@@ -134,6 +156,10 @@ const cardViewModel = useCardViewModel()
 const tickets = computed(() => ticketViewModel.tickets.value)
 const userCards = computed(() => cardViewModel.userCards.value)
 const currentCard = computed(() => userCards.value[0] ?? null)
+const currentUserName = computed(() => currentUser.value?.name ?? '')
+const isInitialLoad = ref(true)
+const isCardsLoading = computed(() => isInitialLoad.value || cardViewModel.isLoading.value)
+const isTicketsLoading = computed(() => isInitialLoad.value || ticketViewModel.isLoading.value)
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
 
@@ -235,8 +261,12 @@ onMounted(async () => {
   updateViewportWidth()
   window.addEventListener('resize', updateViewportWidth)
 
-  await ticketViewModel.fetchUserTickets()
-  await cardViewModel.fetchUserCards()
+  await Promise.all([
+    ticketViewModel.fetchUserTickets(),
+    cardViewModel.fetchUserCards()
+  ])
+  
+  isInitialLoad.value = false
 })
 
 onBeforeUnmount(() => {
@@ -266,6 +296,13 @@ const getTicketFromStop = (ticket: UserTicket) =>
 
 const getTicketToStop = (ticket: UserTicket) =>
   ticket.stopTo?.name ?? 'Route details unavailable'
+
+const getQrCodeSrc = (qrCode: string) => {
+  if (!qrCode) return ''
+  if (qrCode.startsWith('data:image/')) return qrCode
+  if (qrCode.startsWith('http://') || qrCode.startsWith('https://')) return qrCode
+  return `data:image/png;base64,${qrCode}`
+}
 </script>
 
 <style scoped>
@@ -400,6 +437,18 @@ const getTicketToStop = (ticket: UserTicket) =>
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.ticket-qr-image {
+  width: 180px;
+  height: 180px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.qr-fallback {
+  color: #999;
+  font-size: 0.9rem;
 }
 
 .btn-qr {
@@ -553,5 +602,41 @@ const getTicketToStop = (ticket: UserTicket) =>
   margin-top: auto;
 }
 
+.card-visual-skeleton {
+  background: linear-gradient(135deg, #d1d5db 0%, #9ca3af 100%);
+  min-height: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0;
+}
 
+.ticket-skeleton {
+  min-height: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f3f4f6;
+  width: 100%;
+}
+
+.spinner-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  animation: spin 1s linear infinite;
+  color: #ffffff;
+}
+
+.spinner-icon-dark {
+  color: #9ca3af;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
 </style>

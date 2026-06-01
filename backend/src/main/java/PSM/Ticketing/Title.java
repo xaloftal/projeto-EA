@@ -38,7 +38,7 @@ import com.google.zxing.qrcode.QRCodeWriter;
 import com.google.zxing.client.j2se.MatrixToImageWriter;
 
 @Entity
-@Table(name = "title")
+@Table(name = "title", schema = "catchit")
 @Inheritance(strategy = InheritanceType.SINGLE_TABLE)
 @DiscriminatorColumn(name = "title_type")
 public abstract class Title {

@@ -12,7 +12,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import PSM.Location.Stop;
 import PSM.UserManagement.User;
+import PSM.UserManagement.UserNotification;
 
 @RestController
 @RequestMapping("/api/users")
@@ -46,5 +48,20 @@ public class UserController {
     @DeleteMapping("/{id}")
     public void delete(@PathVariable UUID id) {
         service.delete(id);
+    }
+
+    @GetMapping("/{id}/notifications")
+    public List<UserNotification> getNotifications(@PathVariable UUID id) {
+        return service.findNotifications(id);
+    }
+
+    @DeleteMapping("/{id}/notifications/{notificationId}")
+    public void deleteNotification(@PathVariable UUID id, @PathVariable UUID notificationId) {
+        service.deleteNotification(id, notificationId);
+    }
+
+    @GetMapping("/{id}/poi")
+    public List<Stop> getPOI(@PathVariable UUID id) {
+        return service.getUserPOI(id);
     }
 }

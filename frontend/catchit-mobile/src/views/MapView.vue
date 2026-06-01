@@ -22,15 +22,19 @@
         <p class="results-count">{{ resultCount }} results</p>
       </div>
 
+      <div v-if="apiError" class="map-error-banner">
+        <span>{{ apiError }}</span>
+        <button type="button" class="map-error-retry" @click="reloadMapData">Retry</button>
+      </div>
+
       <ul v-if="visibleSuggestions" class="suggestions-list">
         <li v-for="stop in filteredStops" :key="stop.id" class="suggestion-item">
           <button type="button" class="suggestion-btn" @click="focusStop(stop.id)">
             <span>{{ stop.name }}</span>
-            <small>{{ stop.id }}</small>
+            <small>{{ stop.code }}</small>
           </button>
         </li>
       </ul>
-
     </header>
 
     <section
@@ -39,19 +43,31 @@
       class="bottom-sheet"
       :class="{ 'is-dragging': isDragging }"
       :style="bottomSheetStyle"
-      @pointerdown="onSheetPointerDown"
     >
-      <div class="drag-handle"></div>
+      <div class="drag-area" @pointerdown="onSheetPointerDown">
+        <div class="drag-handle"></div>
+      </div>
 
       <div v-if="sheetMode === 'stop' && selectedStop" class="sheet-header">
         <h2>{{ selectedStop.name }}</h2>
-        <span class="provider-badge">TUB</span>
+        <div class="sheet-header-actions">
+          <button
+            :disabled="isLoadingPOI"
+            class="poi-btn"
+            :class="{ 'is-added': isStopPOI }"
+            @click="toggleStopPOI"
+            :title="isStopPOI ? 'Remove from favorites' : 'Add to favorites'"
+          >
+            <Star :size="20" :fill="isStopPOI ? 'currentColor' : 'none'" />
+          </button>
+          <span class="provider-badge">{{ selectedStop.stopType || 'STOP' }}</span>
+        </div>
       </div>
 
       <template v-if="sheetMode === 'stop' && selectedStop">
-        <p class="line-name">Bus stop information</p>
-        <p class="ids-line">Stop ID: {{ selectedStop.id }}</p>
-        <p class="next-stop">Next Stop: {{ nextStopName }}</p>
+        <p class="line-name">{{ selectedStop.stopType || 'STOP' }} stop information</p>
+        <p class="ids-line">Stop ID: {{ selectedStop.code }}</p>
+        <p class="next-stop">Next arrival: {{ nextArrivalLabel }}</p>
 
         <h3 class="route-title">Routes at this stop</h3>
         <div
@@ -59,7 +75,7 @@
           :key="route.routeId"
           class="route-item"
         >
-          <span>{{ route.lineLabel }} ({{ route.busId }})</span>
+          <span>{{ route.lineLabel }}</span>
           <span class="route-time">
             {{ route.nextTime }}
             <small class="route-eta">{{ route.etaLabel }}</small>
@@ -70,10 +86,10 @@
       <template v-else-if="sheetMode === 'bus' && selectedBus">
         <div class="sheet-header">
           <h2>Bus {{ selectedBus.lineLabel }}</h2>
-          <span class="provider-badge">TUB</span>
+          <span class="provider-badge">{{ selectedBus.lineLabel }}</span>
         </div>
 
-        <p class="line-name">Bus information</p>
+        <p class="line-name">{{ selectedBus.lineLabel }} information</p>
         <p class="ids-line">Bus ID: {{ selectedBus.busId }}</p>
         <p class="next-stop">Next Stop: {{ selectedBus.nextStopName }}</p>
 
@@ -83,7 +99,6 @@
           <span>{{ selectedBus.etaLabel }}</span>
         </div>
       </template>
-
     </section>
 
     <nav class="bottom-nav">
@@ -97,10 +112,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
-import { House, Map as MapIcon, Search, ShoppingCart, User, Ticket } from 'lucide-vue-next'
+import { computed, nextTick, onActivated, onMounted, onUnmounted, ref, watch } from 'vue'
+import { House, Map as MapIcon, Search, ShoppingCart, User, Ticket, Star } from 'lucide-vue-next'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import { catchitApi, type BackendVehicleSimulationSnapshot } from '../services/api/catchitApi'
+import { useAuthViewModel } from '../viewmodels'
+
+defineOptions({ name: 'MapView' })
 
 type StopFeature = {
   id: string
@@ -108,16 +127,21 @@ type StopFeature = {
   latitude: number
   longitude: number
   code: string
+  stopType?: string
 }
 
-type RouteDefinition = {
+type BackendStopRouteArrival = {
+  routeId: string
+  routeName?: string | null
+  nextArrivalAt: string
+}
+
+type StopRouteInfo = {
   routeId: string
   lineLabel: string
-  busId: string
-  stopIds: string[]
-  firstDeparture: string
-  intervalMinutes: number
-  travelBetweenStopsMinutes: number
+  nextArrivalAt: Date
+  nextTime: string
+  etaLabel: string
 }
 
 type ActiveBus = {
@@ -126,10 +150,13 @@ type ActiveBus = {
   routeId: string
   latitude: number
   longitude: number
+  previousStopId: string
+  previousStopName: string
   nextStopId: string
   nextStopName: string
-  etaMinutes: number
+  progress: number
   etaLabel: string
+  updatedAt: string
 }
 
 const mapContainer = ref<HTMLElement | null>(null)
@@ -138,6 +165,8 @@ const bottomSheetRef = ref<HTMLElement | null>(null)
 const stopQuery = ref('')
 const showSuggestions = ref(false)
 const stops = ref<StopFeature[]>([])
+const rawGeoJson = ref<any>(null)
+const apiError = ref('')
 const selectedStopId = ref<string>('')
 const selectedBusId = ref<string>('')
 const sheetMode = ref<'stop' | 'bus'>('stop')
@@ -149,43 +178,45 @@ const dragOffset = ref(0)
 const dragStartY = ref(0)
 const dragStartOffset = ref(0)
 const nowTick = ref(Date.now())
+const simulationBuses = ref<ActiveBus[]>([])
+const poiStops = ref<Set<string>>(new Set())
+const isLoadingPOI = ref(false)
+const stopRouteArrivals = ref<BackendStopRouteArrival[]>([])
+const { currentUser } = useAuthViewModel()
 
 let map: L.Map | null = null
 let stopMarkersLayer: L.LayerGroup | null = null
 let busMarkersLayer: L.LayerGroup | null = null
+let selectedBusArrowLayer: L.LayerGroup | null = null
+let selectedBusDashLine: L.Polyline | null = null
+let selectedBusDashAnimationId: number | null = null
+let selectedBusDashOffset = 0
 let tickIntervalId: number | null = null
+let clockIntervalId: number | null = null
 const stopMarkers = new Map<string, L.Marker>()
-const busMarkers = new Map<string, L.Marker>()
+const busMarkers = new Map<string, L.CircleMarker>()
+const portoCenter: [number, number] = [41.1579, -8.6291]
+const portugalNorthBounds = L.latLngBounds([40.5, -9.0], [42.0, -7.5])
 
-const routeDefinitions: RouteDefinition[] = [
-  {
-    routeId: 'route_43',
-    lineLabel: '43',
-    busId: 'bus_43',
-    stopIds: ['stop_1', 'stop_6', 'stop_7', 'stop_3'],
-    firstDeparture: '06:35',
-    intervalMinutes: 30,
-    travelBetweenStopsMinutes: 6,
-  },
-  {
-    routeId: 'route_22',
-    lineLabel: '22',
-    busId: 'bus_22',
-    stopIds: ['stop_2', 'stop_5', 'stop_4'],
-    firstDeparture: '06:20',
-    intervalMinutes: 40,
-    travelBetweenStopsMinutes: 8,
-  },
-  {
-    routeId: 'route_68',
-    lineLabel: '68',
-    busId: 'bus_68',
-    stopIds: ['stop_4', 'stop_3'],
-    firstDeparture: '06:10',
-    intervalMinutes: 35,
-    travelBetweenStopsMinutes: 10,
-  },
-]
+const simulationPollMs = 3000
+const clockTickMs = 1000
+
+const formatCountdown = (milliseconds: number) => {
+  const safeMilliseconds = Math.max(0, milliseconds)
+  const totalSeconds = Math.ceil(safeMilliseconds / 1000)
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+
+  if (hours > 0) {
+    return `in ${hours}h ${minutes.toString().padStart(2, '0')}m`
+  }
+
+  if (minutes > 0) {
+    return `in ${minutes}m`
+  }
+
+  return 'due now'
+}
 
 const filteredStops = computed(() => {
   const query = stopQuery.value.trim().toLowerCase()
@@ -199,127 +230,61 @@ const selectedStop = computed(() =>
   stops.value.find((stop) => stop.id === selectedStopId.value) ?? null
 )
 
-const stopById = computed(() => {
-  const byId = new Map<string, StopFeature>()
-  for (const stop of stops.value) {
-    byId.set(stop.id, stop)
-  }
-  return byId
-})
-
-const toMinutes = (time: string) => {
-  const [hours, minutes] = time.split(':').map((part) => Number(part))
-  return hours * 60 + minutes
-}
-
-const toClock = (valueInMinutes: number) => {
-  const normalized = ((valueInMinutes % 1440) + 1440) % 1440
-  const hours = Math.floor(normalized / 60)
-  const minutes = normalized % 60
-  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`
-}
-
-const nowMinutes = computed(() => {
-  const now = new Date(nowTick.value)
-  return now.getHours() * 60 + now.getMinutes()
-})
+const isStopPOI = computed(() =>
+  selectedStop.value ? poiStops.value.has(selectedStop.value.id) : false
+)
 
 const stopRouteInfo = computed(() => {
   if (!selectedStop.value) {
-    return [] as Array<{
-      routeId: string
-      lineLabel: string
-      busId: string
-      nextTime: string
-      etaLabel: string
-    }>
+    return [] as StopRouteInfo[]
   }
 
-  const selectedId = selectedStop.value.id
-  const nowMin = nowMinutes.value
+  const now = new Date(nowTick.value)
 
-  return routeDefinitions
-    .filter((route) => route.stopIds.includes(selectedId))
-    .map((route) => {
-      const stopIndex = route.stopIds.indexOf(selectedId)
-      const firstAtStop = toMinutes(route.firstDeparture) + stopIndex * route.travelBetweenStopsMinutes
-
-      let next = firstAtStop
-      while (next < nowMin) {
-        next += route.intervalMinutes
+  return stopRouteArrivals.value
+    .map((arrival) => {
+      const nextArrivalAt = new Date(arrival.nextArrivalAt)
+      if (Number.isNaN(nextArrivalAt.getTime())) {
+        return null
       }
 
-      const etaMinutes = next - nowMin
-      const etaLabel = etaMinutes <= 0 ? 'due now' : `in ${etaMinutes} min`
+      if (nextArrivalAt.getTime() <= now.getTime()) {
+        return null
+      }
 
       return {
-        routeId: route.routeId,
-        lineLabel: route.lineLabel,
-        busId: route.busId,
-        nextTime: toClock(next),
-        etaLabel,
+        routeId: arrival.routeId,
+        lineLabel: arrival.routeName?.trim() || arrival.routeId.slice(0, 8),
+        nextArrivalAt,
+        nextTime: nextArrivalAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        etaLabel: formatCountdown(nextArrivalAt.getTime() - now.getTime()),
       }
     })
+    .filter((entry): entry is StopRouteInfo => !!entry)
+    .sort((left, right) => left.nextArrivalAt.getTime() - right.nextArrivalAt.getTime())
 })
 
-const activeBuses = computed(() => {
-  const nowMin = nowMinutes.value
-  const active: ActiveBus[] = []
-
-  for (const route of routeDefinitions) {
-    const routeDuration = (route.stopIds.length - 1) * route.travelBetweenStopsMinutes
-    const firstStart = toMinutes(route.firstDeparture)
-
-    let start = firstStart
-    while (start + routeDuration < nowMin) {
-      start += route.intervalMinutes
-    }
-
-    if (nowMin < start || nowMin > start + routeDuration) {
-      continue
-    }
-
-    const elapsed = nowMin - start
-    const segmentIndex = Math.min(
-      Math.floor(elapsed / route.travelBetweenStopsMinutes),
-      route.stopIds.length - 2
-    )
-    const withinSegment = elapsed - segmentIndex * route.travelBetweenStopsMinutes
-    const fraction = Math.min(Math.max(withinSegment / route.travelBetweenStopsMinutes, 0), 1)
-
-    const fromStop = stopById.value.get(route.stopIds[segmentIndex])
-    const toStop = stopById.value.get(route.stopIds[segmentIndex + 1])
-    if (!fromStop || !toStop) continue
-
-    const latitude = fromStop.latitude + (toStop.latitude - fromStop.latitude) * fraction
-    const longitude = fromStop.longitude + (toStop.longitude - fromStop.longitude) * fraction
-    const etaMinutes = Math.max(1, Math.ceil((1 - fraction) * route.travelBetweenStopsMinutes))
-
-    active.push({
-      busId: route.busId,
-      lineLabel: route.lineLabel,
-      routeId: route.routeId,
-      latitude,
-      longitude,
-      nextStopId: toStop.id,
-      nextStopName: toStop.name,
-      etaMinutes,
-      etaLabel: `${etaMinutes} min`,
-    })
+const nextArrivalLabel = computed(() => {
+  const nextArrival = stopRouteInfo.value[0]
+  if (!nextArrival) {
+    return 'No upcoming arrivals'
   }
 
-  return active
+  return `${nextArrival.nextTime} (${nextArrival.etaLabel})`
 })
+
+const activeBuses = computed(() => simulationBuses.value)
 
 const selectedBus = computed(() =>
   activeBuses.value.find((bus) => bus.busId === selectedBusId.value) ?? null
 )
 
-const nextStopName = computed(() => {
-  if (!selectedStop.value || stops.value.length < 2) return 'No next stop available'
-  const selectedIndex = stops.value.findIndex((stop) => stop.id === selectedStop.value?.id)
-  const nextIndex = (selectedIndex + 1) % stops.value.length
-  return stops.value[nextIndex]?.name ?? 'No next stop available'
+const stopById = computed(() => {
+  const map = new Map<string, StopFeature>()
+  for (const stop of stops.value) {
+    map.set(stop.id, stop)
+  }
+  return map
 })
 
 const resultCount = computed(() =>
@@ -432,43 +397,148 @@ const openSheetWithAnimation = async () => {
   })
 }
 
-const stopMarkerIcon = (code: string, isActive: boolean) =>
-  L.divIcon({
-    className: '',
-    html: `<span class="stop-sign${isActive ? ' is-active' : ''}"><span class="stop-sign-top">${code}</span><span class="stop-sign-pole"></span></span>`,
-    iconSize: [34, 52],
-    iconAnchor: [17, 44],
-  })
 
-const busMarkerIcon = (lineLabel: string, isActive: boolean) =>
-  L.divIcon({
-    className: '',
-    html: `<span class="bus-pill${isActive ? ' is-active' : ''}">BUS ${lineLabel}</span>`,
-    iconSize: [66, 28],
-    iconAnchor: [33, 14],
-  })
 
-const drawStopMarkers = () => {
-  if (!map || !stopMarkersLayer) return
+const getBrandColor = () => {
+  const fallbackColor = '#4f46e5'
+  if (typeof window === 'undefined') return fallbackColor
 
-  stopMarkersLayer.clearLayers()
-  stopMarkers.clear()
+  const cssBrandColor = getComputedStyle(document.documentElement)
+    .getPropertyValue('--color-brand')
+    .trim()
 
-  for (const stop of stops.value) {
-    const isActive = stop.id === selectedStopId.value
-    const marker = L.marker([stop.latitude, stop.longitude], {
-      icon: stopMarkerIcon(stop.code, isActive),
-    })
-      .on('click', async () => {
-        sheetMode.value = 'stop'
-        selectedStopId.value = stop.id
-        selectedBusId.value = ''
-        await openSheetWithAnimation()
-      })
-      .addTo(stopMarkersLayer)
-    stopMarkers.set(stop.id, marker)
+  return cssBrandColor || fallbackColor
+}
+
+const getTransportTypeColor = (stopType?: string) => {
+  const type = stopType?.toUpperCase()
+  switch (type) {
+    case 'BUS':
+      return { color: '#0ea5e9', fillColor: '#0ea5e9', label: 'Bus' } // Azul
+    case 'TRAIN':
+      return { color: '#f97316', fillColor: '#f97316', label: 'Train' } // Laranja
+    case 'METRO':
+      return { color: '#ec4899', fillColor: '#ec4899', label: 'Metro' } // Rosa
+    default:
+      return { color: '#64748b', fillColor: '#64748b', label: 'Stop' } // Cinzento
   }
 }
+
+const stopSelectedBusArrowAnimation = () => {
+  if (selectedBusDashAnimationId !== null) {
+    cancelAnimationFrame(selectedBusDashAnimationId)
+    selectedBusDashAnimationId = null
+  }
+  selectedBusDashLine = null
+}
+
+const animateSelectedBusArrow = () => {
+  if (!selectedBusDashLine || !selectedBusId.value) {
+    stopSelectedBusArrowAnimation()
+    return
+  }
+
+  selectedBusDashOffset = (selectedBusDashOffset + 0.30) % 100
+  selectedBusDashLine.setStyle({ dashOffset: `${-selectedBusDashOffset}` })
+  selectedBusDashAnimationId = requestAnimationFrame(animateSelectedBusArrow)
+}
+
+const startSelectedBusArrowAnimation = () => {
+  if (!selectedBusDashLine) return
+  if (selectedBusDashAnimationId !== null) return
+
+  selectedBusDashOffset = 0
+  selectedBusDashAnimationId = requestAnimationFrame(animateSelectedBusArrow)
+}
+
+const updateSelectedBusArrow = () => {
+  if (!selectedBusArrowLayer) return
+
+  selectedBusArrowLayer.clearLayers()
+  selectedBusDashLine = null
+
+  if (!selectedBusId.value || !selectedBus.value) {
+    stopSelectedBusArrowAnimation()
+    return
+  }
+
+  const destinationStop = stopById.value.get(selectedBus.value.nextStopId)
+  if (!destinationStop) {
+    stopSelectedBusArrowAnimation()
+    return
+  }
+
+  const busPoint = L.latLng(selectedBus.value.latitude, selectedBus.value.longitude)
+  const stopPoint = L.latLng(destinationStop.latitude, destinationStop.longitude)
+  const brandColor = getBrandColor()
+
+  const glowLine = L.polyline([busPoint, stopPoint], {
+    color: brandColor,
+    weight: 10,
+    opacity: 0.2,
+    lineCap: 'round',
+    interactive: false,
+  })
+
+  const mainLine = L.polyline([busPoint, stopPoint], {
+    color: brandColor,
+    weight: 4,
+    opacity: 0.98,
+    dashArray: '10 9',
+    dashOffset: '0',
+    lineCap: 'round',
+    interactive: false,
+  })
+
+  const destinationRing = L.circleMarker(stopPoint, {
+    radius: 8,
+    color: brandColor,
+    weight: 2,
+    fillColor: '#ffffff',
+    fillOpacity: 1,
+    interactive: false,
+  })
+
+  selectedBusArrowLayer.addLayer(glowLine)
+  selectedBusArrowLayer.addLayer(mainLine)
+  selectedBusArrowLayer.addLayer(destinationRing)
+
+  selectedBusDashLine = mainLine
+  startSelectedBusArrowAnimation()
+}
+
+const drawStopMarkers = () => {
+  if (!map || !stopMarkersLayer || !rawGeoJson.value) return
+
+  stopMarkersLayer.clearLayers();
+  stopMarkers.clear()
+
+  L.geoJSON(rawGeoJson.value, {
+    pointToLayer: (feature, latlng) => {
+      const isActive = feature.properties.id === selectedStopId.value
+      const typeColors = getTransportTypeColor(feature.properties.stopType)
+      const radius = isActive ? 6 : 4
+      const color = isActive ? '#111827' : typeColors.color
+      const fillColor = isActive ? '#111827' : typeColors.fillColor
+      
+      return L.circleMarker(latlng, {
+        radius: radius,
+        color: color,
+        weight: 1.5,
+        fillColor: fillColor,
+        fillOpacity: 0.8,
+      });
+    },
+    onEachFeature: (feature, layer) => {
+      layer.on('click', async () => {
+        sheetMode.value = 'stop'
+        selectedStopId.value = feature.properties.id
+        selectedBusId.value = ''
+        await openSheetWithAnimation()
+      });
+    }
+  }).addTo(stopMarkersLayer);
+};
 
 const drawBusMarkers = () => {
   if (!map || !busMarkersLayer) return
@@ -478,9 +548,24 @@ const drawBusMarkers = () => {
 
   for (const bus of activeBuses.value) {
     const isActive = bus.busId === selectedBusId.value
-    const marker = L.marker([bus.latitude, bus.longitude], {
-      icon: busMarkerIcon(bus.lineLabel, isActive),
-      zIndexOffset: 300,
+    const color = isActive ? '#111827' : '#0284c7'
+    const haloColor = isActive ? '#111827' : '#38bdf8'
+
+    L.circleMarker([bus.latitude, bus.longitude], {
+      radius: isActive ? 15 : 12,
+      weight: 2,
+      fillColor: haloColor,
+      fillOpacity: isActive ? 0.18 : 0.14,
+      interactive: false,
+    }).addTo(busMarkersLayer)
+    
+    const marker = L.circleMarker([bus.latitude, bus.longitude], {
+      radius: isActive ? 8.5 : 7,
+      color: color,
+      weight: 3,
+      fillColor: color,
+      fillOpacity: 1,
+      opacity: 1,
     })
       .on('click', async () => {
         sheetMode.value = 'bus'
@@ -489,8 +574,12 @@ const drawBusMarkers = () => {
         await openSheetWithAnimation()
       })
       .addTo(busMarkersLayer)
+
+    marker.bringToFront()
     busMarkers.set(bus.busId, marker)
   }
+
+  updateSelectedBusArrow()
 }
 
 const focusStop = async (stopId: string) => {
@@ -522,43 +611,174 @@ const onSearchInput = () => {
   showSuggestions.value = true
 }
 
-const loadGeoJsonStops = async () => {
-  const response = await fetch('/geo/stops.geojson')
-  const geoJson = (await response.json()) as {
-    type: 'FeatureCollection'
-    features: Array<{
-      type: 'Feature'
-      geometry: { type: 'Point'; coordinates: [number, number] }
-      properties: { id: string; name: string }
-    }>
+const loadBackendStops = async () => {
+  apiError.value = ''
+
+  const geoJsonResponse = await catchitApi.getStopsGeoJson()
+
+  if (!geoJsonResponse.success || !geoJsonResponse.data) {
+    apiError.value = geoJsonResponse.error || 'Failed to load stops'
+    return
   }
 
-  stops.value = geoJson.features.map((feature) => {
-    const numericCode = feature.properties.name.match(/\d{1,4}/)?.[0] ?? feature.properties.id.replace('stop_', '')
-    return {
-      id: feature.properties.id,
-      name: feature.properties.name,
-      latitude: feature.geometry.coordinates[1],
-      longitude: feature.geometry.coordinates[0],
-      code: numericCode,
-    }
-  })
+  rawGeoJson.value = geoJsonResponse.data
+
+  stops.value = geoJsonResponse.data.features.map((f: any) => ({
+    id: f.properties.id,
+    name: f.properties.name,
+    latitude: f.properties.latitude,
+    longitude: f.properties.longitude,
+    code: f.properties.code,
+    stopType: f.properties.stopType,
+  }))
 
   selectedStopId.value = ''
+  selectedBusId.value = ''
+  stopRouteArrivals.value = []
   drawStopMarkers()
   drawBusMarkers()
 }
 
+const loadStopRouteArrivals = async (stopId: string) => {
+  const routesResponse = await catchitApi.getStopRouteArrivals(stopId)
+
+  if (!routesResponse.success || !routesResponse.data) {
+    console.warn(routesResponse.error || 'Unable to load stop route arrivals')
+    stopRouteArrivals.value = []
+    return
+  }
+
+  stopRouteArrivals.value = routesResponse.data
+}
+
+const mapSimulationSnapshotToBus = (snapshot: BackendVehicleSimulationSnapshot): ActiveBus => {
+  const progress = Math.max(0, Math.min(1, snapshot.progress ?? 0))
+  const lineLabel = snapshot.routeName?.trim() || snapshot.routeId.slice(0, 8)
+
+  return {
+    busId: snapshot.vehicleId,
+    lineLabel,
+    routeId: snapshot.routeId,
+    latitude: snapshot.latitude,
+    longitude: snapshot.longitude,
+    previousStopId: snapshot.previousStopId,
+    previousStopName: snapshot.previousStopName,
+    nextStopId: snapshot.nextStopId,
+    nextStopName: snapshot.nextStopName,
+    progress,
+    etaLabel: `${Math.round(progress * 100)}% route`,
+    updatedAt: snapshot.updatedAt,
+  }
+}
+
+const loadVehicleSimulation = async () => {
+  const simulationResponse = await catchitApi.getVehicleSimulation()
+
+  if (!simulationResponse.success || !simulationResponse.data) {
+    console.warn(simulationResponse.error || 'Unable to load vehicle simulation')
+    simulationBuses.value = []
+    return
+  }
+
+  simulationBuses.value = simulationResponse.data.map(mapSimulationSnapshotToBus)
+
+  if (selectedBusId.value && !simulationBuses.value.some((bus) => bus.busId === selectedBusId.value)) {
+    selectedBusId.value = ''
+  }
+}
+
+const reloadMapData = async () => {
+  await loadBackendStops()
+}
+
+const toggleStopPOI = async () => {
+  if (!selectedStop.value) {
+    console.warn('No stop selected')
+    return
+  }
+
+  if (!currentUser.value) {
+    console.warn('User not authenticated')
+    apiError.value = 'Please log in to add favorites'
+    return
+  }
+
+  if (isLoadingPOI.value) return
+
+  isLoadingPOI.value = true
+  try {
+    if (isStopPOI.value) {
+      // Remove from POI
+      const response = await catchitApi.removePOI(currentUser.value.id, selectedStop.value.id)
+      if (response.success) {
+        poiStops.value.delete(selectedStop.value.id)
+        console.log('Removed from POI:', selectedStop.value.name)
+      } else {
+        console.error('Error removing POI:', response.error)
+        apiError.value = response.error || 'Error removing favorite'
+      }
+    } else {
+      // Add to POI
+      const response = await catchitApi.addPOI(currentUser.value.id, selectedStop.value.id)
+      if (response.success) {
+        poiStops.value.add(selectedStop.value.id)
+        console.log('Added to POI:', selectedStop.value.name)
+      } else {
+        console.error('Error adding POI:', response.error)
+        apiError.value = response.error || 'Error adding favorite'
+      }
+    }
+  } catch (error) {
+    console.error('Error toggling POI:', error)
+    apiError.value = 'Error updating favorite'
+  } finally {
+    isLoadingPOI.value = false
+  }
+}
+
+const loadUserPOIs = async () => {
+  if (!currentUser.value) {
+    console.warn('User not authenticated, skipping POI load')
+    return
+  }
+
+  try {
+    const response = await catchitApi.getUserPOI(currentUser.value.id)
+    if (response.success && response.data) {
+      poiStops.value.clear()
+      response.data.forEach((stop) => {
+        poiStops.value.add(stop.id)
+      })
+      console.log('Loaded POIs:', poiStops.value.size)
+    } else {
+      console.warn('Error loading POIs:', response.error)
+    }
+  } catch (error) {
+    console.error('Error loading user POIs:', error)
+  }
+}
+
 watch(selectedStopId, () => {
   drawStopMarkers()
+  updateSelectedBusArrow()
+  if (selectedStopId.value) {
+    void loadStopRouteArrivals(selectedStopId.value)
+  } else {
+    stopRouteArrivals.value = []
+  }
 })
 
-watch(activeBuses, () => {
-  drawBusMarkers()
-}, { deep: true })
+watch(
+  activeBuses,
+  () => {
+    drawBusMarkers()
+  },
+  { deep: true }
+)
 
 watch(selectedBusId, () => {
   drawBusMarkers()
+  updateSelectedBusArrow()
 })
 
 watch(selectedStop, async () => {
@@ -575,46 +795,74 @@ onMounted(async () => {
   await nextTick()
   if (!mapContainer.value) return
 
-  measureTopOverlayHeight()
-
   map = L.map(mapContainer.value, {
     zoomControl: false,
-  }).setView([41.4057, -8.5332], 13)
+    minZoom: 10,
+    maxZoom: 18,
+    maxBounds: portugalNorthBounds,
+    maxBoundsViscosity: 1.0,
+  }).setView(portoCenter, 13)
+
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; OpenStreetMap contributors',
   }).addTo(map)
+
   L.control.zoom({ position: 'bottomleft' }).addTo(map)
 
   stopMarkersLayer = L.layerGroup().addTo(map)
   busMarkersLayer = L.layerGroup().addTo(map)
-  await loadGeoJsonStops()
-  await nextTick()
-  measureSheetHeight()
-  measureTopOverlayHeight()
-  window.addEventListener('resize', measureSheetHeight)
-  window.addEventListener('resize', measureTopOverlayHeight)
+  selectedBusArrowLayer = L.layerGroup().addTo(map)
+  
+  // Load user POIs before loading stops
+  await loadUserPOIs()
+  
+
+  void loadBackendStops()
+  void loadVehicleSimulation()
 
   tickIntervalId = window.setInterval(() => {
     nowTick.value = Date.now()
-  }, 30000)
+    void loadVehicleSimulation()
+  }, simulationPollMs)
+
+  clockIntervalId = window.setInterval(() => {
+    nowTick.value = Date.now()
+  }, clockTickMs)
+
+  measureTopOverlayHeight()
+  measureSheetHeight()
+  window.addEventListener('resize', measureSheetHeight)
+  window.addEventListener('resize', measureTopOverlayHeight)
+})
+
+onActivated(() => {
+  map?.invalidateSize()
 })
 
 onUnmounted(() => {
   stopDragging()
+  stopSelectedBusArrowAnimation()
   window.removeEventListener('resize', measureSheetHeight)
   window.removeEventListener('resize', measureTopOverlayHeight)
+
   if (tickIntervalId) {
     window.clearInterval(tickIntervalId)
     tickIntervalId = null
   }
+
+  if (clockIntervalId) {
+    window.clearInterval(clockIntervalId)
+    clockIntervalId = null
+  }
+
   map?.remove()
   map = null
   stopMarkersLayer = null
   busMarkersLayer = null
+  selectedBusArrowLayer = null
   stopMarkers.clear()
   busMarkers.clear()
 })
-
 </script>
 
 <style scoped>
@@ -750,11 +998,19 @@ onUnmounted(() => {
   box-shadow: 0 -8px 18px rgba(15, 23, 42, 0.12);
   z-index: 650;
   transition: transform 0.22s ease;
-  touch-action: none;
+  max-height: 50vh;
+  overflow-y: auto;
 }
 
 .bottom-sheet.is-dragging {
   transition: none;
+}
+
+.drag-area {
+  padding: 0.5rem 0;
+  margin-top: -0.5rem;
+  touch-action: none;
+  cursor: grab;
 }
 
 .drag-handle {
@@ -762,7 +1018,7 @@ onUnmounted(() => {
   height: 4px;
   border-radius: 999px;
   background: #d1d5db;
-  margin: 0.2rem auto 0.8rem;
+  margin: 0 auto;
 }
 
 .sheet-header {
@@ -772,11 +1028,45 @@ onUnmounted(() => {
   gap: 0.8rem;
 }
 
+.sheet-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.poi-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: none;
+  background: transparent;
+  color: #9ca3af;
+  cursor: pointer;
+  transition: color 0.2s ease;
+  padding: 0;
+}
+
+.poi-btn:hover {
+  color: #fbbf24;
+}
+
+.poi-btn.is-added {
+  color: #fbbf24;
+}
+
+.poi-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .sheet-header h2 {
   margin: 0;
-  font-size: 1.95rem;
+  font-size: 1.4rem;
   font-weight: 700;
   color: #111827;
+  line-height: 1.1;
 }
 
 .provider-badge {
@@ -854,61 +1144,7 @@ onUnmounted(() => {
   height: 1rem;
 }
 
-:global(.stop-sign) {
-  display: inline-flex;
-  flex-direction: column;
-  align-items: center;
-}
 
-:global(.stop-sign-top) {
-  min-width: 28px;
-  height: 24px;
-  border-radius: 6px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 0.35rem;
-  font-size: 0.85rem;
-  font-weight: 700;
-  background: rgba(255, 255, 255, 0.98);
-  color: #111827;
-  border: 1px solid #cbd5e1;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
-}
-
-:global(.stop-sign-pole) {
-  width: 2px;
-  height: 16px;
-  background: #64748b;
-}
-
-:global(.stop-sign.is-active .stop-sign-top) {
-  background: #111827;
-  color: #fff;
-  border-color: #111827;
-}
-
-:global(.bus-pill) {
-  height: 26px;
-  border-radius: 999px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 0.55rem;
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.02em;
-  background: #f8fafc;
-  color: #111827;
-  border: 1px solid #cbd5e1;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.15);
-}
-
-:global(.bus-pill.is-active) {
-  background: #0f172a;
-  color: #fff;
-  border-color: #0f172a;
-}
 
 :global(.leaflet-bottom) {
   bottom: var(--leaflet-controls-bottom, 88px);

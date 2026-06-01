@@ -1,21 +1,27 @@
 package PSM.Location.api.route;
 
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.stereotype.Service;
+
 import PSM.Location.Route;
+import PSM.Location.RouteStop;
 import PSM.Location.Stop;
 import PSM.Location.StopSchedule;
-import org.springframework.stereotype.Service;
 
 @Service
 public class RouteService {
     private final RouteRepository repository;
     private static final DateTimeFormatter HH_MM = DateTimeFormatter.ofPattern("HH:mm");
+    private static final ZoneId APP_TIMEZONE = ZoneId.of("Europe/Lisbon");
 
     public RouteService(RouteRepository repository) {
         this.repository = repository;
@@ -39,12 +45,12 @@ public class RouteService {
         List<Route> routes = repository.findAll();
         for (int routeIndex = 0; routeIndex < routes.size(); routeIndex++) {
             Route route = routes.get(routeIndex);
-            List<StopSchedule> schedules = new ArrayList<>(route.schedules);
-            schedules.sort(Comparator.comparingInt(StopSchedule::getSequence));
+            List<RouteStop> routeStops = new ArrayList<>(route.routeStops);
+            routeStops.sort(Comparator.comparingInt(RouteStop::getSequence));
 
             int fromIndex = -1;
-            for (int index = 0; index < schedules.size(); index++) {
-                Stop stop = schedules.get(index).stop;
+            for (int index = 0; index < routeStops.size(); index++) {
+                Stop stop = routeStops.get(index).getStop();
                 if (stop != null && fromStopId.equals(stop.getId())) {
                     fromIndex = index;
                     break;
@@ -56,8 +62,8 @@ public class RouteService {
             }
 
             int toIndex = -1;
-            for (int index = fromIndex + 1; index < schedules.size(); index++) {
-                Stop stop = schedules.get(index).stop;
+            for (int index = fromIndex + 1; index < routeStops.size(); index++) {
+                Stop stop = routeStops.get(index).getStop();
                 if (stop != null && toStopId.equals(stop.getId())) {
                     toIndex = index;
                     break;
@@ -68,20 +74,19 @@ public class RouteService {
                 continue;
             }
 
-            StopSchedule fromSchedule = schedules.get(fromIndex);
-            StopSchedule toSchedule = schedules.get(toIndex);
+            RouteStop fromRouteStop = routeStops.get(fromIndex);
+            RouteStop toRouteStop = routeStops.get(toIndex);
 
-            LocalTime departureTime = fromSchedule.getDepartureTime() != null
-                    ? fromSchedule.getDepartureTime().toLocalTime()
-                    : fromSchedule.getArrivalTime() != null ? fromSchedule.getArrivalTime().toLocalTime() : null;
+            StopSchedule fromSchedule = findSchedule(route.schedules, fromStopId, fromRouteStop.getSequence());
+            StopSchedule toSchedule = findSchedule(route.schedules, toStopId, toRouteStop.getSequence());
+
+            LocalTime departureTime = scheduleTime(fromSchedule);
 
             if (departureAfter != null && departureTime != null && departureTime.isBefore(departureAfter)) {
                 continue;
             }
 
-            LocalTime arrivalTime = toSchedule.getArrivalTime() != null
-                    ? toSchedule.getArrivalTime().toLocalTime()
-                    : toSchedule.getDepartureTime() != null ? toSchedule.getDepartureTime().toLocalTime() : null;
+            LocalTime arrivalTime = scheduleTime(toSchedule);
 
             int stopSpan = Math.max(1, toIndex - fromIndex);
 
@@ -99,6 +104,42 @@ public class RouteService {
         return results;
     }
 
+    public List<StopRouteArrivalDTO> findStopArrivals(UUID stopId) {
+        ZonedDateTime now = ZonedDateTime.now(APP_TIMEZONE);
+        List<Route> routes = repository.findAllWithSchedulesByStopId(stopId);
+        List<StopRouteArrivalDTO> arrivals = new ArrayList<>();
+
+        for (Route route : routes) {
+            OffsetDateTime nextArrivalAt = null;
+
+            for (StopSchedule schedule : route.schedules) {
+                if (schedule.stop == null || !stopId.equals(schedule.stop.getId())) {
+                    continue;
+                }
+
+                LocalTime scheduleTime = scheduleTime(schedule);
+                if (scheduleTime == null) {
+                    continue;
+                }
+
+                OffsetDateTime candidate = nextOccurrence(scheduleTime, now);
+                if (nextArrivalAt == null || candidate.isBefore(nextArrivalAt)) {
+                    nextArrivalAt = candidate;
+                }
+            }
+
+            if (nextArrivalAt != null) {
+                arrivals.add(new StopRouteArrivalDTO(route.getId(), route.getName(), nextArrivalAt));
+            }
+        }
+
+        arrivals.sort(Comparator
+                .comparing(StopRouteArrivalDTO::nextArrivalAt)
+                .thenComparing(arrival -> arrival.routeName() == null ? "" : arrival.routeName()));
+
+        return arrivals;
+    }
+
     public Route update(UUID id, Route entity) {
         findById(id);
         return repository.save(entity);
@@ -106,6 +147,55 @@ public class RouteService {
 
     public void delete(UUID id) {
         repository.deleteById(id);
+    }
+
+    private StopSchedule findSchedule(java.util.Collection<StopSchedule> schedules, UUID stopId, Integer sequence) {
+        List<StopSchedule> candidates = schedules.stream()
+                .filter(schedule -> schedule.stop != null && stopId.equals(schedule.stop.getId()))
+                .toList();
+
+        if (sequence != null) {
+            List<StopSchedule> sequenceMatches = candidates.stream()
+                    .filter(schedule -> schedule.getSequence() == sequence)
+                    .toList();
+            if (!sequenceMatches.isEmpty()) {
+                candidates = sequenceMatches;
+            }
+        }
+
+        return candidates.stream()
+                .min(Comparator.comparing(this::scheduleTime).thenComparingInt(StopSchedule::getSequence))
+                .orElse(null);
+    }
+
+    private LocalTime scheduleTime(StopSchedule schedule) {
+        if (schedule == null) {
+            return null;
+        }
+
+        if (schedule.getDepartureTime() != null) {
+            return schedule.getDepartureTime().toLocalTime();
+        }
+
+        if (schedule.getArrivalTime() != null) {
+            return schedule.getArrivalTime().toLocalTime();
+        }
+
+        return null;
+    }
+
+    private OffsetDateTime nextOccurrence(LocalTime time, ZonedDateTime now) {
+        ZonedDateTime candidate = now.withHour(time.getHour())
+                .withMinute(time.getMinute())
+                .withSecond(time.getSecond())
+                .withNano(0);
+
+        // We always want the next pass, not the current/past one.
+        if (!candidate.isAfter(now)) {
+            candidate = candidate.plusDays(1);
+        }
+
+        return candidate.toOffsetDateTime();
     }
 
     private RouteSearchResultDTO.StopSearchResultDTO toStopDto(Stop stop) {
@@ -122,5 +212,38 @@ public class RouteService {
                 stop.getName(),
                 latitude,
                 longitude);
+    }
+
+    public List<Object> findAllOptimized() {
+        List<Route> routes = repository.findAllWithSchedules();
+        List<Object> result = new ArrayList<>();
+
+        for (Route route : routes) {
+            RouteWithSchedulesDTO dto = new RouteWithSchedulesDTO(route.getId(), route.getName());
+
+            if (route.schedules != null) {
+                for (StopSchedule schedule : route.schedules) {
+                    if (schedule.stop != null) {
+                        double lat = schedule.stop.getLocation() != null ? schedule.stop.getLocation().getLatitude() : 0;
+                        double lon = schedule.stop.getLocation() != null ? schedule.stop.getLocation().getLongitude() : 0;
+
+                        dto.schedules.add(new RouteWithSchedulesDTO.ScheduleDTO(
+                                schedule.stop.getId(),
+                                schedule.stop.getName(),
+                                lat,
+                                lon,
+                                schedule.getArrivalTime(),
+                                schedule.getDepartureTime(),
+                                schedule.getSequence()));
+                    }
+                }
+            }
+
+            if (!dto.schedules.isEmpty()) {
+                result.add(dto);
+            }
+        }
+
+        return result;
     }
 }

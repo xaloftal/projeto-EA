@@ -6,6 +6,7 @@ import type {
   Ticket,
   TravelCard,
   Trip,
+  UserNotification,
   User,
   Vehicle,
 } from '../../models'
@@ -20,10 +21,51 @@ type BackendLocation = {
 type BackendStop = {
   id: string
   name: string
+  stopType?: string
   location?: BackendLocation | null
   latitude?: number
   longitude?: number
 }
+
+// GeoJSON Types
+type GeoJSONPoint = {
+  type: 'Point'
+  coordinates: [number, number] // [longitude, latitude]
+}
+
+type GeoJSONFeatureProperties = {
+  id: string
+  name: string
+  code: string
+  stopType: string
+  latitude: number
+  longitude: number
+}
+
+type GeoJSONFeature = {
+  type: 'Feature'
+  geometry: GeoJSONPoint
+  properties: GeoJSONFeatureProperties
+}
+
+export type GeoJSONFeatureCollection = {
+  type: 'FeatureCollection'
+  features: Array<{
+    type: 'Feature'
+    geometry: { type: 'Point'; coordinates: [number, number] }
+    properties: {
+      id: string
+      name: string
+      code: string
+      stopType: string
+      latitude: number
+      longitude: number
+    }
+  }>
+}
+
+let cachedStopsGeoJson: GeoJSONFeatureCollection | null = null
+let cachedStopsGeoJsonPromise: Promise<ApiResponse<GeoJSONFeatureCollection>> | null = null
 
 type BackendTicket = {
   id: string
@@ -43,7 +85,13 @@ type BackendCard = {
   price?: number | string
   validFrom?: string
   validUntil?: string
-  zone?: { id: string; name?: string } | null
+  zone?: { id: string; name?: string; colorHexCode?: string | null } | null
+}
+
+type BackendZone = {
+  id: string
+  name?: string
+  colorHexCode?: string | null
 }
 
 type BackendRouteSchedule = {
@@ -57,6 +105,26 @@ type BackendRoute = {
   id: string
   name?: string
   schedules?: BackendRouteSchedule[]
+}
+
+type BackendStopRouteArrival = {
+  routeId: string
+  routeName?: string | null
+  nextArrivalAt: string
+}
+
+export type BackendVehicleSimulationSnapshot = {
+  vehicleId: string
+  routeId: string
+  routeName: string
+  latitude: number
+  longitude: number
+  previousStopId: string
+  previousStopName: string
+  nextStopId: string
+  nextStopName: string
+  progress: number
+  updatedAt: string
 }
 
 type BackendRouteSearchResult = {
@@ -84,6 +152,15 @@ type BackendUser = {
   balance?: number
   card?: BackendCard | null
   tickets?: BackendTicket[]
+  notifications?: BackendNotification[]
+}
+
+type BackendNotification = {
+  id: string
+  stopId?: string
+  stopName?: string
+  message?: string
+  createdAt?: string
 }
 
 type BackendAuthResponse = {
@@ -182,6 +259,7 @@ const mapStop = (stop: BackendStop): Stop => ({
   name: stop.name,
   latitude: stop.location?.latitude ?? stop.latitude ?? 0,
   longitude: stop.location?.longitude ?? stop.longitude ?? 0,
+  stopType: stop.stopType,
 })
 
 const mapTicketStatus = (status?: string): TicketStatus => {
@@ -228,6 +306,27 @@ const mapCard = (card: BackendCard, userId = ''): Card & TravelCard => {
     tier,
     monthlyPrice: price,
     annualPrice: price,
+    zoneColorHexCode: card.zone?.colorHexCode ?? undefined,
+  }
+}
+
+const defaultZoneCardPrice = 20
+
+const mapZoneCard = (zone: BackendZone): Card & TravelCard => {
+  const displayName = zone.name?.trim() || `Zone ${zone.id.slice(0, 8)}`
+
+  return {
+    id: zone.id,
+    userID: '',
+    name: displayName,
+    price: defaultZoneCardPrice,
+    description: 'Zone',
+    validFrom: new Date(),
+    validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+    tier: 'monthly',
+    monthlyPrice: defaultZoneCardPrice,
+    annualPrice: defaultZoneCardPrice,
+    zoneColorHexCode: zone.colorHexCode ?? undefined,
   }
 }
 
@@ -239,12 +338,21 @@ const mapVehicle = (vehicle?: BackendTrip['vehicle']): Vehicle => ({
   notifyObservers: () => {},
 })
 
+const mapNotification = (notification: BackendNotification): UserNotification => ({
+  id: notification.id,
+  stopId: notification.stopId ?? '',
+  stopName: notification.stopName ?? '',
+  message: notification.message ?? '',
+  createdAt: notification.createdAt ?? new Date().toISOString(),
+})
+
 const mapUser = (user: BackendUser): User => ({
   id: user.id,
   name: user.name ?? '',
   email: user.email ?? '',
   balance: Number(user.balance ?? 0),
   tickets: (user.tickets ?? []).map((ticket) => mapTicket(ticket, user.id)),
+  notifications: (user.notifications ?? []).map(mapNotification),
 })
 
 const loadPaymentMethods = (): PaymentMethod[] => {
@@ -337,6 +445,18 @@ export class CatchItApiClient {
     const response = await requestJson<BackendUser>(`/api/users/${userId}`)
     if (!response.success || !response.data) return { success: false, error: response.error }
     return { success: true, data: mapUser(response.data) }
+  }
+
+  async getUserNotifications(userId: string): Promise<ApiResponse<UserNotification[]>> {
+    const response = await requestJson<BackendNotification[]>(`/api/users/${userId}/notifications`)
+    if (!response.success || !response.data) return { success: false, error: response.error }
+    return { success: true, data: response.data.map(mapNotification) }
+  }
+
+  async deleteUserNotification(userId: string, notificationId: string): Promise<ApiResponse<void>> {
+    return requestJson<void>(`/api/users/${userId}/notifications/${notificationId}`, {
+      method: 'DELETE',
+    })
   }
 
   async updateUserProfile(userId: string, updates: Partial<User>): Promise<ApiResponse<User>> {
@@ -462,15 +582,15 @@ export class CatchItApiClient {
   }
 
   async getAvailableCards(): Promise<ApiResponse<TravelCard[]>> {
-    const response = await requestJson<BackendCard[]>('/api/cards')
+    const response = await requestJson<BackendZone[]>('/api/zones')
     if (!response.success || !response.data) return { success: false, error: response.error }
     return {
       success: true,
-      data: response.data.map((card) => mapCard(card)),
+      data: response.data.map((zone) => mapZoneCard(zone)),
     }
   }
 
-  async purchaseCard(data: { userId: string; cardId: string; tier: CardTier }): Promise<ApiResponse<Card>> {
+  async purchaseCard(data: { userId: string; cardId: string }): Promise<ApiResponse<Card>> {
     const availableCards = await this.getAvailableCards()
     const selectedCard = availableCards.success && availableCards.data?.find((card) => card.id === data.cardId)
 
@@ -479,12 +599,16 @@ export class CatchItApiClient {
           price: selectedCard.price,
           validFrom: selectedCard.validFrom.toISOString(),
           validUntil: selectedCard.validUntil.toISOString(),
-          zone: null,
+          zone: {
+            id: selectedCard.id,
+            name: selectedCard.name,
+            colorHexCode: selectedCard.zoneColorHexCode ?? null,
+          },
         }
       : {
-          price: data.tier === 'weekly' ? 8 : data.tier === 'monthly' ? 20 : 200,
+          price: defaultZoneCardPrice,
           validFrom: new Date().toISOString(),
-          validUntil: new Date(Date.now() + (data.tier === 'weekly' ? 7 : data.tier === 'monthly' ? 30 : 365) * 24 * 60 * 60 * 1000).toISOString(),
+          validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
           zone: null,
         }
 
@@ -519,6 +643,60 @@ export class CatchItApiClient {
     const response = await requestJson<BackendStop[]>('/api/stops')
     if (!response.success || !response.data) return { success: false, error: response.error }
     return { success: true, data: response.data.map(mapStop) }
+  }
+
+  /**
+   * Fetches stops as a GeoJSON FeatureCollection.
+   * This is the optimized endpoint for map rendering, reducing frontend processing.
+   */   
+  async getStopsGeoJson(forceRefresh = false): Promise<ApiResponse<GeoJSONFeatureCollection>> {
+    if (!forceRefresh && cachedStopsGeoJson) {
+      return { success: true, data: cachedStopsGeoJson }
+    }
+
+    if (!forceRefresh && cachedStopsGeoJsonPromise) {
+      return cachedStopsGeoJsonPromise
+    }
+
+    const request = requestJson<GeoJSONFeatureCollection>('/api/stops/geojson').then((response) => {
+      if (response.success && response.data) {
+        cachedStopsGeoJson = response.data
+      }
+
+      return response
+    })
+
+    if (!forceRefresh) {
+      cachedStopsGeoJsonPromise = request.finally(() => {
+        cachedStopsGeoJsonPromise = null
+      })
+      return cachedStopsGeoJsonPromise
+    }
+
+    return request
+  }
+
+  clearStopsGeoJsonCache() {
+    cachedStopsGeoJson = null
+    cachedStopsGeoJsonPromise = null
+  }
+
+  async getRoutes(): Promise<ApiResponse<BackendRoute[]>> {
+    const response = await requestJson<BackendRoute[]>('/api/routes')
+    if (!response.success || !response.data) return { success: false, error: response.error }
+    return { success: true, data: response.data }
+  }
+
+  async getStopRouteArrivals(stopId: string): Promise<ApiResponse<BackendStopRouteArrival[]>> {
+    const response = await requestJson<BackendStopRouteArrival[]>(`/api/routes/stop-arrivals?stopId=${encodeURIComponent(stopId)}`)
+    if (!response.success || !response.data) return { success: false, error: response.error }
+    return { success: true, data: response.data }
+  }
+
+  async getVehicleSimulation(): Promise<ApiResponse<BackendVehicleSimulationSnapshot[]>> {
+    const response = await requestJson<BackendVehicleSimulationSnapshot[]>('/api/vehicles/simulation')
+    if (!response.success || !response.data) return { success: false, error: response.error }
+    return { success: true, data: response.data }
   }
 
   async searchRoutes(data: {
@@ -668,6 +846,24 @@ export class CatchItApiClient {
     const response = await requestJson<BackendTicket>(`/api/tickets/${ticketId}`)
     if (!response.success || !response.data) return { success: false, error: response.error }
     return { success: true, data: mapTicket(response.data) }
+  }
+
+  async addPOI(userId: string, stopId: string): Promise<ApiResponse<void>> {
+    return requestJson<void>(`/api/stops/${stopId}/observers/${userId}`, {
+      method: 'POST',
+    })
+  }
+
+  async removePOI(userId: string, stopId: string): Promise<ApiResponse<void>> {
+    return requestJson<void>(`/api/stops/${stopId}/observers/${userId}`, {
+      method: 'DELETE',
+    })
+  }
+
+  async getUserPOI(userId: string): Promise<ApiResponse<Stop[]>> {
+    const response = await requestJson<BackendStop[]>(`/api/users/${userId}/poi`)
+    if (!response.success || !response.data) return { success: false, error: response.error }
+    return { success: true, data: response.data.map(mapStop) }
   }
 }
 

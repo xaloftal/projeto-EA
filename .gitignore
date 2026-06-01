@@ -10,3 +10,6 @@ env
 tmp
 .lock
 .vpprefdata
+
+.vs_code
+

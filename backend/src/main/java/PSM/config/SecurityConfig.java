@@ -34,6 +34,12 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         // Public endpoints
                         .requestMatchers("/api/auth/register", "/api/auth/login", "/api/auth/logout").permitAll()
+                        // Public map data endpoints (no auth required for map features)
+                        .requestMatchers("/api/stops/geojson").permitAll()
+                        .requestMatchers("/api/stops/geojson/**").permitAll()
+                        .requestMatchers("/api/routes").permitAll()
+                        .requestMatchers("/api/routes/stop-arrivals").permitAll()
+                        .requestMatchers("/api/vehicles/simulation").permitAll()
                         
                         // All other /api/** requests require authentication
                         .requestMatchers("/api/**").authenticated()

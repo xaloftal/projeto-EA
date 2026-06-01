@@ -2,10 +2,13 @@ package PSM.Location;
 
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Entity;
@@ -17,7 +20,8 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 
 @Entity
-@Table(name = "route")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+@Table(name = "route", schema = "catchit")
 public class Route {
 	@Id
 	@GeneratedValue(strategy=GenerationType.UUID)
@@ -25,9 +29,11 @@ public class Route {
 
 	private String name;
 
-	@OneToMany(cascade=CascadeType.ALL)
-	@JoinColumn(name = "route_id")
-	public List<StopSchedule> schedules = new ArrayList<StopSchedule>();
+	@OneToMany(mappedBy = "route", cascade = CascadeType.ALL, orphanRemoval = true)
+	public List<RouteStop> routeStops = new ArrayList<RouteStop>();
+
+	@OneToMany(mappedBy = "route", cascade = CascadeType.ALL)
+	public Set<StopSchedule> schedules = new HashSet<StopSchedule>();
 
 
 
@@ -52,4 +58,20 @@ public class Route {
 	}
 
 	public void setName(String _name) { this.name = _name; }
+
+	public List<RouteStop> getRouteStops() {
+		return this.routeStops;
+	}
+
+	public void setRouteStops(List<RouteStop> _routeStops) { 
+		this.routeStops = _routeStops; 
+	}
+
+	public Set<StopSchedule> getSchedules() {
+		return this.schedules;
+	}
+
+	public void setSchedules(Set<StopSchedule> _schedules) {
+		this.schedules = _schedules;
+	}
 }
