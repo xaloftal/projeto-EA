@@ -623,20 +623,13 @@ export class CatchItApiClient {
 
     const createdCard = mapCard(createResponse.data, data.userId)
 
-    const userResponse = await this.getUserProfile(data.userId)
-    if (userResponse.success && userResponse.data) {
-      await requestJson<BackendUser>(`/api/users/${data.userId}`, {
-        method: 'PUT',
-        body: JSON.stringify({
-          name: userResponse.data.name,
-          email: userResponse.data.email,
-          balance: userResponse.data.balance,
-          card: createResponse.data,
-        }),
-      })
-    }
+    await requestJson<BackendUser>(`/api/users/${data.userId}/card`, {
+      method: 'POST',
+      body: JSON.stringify({ id: createResponse.data.id }),
+    })
 
     return { success: true, data: createdCard }
+
   }
 
   async getStops(): Promise<ApiResponse<Stop[]>> {

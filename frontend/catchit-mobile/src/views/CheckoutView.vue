@@ -80,7 +80,9 @@
 import { computed, onMounted, ref } from 'vue'
 import { ArrowLeft, Bell, CreditCard, House, Map, ShoppingCart, User } from 'lucide-vue-next'
 import { useRouter } from 'vue-router'
-import { useCheckoutViewModel } from '../viewmodels'
+import { useCheckoutViewModel, useCardViewModel } from '../viewmodels'
+
+const cardViewModel = useCardViewModel()
 
 const router = useRouter()
 const checkoutViewModel = useCheckoutViewModel()
@@ -116,6 +118,7 @@ const confirmCheckout = async () => {
   try {
     const result = await checkoutViewModel.confirmCheckout(selectedPaymentMethodId.value)
     if (result) {
+      await cardViewModel.fetchUserCards()
       void router.push({
         name: 'checkout-success',
         params: { orderId: result.orderId },

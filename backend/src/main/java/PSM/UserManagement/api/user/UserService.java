@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import PSM.Location.Stop;
+import PSM.Ticketing.Card;
 import PSM.UserManagement.User;
 import PSM.UserManagement.UserNotification;
 import PSM.UserManagement.notification.NotificationCacheService;
@@ -86,5 +87,12 @@ public class UserService {
 	@Transactional
     public void delete(UUID id) {
         repository.deleteById(id);
+    }
+
+    @Transactional
+    public User assignCard(UUID userId, Card card) {
+        User user = findById(userId);
+        user.setCard(card);
+        return repository.save(user);
     }
 }

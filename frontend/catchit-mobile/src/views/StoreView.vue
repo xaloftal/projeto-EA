@@ -193,6 +193,8 @@ import { useCardViewModel, useCheckoutViewModel, useTravelViewModel } from '../v
 import { catchitApi } from '../services/api/catchitApi'
 import ZoneCard from '../components/ZoneCard.vue'
 import type { Stop, Vehicle } from '../models'
+import { useQuasar } from 'quasar'
+const $q = useQuasar()
 
 type RouteResult = {
   routeId: string
@@ -407,20 +409,32 @@ const searchTickets = async () => {
 }
 
 const purchaseZone = async (zone: { id: string; name: string }) => {
-  const purchased = await cardViewModel.purchaseCard(zone.id)
-  ticketMessage.value = purchased ? `${zone.name} card purchased.` : 'Unable to purchase card.'
-}
-
-const addTicketToCart = (result: RouteResult) => {
-  void checkoutViewModel.addTicketToCart(result)
-  ticketMessage.value = 'Added to cart.'
-}
-
-const applyTabFromRoute = () => {
-  if (route.query.tab === 'tickets') {
-    activeTab.value = 'tickets'
-    currentDragX.value = 0
+  const zoneCard = cardViewModel.availableCards.value.find(c => c.id === zone.id)
+  if (!zoneCard) return
+    await checkoutViewModel.addCardToCart(zoneCard)
+    $q.notify({
+      message: `${zone.name} card added to cart successfully`,
+      color: 'positive',
+      position: 'bottom',
+      timeout: 3000,
+    })
   }
+
+  const addTicketToCart = (result: RouteResult) => {
+    void checkoutViewModel.addTicketToCart(result)
+    $q.notify({
+      message: 'Ticket added to cart successfully',
+      color: 'positive',
+      position: 'bottom',
+      timeout: 3000,
+    })
+  }
+
+  const applyTabFromRoute = () => {
+    if (route.query.tab === 'tickets') {
+      activeTab.value = 'tickets'
+      currentDragX.value = 0
+    }
 }
 
 onMounted(async () => {

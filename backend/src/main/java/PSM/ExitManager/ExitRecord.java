@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.UUID;
 
 import PSM.Ticketing.Title;
+import PSM.Travel.Trip;
 import PSM.Location.Stop;
 import jakarta.persistence.*;
 
@@ -24,7 +25,9 @@ public class ExitRecord {
 	@ManyToOne
 	public Stop stop;
 
-
+	@ManyToOne
+	public Trip trip;
+	
 
 	public UUID getId() {
 		return this.id;
