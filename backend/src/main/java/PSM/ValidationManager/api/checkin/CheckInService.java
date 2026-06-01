@@ -87,7 +87,7 @@ public class CheckInService {
     private boolean validateCardZone(Trip trip, Zone zone) {
 
         return trip.getRoute().schedules.stream()
-                .allMatch(schedule -> zone.getStops().contains(schedule.stop));
+                .anyMatch(schedule -> zone.getStops().contains(schedule.stop));
     }
 
     private void saveValidationRecord(Title title, Trip trip, boolean success) {

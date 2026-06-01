@@ -65,6 +65,7 @@
 
                 <div class="card-bottom">
                   <router-link to="/cards" class="btn-primary card-action-btn">{{ currentCard ? 'Renew' : 'Buy Card' }}</router-link>
+                  <router-link v-if="currentCard" :to="`/checkin/${currentCard.id}`" class="btn-secondary card-action-btn">Check In</router-link>
                   <div class="card-qr" @click="showQrModal = true" style="cursor: pointer;">
                     <QrCode class="card-qr-icon" />
                   </div>
@@ -93,6 +94,9 @@
                     <span class="status-badge" :class="ticket.status.toLowerCase()">
                       {{ formatStatus(ticket.status) }}
                     </span>
+                    <div class="ticket-actions">
+                      <router-link :to="`/checkin/${ticket.id}`" class="btn-checkin-small">Check In</router-link>
+                    </div>
                   </div>
                   <p class="expiry">Expires on {{ formatDate(ticket.validUntil) }}</p>
                   <div class="ticket-stops">
@@ -422,6 +426,33 @@ const getQrCodeSrc = (qrCode: string) => {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.btn-checkin-small {
+  padding: 0.35rem 0.75rem;
+  background: var(--color-brand);
+  color: white;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.ticket-actions {
+  margin-left: auto;
+}
+
+.btn-secondary {
+  width: 100%;
+  padding: 0.75rem;
+  background: #111827;
+  color: white;
+  border-radius: 8px;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
 }
 
 .ticket-qr-image {

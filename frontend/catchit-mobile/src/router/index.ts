@@ -32,7 +32,21 @@ const router = createRouter({
       meta: { keepAlive: true },
     },
 
+     // ========== CHECKIN ROUTE ==========
 
+    {
+      path: '/checkin/:titleId',
+      name: 'checkin',
+      component: () => import('../views/TransportCheckInView.vue'),
+      meta: { requiresAuth: true },
+    },
+
+    {
+      path: '/checkin/:titleId',
+      name: 'checkin',
+      component: () => import('../views/TransportCheckInView.vue'),
+      meta: { requiresAuth: true },
+    },
 
     // ========== CARD ROUTES ==========
     {

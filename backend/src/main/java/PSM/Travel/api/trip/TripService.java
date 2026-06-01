@@ -34,5 +34,10 @@ public class TripService {
 
     public void delete(UUID id) {
         repository.deleteById(id);
+ 
+    }
+
+    public List<Trip> findActiveTrips() {
+        return repository.findActiveTripsWithRoute();
     }
 }

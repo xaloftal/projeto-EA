@@ -31,7 +31,7 @@ public class Trip {
 	@ManyToOne
 	public Vehicle vehicle;
 
-	@ManyToOne
+	@ManyToOne(fetch = FetchType.EAGER)
 	public Route route;
 
 

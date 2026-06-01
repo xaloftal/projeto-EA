@@ -15,10 +15,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
@@ -203,7 +199,7 @@ public class DatabaseSeeder_test implements CommandLineRunner {
         }
         if (vehicles.isEmpty()) throw new IllegalStateException("vehicles.csv is empty");
         List<Vehicle> saved = vehicleRepository.saveAll(vehicles);
-        logger.info("✅ {} veículos inseridos", saved.size());
+        logger.info(" {} veículos inseridos", saved.size());
         return saved;
     }
 
@@ -221,7 +217,7 @@ public class DatabaseSeeder_test implements CommandLineRunner {
         }
         if (users.isEmpty()) throw new IllegalStateException("users.csv is empty");
         List<User> saved = userRepository.saveAll(users);
-        logger.info("✅ {} utilizadores inseridos", saved.size());
+        logger.info(" {} utilizadores inseridos", saved.size());
         return saved;
     }
 
@@ -244,7 +240,7 @@ public class DatabaseSeeder_test implements CommandLineRunner {
             trips.add(trip);
         }
         tripRepository.saveAll(trips);
-        logger.info("✅ {} trips inseridos", trips.size());
+        logger.info(" {} trips inseridos", trips.size());
     }
 
     private void seedTitles(List<User> users) {
@@ -311,7 +307,7 @@ public class DatabaseSeeder_test implements CommandLineRunner {
         }
         cardRepository.saveAll(cards);
         ticketRepository.saveAll(tickets);
-        logger.info("✅ {} cards e {} tickets inseridos", cards.size(), tickets.size());
+        logger.info(" {} cards e {} tickets inseridos", cards.size(), tickets.size());
     }
 
     // ------------------------------------------------------------------
