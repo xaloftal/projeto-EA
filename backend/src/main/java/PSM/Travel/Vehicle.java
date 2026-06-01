@@ -58,12 +58,12 @@ public class Vehicle {
 		this.capacity = _capacity;
 	}
 
-	public String getType() {
-		throw new UnsupportedOperationException();
+	public VehicleType getType() {
+		return this.type;
 	}
 
-	public void setType(String _type) {
-		throw new UnsupportedOperationException();
+	public void setType(VehicleType _type) {
+		this.type = _type;
 	}
 
 	public Location getLocation() {

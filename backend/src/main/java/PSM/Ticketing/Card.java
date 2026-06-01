@@ -2,13 +2,13 @@ package PSM.Ticketing;
 
 import PSM.Location.Zone;
 import jakarta.persistence.Entity;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.DiscriminatorValue;
-import jakarta.persistence.OneToOne;
 
 @Entity
 @DiscriminatorValue("card")
 public class Card extends Title {
-	@OneToOne
+	@ManyToOne
 	public Zone zone;
 
 	@Override

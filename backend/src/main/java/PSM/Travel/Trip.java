@@ -3,6 +3,7 @@ package PSM.Travel;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.List;
 import java.util.UUID;
 
 import PSM.ValidationManager.ValidationRecord;
@@ -22,10 +23,10 @@ public class Trip {
 	private LocalDateTime endTime;
 
 	@OneToMany(mappedBy = "trip", cascade = CascadeType.ALL)
-	public ArrayList<ValidationRecord> validationRecords = new ArrayList<ValidationRecord>();
+	public List<ValidationRecord> validationRecords = new ArrayList<ValidationRecord>();
 
 	@OneToMany(mappedBy = "trip", cascade = CascadeType.ALL)
-	public ArrayList<ExitRecord> exitRecords = new ArrayList<ExitRecord>();
+	public List<ExitRecord> exitRecords = new ArrayList<ExitRecord>();
 
 	@ManyToOne
 	public Vehicle vehicle;
@@ -72,11 +73,19 @@ public class Trip {
 		this.startTime = _startTime;
 	}
 
-	public ArrayList<ValidationRecord> getValidationRecords() {
+	public LocalDateTime getEndTime() {
+		return this.endTime;
+	}
+
+	public void setEndTime(LocalDateTime _endTime) {
+		this.endTime = _endTime;
+	}
+
+	public List<ValidationRecord> getValidationRecords() {
 		return this.validationRecords;
 	}
 
-	public void setValidationRecords(ArrayList<ValidationRecord> _validationRecords) {
+	public void setValidationRecords(List<ValidationRecord> _validationRecords) {
 		this.validationRecords = _validationRecords;
 	}
 
