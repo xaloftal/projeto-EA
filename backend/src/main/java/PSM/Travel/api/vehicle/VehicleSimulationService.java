@@ -27,8 +27,7 @@ import jakarta.annotation.PostConstruct;
 public class VehicleSimulationService {
     private static final Logger logger = LoggerFactory.getLogger(VehicleSimulationService.class);
     private static final ZoneId ZONE = ZoneId.systemDefault();
-    private static final long DEFAULT_SEGMENT_SECONDS = 1L; // Reduzido de 15 para melhor granularidade
-    private static final int INTERPOLATION_POINTS = 15; // Pontos interpolados entre paragens
+    private static final long DEFAULT_SEGMENT_SECONDS = 15L;
 
     private final VehicleRepository vehicleRepository;
     private final PSM.Location.api.route.RouteRepository routeRepository;
@@ -52,7 +51,7 @@ public class VehicleSimulationService {
         recomputeSnapshots();
     }
 
-    @Scheduled(fixedDelayString = "${simulation.vehicle.refresh-ms:300}")
+    @Scheduled(fixedDelayString = "${simulation.vehicle.refresh-ms:30000}")
     public void refreshTracks() {
         rebuildTracks();
     }
@@ -157,71 +156,46 @@ public class VehicleSimulationService {
         logger.debug("Route {} has {} routeStops from DB", route.getName(), routeStops.size());
         routeStops.sort(Comparator.comparingInt(RouteStop::getSequence));
 
-        // Primeiro, construir lista de paragens com localizações válidas
-        List<RouteStop> validStops = new ArrayList<>();
-        for (RouteStop routeStop : routeStops) {
-            Stop stop = routeStop.getStop();
-            if (stop != null && stop.getLocation() != null) {
-                if (validStops.isEmpty() || !validStops.get(validStops.size() - 1).getStop().getId().equals(stop.getId())) {
-                    validStops.add(routeStop);
-                }
-            }
-        }
-
-        if (validStops.size() < 2) {
-            logger.warn("Route {} has only {} valid stops, skipping", route.getName(), validStops.size());
-            return null;
-        }
-
-        // Construir pontos com interpolação entre paragens
         List<TrackPoint> points = new ArrayList<>();
         long offsetSeconds = 0L;
 
-        for (int i = 0; i < validStops.size(); i++) {
-            Stop currentStop = validStops.get(i).getStop();
-            
-            if (i > 0) {
-                Stop previousStop = validStops.get(i - 1).getStop();
-                double prevLat = previousStop.getLocation().getLatitude();
-                double prevLon = previousStop.getLocation().getLongitude();
-                double currLat = currentStop.getLocation().getLatitude();
-                double currLon = currentStop.getLocation().getLongitude();
-                
-                // Adicionar pontos interpolados entre paragens anteriores e actual
-                for (int j = 1; j < INTERPOLATION_POINTS; j++) {
-                    double progress = j / (double) INTERPOLATION_POINTS;
-                    double interpLat = lerp(prevLat, currLat, progress);
-                    double interpLon = lerp(prevLon, currLon, progress);
-                    
-                    points.add(new TrackPoint(
-                            previousStop.getId(),
-                            previousStop.getName(),
-                            interpLat,
-                            interpLon,
-                            offsetSeconds
-                    ));
-                    
-                    offsetSeconds += DEFAULT_SEGMENT_SECONDS;
-                }
+        for (RouteStop routeStop : routeStops) {
+            Stop stop = routeStop.getStop();
+            if (stop == null) {
+                logger.debug("  RouteStop has null stop");
+                continue;
+            }
+            if (stop.getLocation() == null) {
+                logger.debug("  Stop {} has null location", stop.getName());
+                continue;
             }
 
-            // Adicionar ponto da paragem actual
-            points.add(new TrackPoint(
-                    currentStop.getId(),
-                    currentStop.getName(),
-                    currentStop.getLocation().getLatitude(),
-                    currentStop.getLocation().getLongitude(),
-                    offsetSeconds
-            ));
-            
-            offsetSeconds += DEFAULT_SEGMENT_SECONDS;
+            if (!points.isEmpty()) {
+                TrackPoint last = points.get(points.size() - 1);
+                if (last.stopId.equals(stop.getId())) {
+                    continue;
+                }
 
-            System.out.println("Stop " + i + ": " + currentStop.getName());
+                offsetSeconds += DEFAULT_SEGMENT_SECONDS;
+            }
+
+            points.add(new TrackPoint(
+                    stop.getId(),
+                    stop.getName(),
+                    stop.getLocation().getLatitude(),
+                    stop.getLocation().getLongitude(),
+                    offsetSeconds));
         }
 
+        if (points.size() < 2) {
+            logger.warn("Route {} has only {} unique stops, skipping", route.getName(), points.size());
+            return null;
+        }
+
+        
+
         long totalDurationSeconds = Math.max(DEFAULT_SEGMENT_SECONDS, (long) (points.size() - 1) * DEFAULT_SEGMENT_SECONDS);
-        logger.info("Route {} has {} valid stops, {} interpolated points, total duration {} seconds", 
-                route.getName(), validStops.size(), points.size(), totalDurationSeconds);
+        logger.info("Route {} has {} unique stops, total duration {} seconds", route.getName(), points.size(), totalDurationSeconds);
         return new RouteTrack(route.getId(), route.getName(), points, totalDurationSeconds);
     }
 
