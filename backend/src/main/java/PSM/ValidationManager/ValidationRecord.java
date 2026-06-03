@@ -2,9 +2,9 @@ package PSM.ValidationManager;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
-import PSM.Ticketing.Ticket;
 import PSM.Ticketing.Title;
 import PSM.Location.Stop;
 import PSM.Travel.Trip;
@@ -20,7 +20,7 @@ public class ValidationRecord {
 	private boolean result;
 
 	@ManyToMany
-	public ArrayList<Title> titles = new ArrayList<Title>();
+	public List<Title> titles = new ArrayList<Title>();
 
 	@ManyToOne
 	public Stop stop;
@@ -54,11 +54,11 @@ public class ValidationRecord {
 		this.result = _result;
 	}
 
-	public ArrayList<Title> getTitles() {
+	public List<Title> getTitles() {
 		return this.titles;
 	}
 
-	public void setTitles(ArrayList<Title> _titles) {
+	public void setTitles(List<Title> _titles) {
 		this.titles = _titles;
 	}
 

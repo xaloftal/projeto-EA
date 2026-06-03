@@ -14,6 +14,7 @@ public record RouteSearchResultDTO(
     public record StopSearchResultDTO(
             UUID id,
             String name,
+            String stopCode,
             double latitude,
             double longitude) {
     }

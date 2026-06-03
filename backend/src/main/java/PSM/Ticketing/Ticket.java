@@ -1,26 +1,55 @@
 package PSM.Ticketing;
 
+import java.time.LocalDateTime;
+
 import PSM.Location.Stop;
 import jakarta.persistence.DiscriminatorValue;
 import jakarta.persistence.Entity;
+import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 
 @Entity
 @DiscriminatorValue("ticket")
 public class Ticket extends Title {
 	@ManyToOne
-	public Stop to;
+	@JoinColumn(name = "to_id")
+	public Stop toStop;
 
 	@ManyToOne
-	public Stop from;
+	@JoinColumn(name = "from_id")
+	public Stop fromStop;
 
 
+	@Override
+	public boolean validate() {
+		try {
+			this.status.validate(this);
+			return true;
+		} catch (UnsupportedOperationException e) {
+			return false;
+		}
+	}
 
-	public Stop getTo() { return this.to; }
+	@Override
+	public void use() {
+		this.status.use(this);
+	}
 
-	public void setTo(Stop _to) { this.to = _to; }
+	@Override
+	public void expire() {
+		this.status.expire(this);
+	}
 
-	public Stop getFrom() { return this.from; }
+	@Override
+	public boolean isValid() {
+		return LocalDateTime.now().isBefore(this.validUntil) && this.getStateName().equals("UNUSED");
+	}
 
-	public void setFrom(Stop _from) { this.from = _from; }
+	public Stop getTo() { return this.toStop; }
+
+	public void setTo(Stop _toStop) { this.toStop = _toStop; }
+
+	public Stop getFrom() { return this.fromStop; }
+
+	public void setFrom(Stop _fromStop) { this.fromStop = _fromStop; }
 }

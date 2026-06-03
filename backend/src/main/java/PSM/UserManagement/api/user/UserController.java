@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import PSM.Location.Stop;
+import PSM.Ticketing.Card;
 import PSM.UserManagement.User;
 import PSM.UserManagement.UserNotification;
 
@@ -38,6 +39,11 @@ public class UserController {
     @PostMapping
     public User create(@RequestBody User entity) {
         return service.create(entity);
+    }
+
+    @PostMapping("/{id}/card")
+        public User assignCard(@PathVariable UUID id, @RequestBody Card card) {
+            return service.assignCard(id, card);
     }
 
     @PutMapping("/{id}")

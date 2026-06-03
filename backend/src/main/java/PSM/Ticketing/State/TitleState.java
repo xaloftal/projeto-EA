@@ -1,14 +1,16 @@
 package PSM.Ticketing.State;
 
+import PSM.Ticketing.Title;
+
 public interface TitleState {
 
-	public void activate();
+	default void activate(Title title) { throw new UnsupportedOperationException(); }
 
-	public void expire();
+	default void expire(Title title) { throw new UnsupportedOperationException(); }
 
-	public void validate();
+	default void validate(Title title) { throw new UnsupportedOperationException(); }
 
 	public String getStateName();
 
-	public void use();
+	default void use(Title title) { throw new UnsupportedOperationException(); }
 }

@@ -21,6 +21,7 @@ type BackendLocation = {
 type BackendStop = {
   id: string
   name: string
+  stopCode?: string
   stopType?: string
   location?: BackendLocation | null
   latitude?: number
@@ -94,17 +95,34 @@ type BackendZone = {
   colorHexCode?: string | null
 }
 
-type BackendRouteSchedule = {
+export type BackendRouteSchedule = {
   stop?: BackendStop | null
+  stopType?: string | null
   arrivalTime?: string
   departureTime?: string
   sequence?: number
 }
 
-type BackendRoute = {
+export type BackendRoute = {
   id: string
   name?: string
   schedules?: BackendRouteSchedule[]
+}
+
+export type RouteScheduleDTO = {
+  id: string
+  name?: string
+  schedules?: Array<{
+    stopId: string
+    stopName: string
+    stopCode?: string
+    stopType?: string | null
+    latitude: number
+    longitude: number
+    arrivalTime?: string
+    departureTime?: string
+    sequence?: number
+  }>
 }
 
 type BackendStopRouteArrival = {
@@ -220,6 +238,7 @@ type BackendCartResponse = {
 
 type RouteSearchResult = {
   routeId: string
+  routeName: string
   fromStop: Stop
   toStop: Stop
   departureTime: string
@@ -257,6 +276,7 @@ const toDate = (value?: string) => (value ? new Date(value) : new Date())
 const mapStop = (stop: BackendStop): Stop => ({
   id: stop.id,
   name: stop.name,
+  code: stop.stopCode,
   latitude: stop.location?.latitude ?? stop.latitude ?? 0,
   longitude: stop.location?.longitude ?? stop.longitude ?? 0,
   stopType: stop.stopType,
@@ -623,20 +643,13 @@ export class CatchItApiClient {
 
     const createdCard = mapCard(createResponse.data, data.userId)
 
-    const userResponse = await this.getUserProfile(data.userId)
-    if (userResponse.success && userResponse.data) {
-      await requestJson<BackendUser>(`/api/users/${data.userId}`, {
-        method: 'PUT',
-        body: JSON.stringify({
-          name: userResponse.data.name,
-          email: userResponse.data.email,
-          balance: userResponse.data.balance,
-          card: createResponse.data,
-        }),
-      })
-    }
+    await requestJson<BackendUser>(`/api/users/${data.userId}/card`, {
+      method: 'POST',
+      body: JSON.stringify({ id: createResponse.data.id }),
+    })
 
     return { success: true, data: createdCard }
+
   }
 
   async getStops(): Promise<ApiResponse<Stop[]>> {
@@ -687,6 +700,12 @@ export class CatchItApiClient {
     return { success: true, data: response.data }
   }
 
+  async getRouteSchedules(): Promise<ApiResponse<RouteScheduleDTO[]>> {
+    const response = await requestJson<RouteScheduleDTO[]>('/api/routes/schedules')
+    if (!response.success || !response.data) return { success: false, error: response.error }
+    return { success: true, data: response.data }
+  }
+
   async getStopRouteArrivals(stopId: string): Promise<ApiResponse<BackendStopRouteArrival[]>> {
     const response = await requestJson<BackendStopRouteArrival[]>(`/api/routes/stop-arrivals?stopId=${encodeURIComponent(stopId)}`)
     if (!response.success || !response.data) return { success: false, error: response.error }
@@ -716,6 +735,7 @@ export class CatchItApiClient {
 
     const mappedResults = backendSearch.data.map((result) => ({
       routeId: result.routeId,
+      routeName: result.routeName || 'Unnamed Route',
       fromStop: mapStop(result.fromStop ?? { id: data.fromStopId, name: 'Origin', latitude: 0, longitude: 0 }),
       toStop: mapStop(result.toStop ?? { id: data.toStopId, name: 'Destination', latitude: 0, longitude: 0 }),
       departureTime: result.departureTime ?? '00:00',
@@ -760,6 +780,26 @@ export class CatchItApiClient {
         vehicle: mapVehicle(response.data.vehicle),
       },
     }
+  }
+
+  async getActiveTrips(): Promise<ApiResponse<Array<{ id: string; startTime?: string; routeName?: string }>>> {
+    const response = await requestJson<Array<{ id: string; startTime?: string; routeName?: string }>>('/api/trips/active')
+    if (!response.success || !response.data) return { success: false, error: response.error }
+    return { success: true, data: response.data }
+  }
+
+  async checkIn(data: { titleId: string; tripId: string }): Promise<ApiResponse<{ success: boolean; message: string }>> {
+    return requestJson<{ success: boolean; message: string }>('/api/checkin', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async checkoutTransport(data: { titleId: string; tripId?: string }): Promise<ApiResponse<{ success: boolean; message: string }>> {
+    return requestJson<{ success: boolean; message: string }>('/api/checkout-transport', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
   }
 
   async getCart(): Promise<ApiResponse<BackendCartResponse>> {

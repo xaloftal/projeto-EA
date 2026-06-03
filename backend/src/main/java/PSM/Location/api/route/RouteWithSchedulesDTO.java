@@ -19,16 +19,20 @@ public class RouteWithSchedulesDTO {
     public static class ScheduleDTO {
         public UUID stopId;
         public String stopName;
+        public String stopCode;
+        public String stopType;
         public Double latitude;
         public Double longitude;
         public LocalDateTime arrivalTime;
         public LocalDateTime departureTime;
         public Integer sequence;
 
-        public ScheduleDTO(UUID stopId, String stopName, Double latitude, Double longitude,
+        public ScheduleDTO(UUID stopId, String stopName, String stopCode, String stopType, Double latitude, Double longitude,
                           LocalDateTime arrivalTime, LocalDateTime departureTime, Integer sequence) {
             this.stopId = stopId;
             this.stopName = stopName;
+            this.stopCode = stopCode;
+            this.stopType = stopType;
             this.latitude = latitude;
             this.longitude = longitude;
             this.arrivalTime = arrivalTime;

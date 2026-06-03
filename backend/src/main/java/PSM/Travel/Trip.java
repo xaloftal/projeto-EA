@@ -2,11 +2,15 @@ package PSM.Travel;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 import java.util.UUID;
 
 import PSM.ValidationManager.ValidationRecord;
+import PSM.ExitManager.ExitRecord;
 import PSM.Location.Route;
 import PSM.Location.Stop;
+import PSM.Location.StopSchedule;
 import jakarta.persistence.*;
 
 @Entity
@@ -19,12 +23,15 @@ public class Trip {
 	private LocalDateTime endTime;
 
 	@OneToMany(mappedBy = "trip", cascade = CascadeType.ALL)
-	public ArrayList<ValidationRecord> validationRecords = new ArrayList<ValidationRecord>();
+	public List<ValidationRecord> validationRecords = new ArrayList<ValidationRecord>();
+
+	@OneToMany(mappedBy = "trip", cascade = CascadeType.ALL)
+	public List<ExitRecord> exitRecords = new ArrayList<ExitRecord>();
 
 	@ManyToOne
 	public Vehicle vehicle;
 
-	@ManyToOne
+	@ManyToOne(fetch = FetchType.EAGER)
 	public Route route;
 
 
@@ -42,7 +49,12 @@ public class Trip {
 	}
 
 	public Stop getCurrentStop() {
-		throw new UnsupportedOperationException();
+		LocalDateTime now = LocalDateTime.now();
+		return route.schedules.stream()
+			.filter(schedule -> schedule.getDepartureTime().isBefore(now))
+			.max(Comparator.comparingInt(StopSchedule::getSequence))
+			.map(schedule -> schedule.stop)
+			.orElse(null);
 	}
 
 	public UUID getId() {
@@ -61,11 +73,19 @@ public class Trip {
 		this.startTime = _startTime;
 	}
 
-	public ArrayList<ValidationRecord> getValidationRecords() {
+	public LocalDateTime getEndTime() {
+		return this.endTime;
+	}
+
+	public void setEndTime(LocalDateTime _endTime) {
+		this.endTime = _endTime;
+	}
+
+	public List<ValidationRecord> getValidationRecords() {
 		return this.validationRecords;
 	}
 
-	public void setValidationRecords(ArrayList<ValidationRecord> _validationRecords) {
+	public void setValidationRecords(List<ValidationRecord> _validationRecords) {
 		this.validationRecords = _validationRecords;
 	}
 

@@ -1,24 +1,10 @@
 package PSM.Ticketing.State;
 
+import PSM.Ticketing.Title;
+
 public class ExpiredState implements TitleState {
 
-	public void validate() {
-		throw new UnsupportedOperationException();
-	}
+	public void activate(Title title) { title.setStatus(new ActiveState()); }
 
-	public void activate() {
-		throw new UnsupportedOperationException();
-	}
-
-	public void expire() {
-		throw new UnsupportedOperationException();
-	}
-
-	public void use() {
-		throw new UnsupportedOperationException();
-	}
-
-	public String getStateName() {
-		throw new UnsupportedOperationException();
-	}
+	public String getStateName() { return "EXPIRED"; }
 }

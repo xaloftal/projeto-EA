@@ -6,22 +6,17 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-
-import com.fasterxml.jackson.annotation.JsonIgnore;
-
-import java.math.BigDecimal;
-import java.time.Duration;
-import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
 import java.io.ByteArrayOutputStream;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-
+import PSM.Ticketing.State.ActiveState;
+import PSM.Ticketing.State.ExpiredState;
 import PSM.Ticketing.State.TitleState;
+import PSM.Ticketing.State.UnusedState;
+import PSM.Ticketing.State.UsedState;
+import PSM.Ticketing.State.ValidatedState;
 import PSM.Travel.Trip;
 import PSM.UserManagement.User;
+import jakarta.persistence.Column;
 import jakarta.persistence.DiscriminatorColumn;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -31,10 +26,12 @@ import jakarta.persistence.Inheritance;
 import jakarta.persistence.InheritanceType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToMany;
+import jakarta.persistence.PostLoad;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.Transient;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.google.zxing.BarcodeFormat;
 import com.google.zxing.common.BitMatrix;
 import com.google.zxing.qrcode.QRCodeWriter;
@@ -50,9 +47,12 @@ public abstract class Title {
 	private UUID id;
 	private LocalDateTime createdAt;
 	private LocalDateTime validFrom;
-	private LocalDateTime validUntil;
+	public LocalDateTime validUntil;
 	private BigDecimal price;
 	private byte[] qrCode;
+
+	@Column(name = "state_name")
+	private String stateName;
 
 	@Transient
 	public TitleState status;
@@ -60,22 +60,36 @@ public abstract class Title {
 	@ManyToMany
 	public List<Trip> trips = new ArrayList<Trip>();
 
+	
+	@PostLoad
+	private void restoreState() {
+		switch (this.stateName) {
+			case "UNUSED" -> this.status = new UnusedState();
+			case "ACTIVE" -> this.status = new ActiveState();
+			case "VALIDATED" -> this.status = new ValidatedState();
+			case "EXPIRED" -> this.status = new ExpiredState();
+			case "USED" -> this.status = new UsedState();
+		}
+	}
+
 	@ManyToOne
 	@JoinColumn(name = "user_id")
 	@JsonIgnore
 	private User user;
 
-	public void activate() {
-		throw new UnsupportedOperationException();
-	}
+	public void activate() { throw new UnsupportedOperationException(); }
 
-	public void expire() {
-		throw new UnsupportedOperationException();
-	}
+	public void renew() { throw new UnsupportedOperationException(); }
+	
+	public void expire() { throw new UnsupportedOperationException(); }
+
+	public void use() { throw new UnsupportedOperationException(); }
+
+	public boolean validate() { throw new UnsupportedOperationException(); }
 
 	@JsonIgnore
 	public boolean isValid() {
-		throw new UnsupportedOperationException();
+		return LocalDateTime.now().isBefore(this.validUntil);
 	}
 
 	public void generateQrCode(String text, int size) {
@@ -91,22 +105,9 @@ public abstract class Title {
 		}
 	}
 
-	public boolean validate() {
-		throw new UnsupportedOperationException();
-	}
-
 	@JsonIgnore
 	public Duration getRemainingValidity() {
-		throw new UnsupportedOperationException();
-	}
-
-	@JsonIgnore
-	public String getStateName() {
-		throw new UnsupportedOperationException();
-	}
-
-	public void use() {
-		throw new UnsupportedOperationException();
+		return Duration.between(LocalDateTime.now(), this.validUntil);
 	}
 
 	public UUID getId() {
@@ -155,6 +156,14 @@ public abstract class Title {
 
 	public void setQrCode(byte[] _qrCode) {
 		this.qrCode = _qrCode;
+	}
+
+	public String getStateName() {
+		return this.stateName;
+	}
+
+	public void setStateName(String stateName) {
+		this.stateName = stateName;
 	}
 
 	public TitleState getStatus() {

@@ -37,6 +37,11 @@ public class RouteController {
         return service.findStopArrivals(stopId);
     }
 
+    @GetMapping("/schedules")
+    public List<RouteWithSchedulesDTO> getSchedules() {
+        return service.findAllOptimized();
+    }
+
     @GetMapping("/search")
     public List<RouteSearchResultDTO> search(
             @RequestParam UUID fromStopId,

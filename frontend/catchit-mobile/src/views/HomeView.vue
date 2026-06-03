@@ -3,8 +3,7 @@
     <!-- Header -->
     <header class="app-header">
       <h1>
-        <img src="../assets/app-logo-wt.png" alt="CatchIt" class="logo" /> 
-
+        <img src="../assets/app-logo-wt.png" alt="CatchIt" class="logo" />
       </h1>
       <router-link to="/notifications" class="profile-icon" aria-label="Profile">
         <Bell class="icon-md" />
@@ -43,7 +42,7 @@
           <div class="tab-content">
             <div class="card-display">
               <div v-if="isCardsLoading" class="card-visual card-visual-skeleton">
-                 <LoaderCircle class="spinner-icon" />
+                <LoaderCircle class="spinner-icon" />
               </div>
               <template v-else>
                 <ZoneCard
@@ -66,7 +65,8 @@
 
                 <div class="card-bottom">
                   <router-link to="/cards" class="btn-primary card-action-btn">{{ currentCard ? 'Renew' : 'Buy Card' }}</router-link>
-                  <div v-if="currentCard" class="card-qr">
+                  <router-link v-if="currentCard" :to="`/checkin/${currentCard.id}`" class="btn-secondary card-action-btn">Check In</router-link>
+                  <div class="card-qr" @click="showQrModal = true" style="cursor: pointer;">
                     <QrCode class="card-qr-icon" />
                   </div>
                 </div>
@@ -78,7 +78,7 @@
         <div class="swipe-pane">
           <div class="tab-content">
             <div v-if="isTicketsLoading" class="ticket-item ticket-skeleton">
-               <LoaderCircle class="spinner-icon spinner-icon-dark" />
+              <LoaderCircle class="spinner-icon spinner-icon-dark" />
             </div>
 
             <template v-else>
@@ -94,6 +94,9 @@
                     <span class="status-badge" :class="ticket.status.toLowerCase()">
                       {{ formatStatus(ticket.status) }}
                     </span>
+                    <div class="ticket-actions">
+                      <router-link :to="`/checkin/${ticket.id}`" class="btn-checkin-small">Check In</router-link>
+                    </div>
                   </div>
                   <p class="expiry">Expires on {{ formatDate(ticket.validUntil) }}</p>
                   <div class="ticket-stops">
@@ -114,6 +117,14 @@
             </template>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- QR Modal -->
+    <div v-if="showQrModal" class="qr-modal" @click="showQrModal = false">
+      <div class="qr-modal-content">
+        <QrCode class="qr-modal-icon" />
+        <p>Tap to close</p>
       </div>
     </div>
 
@@ -160,6 +171,7 @@ const currentUserName = computed(() => currentUser.value?.name ?? '')
 const isInitialLoad = ref(true)
 const isCardsLoading = computed(() => isInitialLoad.value || cardViewModel.isLoading.value)
 const isTicketsLoading = computed(() => isInitialLoad.value || ticketViewModel.isLoading.value)
+const showQrModal = ref(false)
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
 
@@ -167,9 +179,7 @@ const blendColor = (from: string, to: string, amount: number) => {
   const progress = clamp(amount, 0, 1)
   const fromRGB = from.match(/[A-Fa-f0-9]{2}/g)?.map((hex) => parseInt(hex, 16))
   const toRGB = to.match(/[A-Fa-f0-9]{2}/g)?.map((hex) => parseInt(hex, 16))
-
   if (!fromRGB || !toRGB || fromRGB.length !== 3 || toRGB.length !== 3) return to
-
   const mixed = fromRGB.map((value, index) => Math.round(value + (toRGB[index] - value) * progress))
   return `rgb(${mixed[0]}, ${mixed[1]}, ${mixed[2]})`
 }
@@ -181,11 +191,7 @@ const updateViewportWidth = () => {
 const tabProgress = computed(() => {
   const width = viewportWidth.value || 1
   const dragRatio = clamp(Math.abs(currentDragX.value) / width, 0, 1)
-
-  if (activeTab.value === 'cards') {
-    return dragRatio
-  }
-
+  if (activeTab.value === 'cards') return dragRatio
   return 1 - dragRatio
 })
 
@@ -203,13 +209,9 @@ const swipeTrackStyle = computed(() => {
       transform: activeTab.value === 'cards' ? 'translate3d(0, 0, 0)' : 'translate3d(-100%, 0, 0)',
     }
   }
-
   const baseOffset = activeTab.value === 'cards' ? 0 : -width
   const offset = baseOffset + currentDragX.value
-
-  return {
-    transform: `translate3d(${offset}px, 0, 0)`,
-  }
+  return { transform: `translate3d(${offset}px, 0, 0)` }
 })
 
 const setActiveTab = (tab: 'cards' | 'tickets') => {
@@ -226,33 +228,24 @@ const onTouchStart = (event: TouchEvent) => {
 
 const onTouchMove = (event: TouchEvent) => {
   if (!isDragging.value || !event.touches.length) return
-
   const deltaX = event.touches[0].clientX - touchStartX.value
   const width = viewportWidth.value || 1
   const maxDrag = width * 0.8
-
   if (activeTab.value === 'cards') {
     currentDragX.value = clamp(deltaX, -maxDrag, 0)
     return
   }
-
   currentDragX.value = clamp(deltaX, 0, maxDrag)
 }
 
 const onTouchEnd = () => {
   if (!isDragging.value) return
-
   const width = viewportWidth.value || 1
   const threshold = width * 0.2
   const shouldMoveToTickets = activeTab.value === 'cards' && currentDragX.value <= -threshold
   const shouldMoveToCards = activeTab.value === 'tickets' && currentDragX.value >= threshold
-
-  if (shouldMoveToTickets) {
-    activeTab.value = 'tickets'
-  } else if (shouldMoveToCards) {
-    activeTab.value = 'cards'
-  }
-
+  if (shouldMoveToTickets) activeTab.value = 'tickets'
+  else if (shouldMoveToCards) activeTab.value = 'cards'
   currentDragX.value = 0
   isDragging.value = false
 }
@@ -260,12 +253,10 @@ const onTouchEnd = () => {
 onMounted(async () => {
   updateViewportWidth()
   window.addEventListener('resize', updateViewportWidth)
-
   await Promise.all([
     ticketViewModel.fetchUserTickets(),
-    cardViewModel.fetchUserCards()
+    cardViewModel.fetchUserCards(),
   ])
-  
   isInitialLoad.value = false
 })
 
@@ -306,8 +297,6 @@ const getQrCodeSrc = (qrCode: string) => {
 </script>
 
 <style scoped>
-
-
 .home-container .app-header h1 {
   display: flex;
   align-items: left;
@@ -439,6 +428,33 @@ const getQrCodeSrc = (qrCode: string) => {
   justify-content: center;
 }
 
+.btn-checkin-small {
+  padding: 0.35rem 0.75rem;
+  background: var(--color-brand);
+  color: white;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.ticket-actions {
+  margin-left: auto;
+}
+
+.btn-secondary {
+  width: 100%;
+  padding: 0.75rem;
+  background: #111827;
+  color: white;
+  border-radius: 8px;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+}
+
 .ticket-qr-image {
   width: 180px;
   height: 180px;
@@ -449,22 +465,6 @@ const getQrCodeSrc = (qrCode: string) => {
 .qr-fallback {
   color: #999;
   font-size: 0.9rem;
-}
-
-.btn-qr {
-  width: 100%;
-  padding: 0.75rem;
-  background: #e8e8e8;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 600;
-  text-decoration: none;
-  color: inherit;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
 }
 
 .card-bottom {
@@ -496,6 +496,31 @@ const getQrCodeSrc = (qrCode: string) => {
   width: 10.5rem;
   height: 10.5rem;
   color: #0b0b0b;
+}
+
+.qr-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.qr-modal-content {
+  background: white;
+  border-radius: 16px;
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.qr-modal-icon {
+  width: 18rem;
+  height: 18rem;
 }
 
 .card-display {
@@ -632,11 +657,7 @@ const getQrCodeSrc = (qrCode: string) => {
 }
 
 @keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 </style>

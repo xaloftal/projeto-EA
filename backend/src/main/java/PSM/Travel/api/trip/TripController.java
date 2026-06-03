@@ -33,6 +33,21 @@ public class TripController {
         return service.findById(id);
     }
 
+    @GetMapping("/active")
+    public List<ActiveTripDTO> getActiveTrips() {
+        return service.findActiveTrips().stream()
+            .map(t -> {
+                String routeName = t.route != null ? t.route.getName() : "NULL_ROUTE";
+                System.out.println("Trip " + t.getId() + " route: " + routeName);
+                return new ActiveTripDTO(
+                    t.getId().toString(),
+                    t.getStartTime().toString(),
+                    routeName
+                );
+            })
+            .toList();
+    }
+
     @PostMapping
     public Trip create(@RequestBody Trip entity) {
         return service.create(entity);

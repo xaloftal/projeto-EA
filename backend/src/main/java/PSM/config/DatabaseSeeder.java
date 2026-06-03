@@ -33,7 +33,7 @@ import PSM.Location.api.stopschedule.StopScheduleRepository;
 import PSM.Location.api.zone.ZoneRepository;
 import PSM.Travel.VehicleType;
 
-@Component
+//@Component
 public class DatabaseSeeder implements CommandLineRunner {
 
     private static final Logger logger = LoggerFactory.getLogger(DatabaseSeeder.class);
@@ -43,6 +43,8 @@ public class DatabaseSeeder implements CommandLineRunner {
     private static final Path STOP_SCHEDULES_CSV = DATA_DIR.resolve("schedule.csv");
 
     private static final LocalDate SEED_BASE_DATE = LocalDate.of(2000, 1, 1);
+    
+    private static final int THREAD_POOL_SIZE = Runtime.getRuntime().availableProcessors();
 
     private static final int COL_ROUTE_CODE = 0;
     private static final int COL_STOP_CODE = 1;

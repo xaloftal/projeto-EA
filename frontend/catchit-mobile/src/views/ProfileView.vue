@@ -57,6 +57,11 @@
           <span>Travel History</span>
           <span class="chevron"><ChevronRight class="icon-sm" /></span>
         </a>
+        <router-link to="/schedule" class="menu-item">
+          <span class="menu-icon"><CalendarDays class="icon-md" /></span>
+          <span>Routes & Schedule</span>
+          <span class="chevron"><ChevronRight class="icon-sm" /></span>
+        </router-link>
         <a href="#" class="menu-item">
           <span class="menu-icon"><LogOut class="icon-md" /></span>
           <span @click.prevent="handleLogout" class="logout-link">Logout</span>
@@ -78,7 +83,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { ArrowLeft, Bus, ChevronRight, CircleHelp, House, LogOut, Pencil, Map, Settings, ShoppingCart, User, Ticket, Star, X } from 'lucide-vue-next'
+import { ArrowLeft, Bus, CalendarDays, ChevronRight, CircleHelp, House, LogOut, Pencil, Map, Settings, ShoppingCart, User, Ticket, Star, X } from 'lucide-vue-next'
 import { useRouter } from 'vue-router'
 import { useAuthViewModel, useProfileViewModel } from '../viewmodels'
 import { catchitApi } from '../services/api/catchitApi'

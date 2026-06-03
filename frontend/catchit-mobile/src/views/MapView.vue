@@ -66,7 +66,7 @@
 
       <template v-if="sheetMode === 'stop' && selectedStop">
         <p class="line-name">{{ selectedStop.stopType || 'STOP' }} stop information</p>
-        <p class="ids-line">Stop ID: {{ selectedStop.code }}</p>
+        <p class="ids-line">Stop Code: {{ selectedStop.code }}</p>
         <p class="next-stop">Next arrival: {{ nextArrivalLabel }}</p>
 
         <h3 class="route-title">Routes at this stop</h3>

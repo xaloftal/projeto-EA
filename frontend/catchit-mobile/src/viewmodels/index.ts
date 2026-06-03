@@ -4,6 +4,7 @@ import type { User, Ticket, Card, CardTier, TravelCard, PaymentMethod, Stop, Veh
 
 export type RouteSearchResult = {
   routeId: string
+  routeName: string
   fromStop: Stop
   toStop: Stop
   departureTime: string
@@ -338,6 +339,109 @@ export function useTravelViewModel() {
 }
 
 /**
+ * ViewModel for Transport Check-In / Check-Out
+ * Encapsulates API interactions and state for the TransportCheckIn view
+ */
+export function useTransportViewModel(titleId?: string) {
+  type TripOption = { id: string; routeName: string; startTime?: string }
+
+  const activeTrips = ref<TripOption[]>([])
+  const selectedTripId = ref('')
+  const isLoadingTrips = ref(false)
+  const isCheckingIn = ref(false)
+  const isCheckingOut = ref(false)
+  const checkInSuccess = ref(false)
+  const errorMessage = ref('')
+  const checkOutMessage = ref<{ success: boolean; text: string } | null>(null)
+  const titleLabel = ref('Loading...')
+
+  const formatTime = (date?: string) => (date ? new Date(date).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' }) : '')
+
+  const loadTitleInfo = async (id?: string) => {
+    if (!currentUser.value) return
+    const localId = id ?? titleId
+    if (!localId) return
+
+    const ticketsResponse = await catchitApi.getUserTickets(currentUser.value.id)
+    const ticket = ticketsResponse.data?.find((t) => t.id === localId)
+    if (ticket) {
+      titleLabel.value = `🎟️ Ticket: ${ticket.stopFrom?.name ?? '?'} → ${ticket.stopTo?.name ?? '?'}`
+      return
+    }
+
+    const cardsResponse = await catchitApi.getUserCards(currentUser.value.id)
+    const card = cardsResponse.data?.find((c) => c.id === localId)
+    if (card) {
+      titleLabel.value = `🎫 Card: ${card.name}`
+      return
+    }
+
+    titleLabel.value = 'Title not found'
+  }
+
+  const loadActiveTrips = async () => {
+    isLoadingTrips.value = true
+    try {
+      const response = await catchitApi.getActiveTrips()
+      if (response.success && response.data) {
+        activeTrips.value = response.data.map((t) => ({
+          id: t.id,
+          routeName: t.routeName ?? 'Unknown route',
+          startTime: formatTime(t.startTime),
+        }))
+      }
+    } finally {
+      isLoadingTrips.value = false
+    }
+  }
+
+  const handleCheckIn = async () => {
+    if (!selectedTripId.value) return
+    isCheckingIn.value = true
+    errorMessage.value = ''
+    try {
+      const response = await catchitApi.checkIn({ titleId: titleId ?? '', tripId: selectedTripId.value })
+      if (response.success && response.data?.success) {
+        checkInSuccess.value = true
+      } else {
+        errorMessage.value = response.data?.message ?? response.error ?? 'Check in failed'
+      }
+    } finally {
+      isCheckingIn.value = false
+    }
+  }
+
+  const handleCheckOut = async () => {
+    isCheckingOut.value = true
+    checkOutMessage.value = null
+    try {
+      const response = await catchitApi.checkoutTransport({ titleId: titleId ?? '', tripId: selectedTripId.value })
+      if (response.success && response.data) {
+        checkOutMessage.value = { success: response.data.success, text: response.data.message }
+      }
+    } finally {
+      isCheckingOut.value = false
+    }
+  }
+
+  return {
+    activeTrips,
+    selectedTripId,
+    isLoadingTrips,
+    isCheckingIn,
+    isCheckingOut,
+    checkInSuccess,
+    errorMessage,
+    checkOutMessage,
+    titleLabel,
+    loadTitleInfo,
+    loadActiveTrips,
+    handleCheckIn,
+    handleCheckOut,
+  }
+}
+
+/**
  * ViewModel for Checkout
  * Handles shopping cart and payment process
  */
@@ -639,3 +743,6 @@ export function useNotificationViewModel() {
     deleteNotification,
   }
 }
+
+
+export { useScheduleViewModel } from './scheduleViewModel';
