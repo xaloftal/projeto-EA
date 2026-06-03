@@ -32,134 +32,163 @@ import jakarta.persistence.Transient;
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 @Table(name = "stop", schema = "catchit")
 public class Stop implements Subject {
-	@Id
-	@GeneratedValue(strategy= GenerationType.UUID)
-	private UUID id;
+    @Id
+    @GeneratedValue(strategy= GenerationType.UUID)
+    private UUID id;
 
-	private String name;
+    private String name;
 
-	private String stopCode;
+    private String stopCode;
 
-	@Enumerated(EnumType.STRING)
-	private VehicleType stopType;
+    @Enumerated(EnumType.STRING)
+    private VehicleType stopType;
 
-	@ManyToOne
-	@JoinColumn(name = "zone_id")
-	@JsonIgnore
-	private Zone zone;
+    @ManyToOne
+    @JoinColumn(name = "zone_id")
+    @JsonIgnore
+    private Zone zone;
 
-	@OneToOne
-	@JsonIgnore
-	public Location location;
+    @OneToOne
+    @JsonIgnore
+    public Location location;
 
-	@OneToMany(mappedBy = "stop",cascade = CascadeType.ALL)
-	@JsonIgnore
-	public List<StopSchedule> schedules = new ArrayList<StopSchedule>();
+    @OneToMany(mappedBy = "stop",cascade = CascadeType.ALL)
+    @JsonIgnore
+    public List<StopSchedule> schedules = new ArrayList<StopSchedule>();
 
-	@Transient
-	@JsonIgnore
-	private List<Observer> observers = new ArrayList<Observer>();
+    @Transient
+    @JsonIgnore
+    private List<Observer> observers = new ArrayList<Observer>();
 
-	@Override
-	public void notifyObservers() {
-		for (Observer observer : new ArrayList<Observer>(this.observers)) {
-			observer.notifyUser(this);
-		}
-	}
+    @Transient
+    @JsonIgnore
+    private UUID currentVehicleId;
 
-	@Override
-	public void addObserver(Observer _obs) {
-		if (_obs == null) {
-			return;
-		}
+    @Transient
+    @JsonIgnore
+    private UUID currentRouteId;
 
-		if (_obs instanceof User newUser) {
-			boolean alreadyRegistered = this.observers.stream().anyMatch(existingObserver -> existingObserver instanceof User existingUser && existingUser.getId() != null && existingUser.getId().equals(newUser.getId()));
-			if (!alreadyRegistered) {
-				this.observers.add(_obs);
-			}
-			return;
-		}
+    @Transient
+    @JsonIgnore
+    private String currentRouteName;
 
-		if (!this.observers.contains(_obs)) {
-			this.observers.add(_obs);
-		}
-	}
+    @Override
+    public void notifyObservers() {
+        for (Observer observer : new ArrayList<Observer>(this.observers)) {
+            observer.notifyUser(this);
+        }
+    }
 
-	@Override
-	public void removeObserver(Observer _obs) {
-		if (_obs == null) {
-			return;
-		}
+    @Override
+    public void addObserver(Observer _obs) {
+        if (_obs == null) {
+            return;
+        }
 
-		if (_obs instanceof User user) {
-			this.observers.removeIf(existingObserver -> existingObserver instanceof User existingUser && existingUser.getId() != null && existingUser.getId().equals(user.getId()));
-			return;
-		}
+        if (_obs instanceof User newUser) {
+            boolean alreadyRegistered = this.observers.stream().anyMatch(existingObserver -> existingObserver instanceof User existingUser && existingUser.getId() != null && existingUser.getId().equals(newUser.getId()));
+            if (!alreadyRegistered) {
+                this.observers.add(_obs);
+            }
+            return;
+        }
 
-		this.observers.remove(_obs);
-	}
+        if (!this.observers.contains(_obs)) {
+            this.observers.add(_obs);
+        }
+    }
 
-	public UUID getId() {
-		return this.id;
-	}
+    @Override
+    public void removeObserver(Observer _obs) {
+        if (_obs == null) {
+            return;
+        }
 
-	private void setId(UUID _id) {
-		this.id = _id;
-	}
+        if (_obs instanceof User user) {
+            this.observers.removeIf(existingObserver -> existingObserver instanceof User existingUser && existingUser.getId() != null && existingUser.getId().equals(user.getId()));
+            return;
+        }
 
-	public String getName() {
-		return this.name;
-	}
+        this.observers.remove(_obs);
+    }
 
-	public void setName(String _name) {
-		this.name = _name;
-	}
+    public void setArrivalContext(UUID vehicleId, UUID routeId, String routeName) {
+        this.currentVehicleId = vehicleId;
+        this.currentRouteId = routeId;
+        this.currentRouteName = routeName;
+    }
 
-	public String getStopCode() {
-		return this.stopCode;
-	}
+    public UUID getCurrentVehicleId() {
+        return this.currentVehicleId;
+    }
 
-	public void setStopCode(String _stopCode) {
-		this.stopCode = _stopCode;
-	}
+    public UUID getCurrentRouteId() {
+        return this.currentRouteId;
+    }
 
-	public VehicleType getStopType() {
-		return this.stopType;
-	}
+    public String getCurrentRouteName() {
+        return this.currentRouteName;
+    }
 
-	public void setStopType(VehicleType _stopType) {
-		this.stopType = _stopType;
-	}
+    public UUID getId() {
+        return this.id;
+    }
 
-	@JsonProperty("latitude")
-	public double getLatitude() {
-		return this.location != null ? this.location.getLatitude() : 0;
-	}
+    private void setId(UUID _id) {
+        this.id = _id;
+    }
 
-	@JsonProperty("longitude")
-	public double getLongitude() {
-		return this.location != null ? this.location.getLongitude() : 0;
-	}
+    public String getName() {
+        return this.name;
+    }
 
-	public Location getLocation() {
-		return this.location;
-	}
+    public void setName(String _name) {
+        this.name = _name;
+    }
 
-	public void setLocation(Location _location) {
-		this.location = _location;
-	}
+    public String getStopCode() {
+        return this.stopCode;
+    }
 
-	public List<Observer> getObservers() {
-		return this.observers;
-	}
-	
-	
-	public Zone getZone() {
-		return this.zone;
-	}
+    public void setStopCode(String _stopCode) {
+        this.stopCode = _stopCode;
+    }
 
-	public void setZone(Zone _zone) {
-		this.zone = _zone;
-	}
+    public VehicleType getStopType() {
+        return this.stopType;
+    }
+
+    public void setStopType(VehicleType _stopType) {
+        this.stopType = _stopType;
+    }
+
+    @JsonProperty("latitude")
+    public double getLatitude() {
+        return this.location != null ? this.location.getLatitude() : 0;
+    }
+
+    @JsonProperty("longitude")
+    public double getLongitude() {
+        return this.location != null ? this.location.getLongitude() : 0;
+    }
+
+    public Location getLocation() {
+        return this.location;
+    }
+
+    public void setLocation(Location _location) {
+        this.location = _location;
+    }
+
+    public List<Observer> getObservers() {
+        return this.observers;
+    }
+    
+    public Zone getZone() {
+        return this.zone;
+    }
+
+    public void setZone(Zone _zone) {
+        this.zone = _zone;
+    }
 }

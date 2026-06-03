@@ -25,26 +25,33 @@ import jakarta.annotation.PostConstruct;
 
 @Service
 public class VehicleSimulationService {
+
     private static final Logger logger = LoggerFactory.getLogger(VehicleSimulationService.class);
     private static final ZoneId ZONE = ZoneId.systemDefault();
-    
+
     // Tempo simulado padrão (em segundos) que o veículo demora entre cada paragem real
-    private static final long TIME_BETWEEN_STOPS_SECONDS = 180L; 
+    private static final long TIME_BETWEEN_STOPS_SECONDS = 180L;
 
     private final VehicleRepository vehicleRepository;
     private final PSM.Location.api.route.RouteRepository routeRepository;
     private final double speedFactor;
-
+    private final VehicleService vehicleService;
     private final Map<UUID, VehicleTrack> tracksByVehicleId = new ConcurrentHashMap<>();
     private final Map<UUID, VehicleSimulationSnapshotDTO> latestSnapshots = new ConcurrentHashMap<>();
+    
+    // ==================== ADICIONA ESTA LINHA AQUI ====================
+    private final Map<UUID, UUID> lastNotifiedStops = new ConcurrentHashMap<>();
+    // ==================================================================
 
     public VehicleSimulationService(
             VehicleRepository vehicleRepository,
             PSM.Location.api.route.RouteRepository routeRepository,
+            VehicleService vehicleService,
             @Value("${simulation.vehicle.speed-factor:100.0}") double speedFactor) {
         this.vehicleRepository = vehicleRepository;
         this.routeRepository = routeRepository;
         this.speedFactor = speedFactor;
+        this.vehicleService = vehicleService;
     }
 
     @PostConstruct
@@ -67,8 +74,7 @@ public class VehicleSimulationService {
     protected void rebuildTracks() {
         Map<UUID, VehicleTrack> rebuilt = new LinkedHashMap<>();
 
-        // Corrigido para usar o teu método com JOIN fetch para evitar LazyInitializationException
-        List<Route> routes = routeRepository.findAllWithRouteStops(); 
+        List<Route> routes = routeRepository.findAllWithRouteStops();
         Map<UUID, RouteTrack> routeTracks = new LinkedHashMap<>();
         for (Route route : routes) {
             RouteTrack routeTrack = buildRouteTrack(route);
@@ -121,57 +127,73 @@ public class VehicleSimulationService {
         latestSnapshots.clear();
         latestSnapshots.putAll(refreshed);
     }
-
+    
     private VehicleSimulationSnapshotDTO computeSnapshot(VehicleTrack track, long nowMillis) {
-        if (track.routeTrack.points.size() < 2 || track.routeTrack.totalDurationSeconds <= 0) {
+        if (track.routeTrack().points().size() < 2 || track.routeTrack().totalDurationSeconds() <= 0) {
             return null;
         }
 
-        long routeSeconds = track.routeTrack.totalDurationSeconds;
-        
-        // Determina um ponto de partida único para cada veículo baseado no hash do seu ID
-        long vehicleOffsetSeconds = Math.floorMod(track.vehicleId.hashCode(), routeSeconds);
-        
-        // Calcula o tempo macro da simulação aplicando o multiplicador de velocidade
+        long routeSeconds = track.routeTrack().totalDurationSeconds();
+        long vehicleOffsetSeconds = Math.floorMod(track.vehicleId().hashCode(), routeSeconds);
         long simulatedSeconds = (long) Math.floor((nowMillis / 1000.0) * Math.max(0.1d, this.speedFactor));
-        
-        // Descobre em que segundo exato da rota o veículo se encontra agora (em loop contínuo)
         long elapsedSeconds = Math.floorMod(simulatedSeconds + vehicleOffsetSeconds, routeSeconds);
 
-        // Encontra dinamicamente o segmento correto varrendo os tempos de offset das paragens
         int segmentIndex = 0;
-        for (int i = 0; i < track.routeTrack.points.size() - 1; i++) {
-            if (elapsedSeconds >= track.routeTrack.points.get(i).offsetSeconds && 
-                elapsedSeconds <= track.routeTrack.points.get(i + 1).offsetSeconds) {
+        for (int i = 0; i < track.routeTrack().points().size() - 1; i++) {
+            if (elapsedSeconds >= track.routeTrack().points().get(i).offsetSeconds() && 
+                elapsedSeconds <= track.routeTrack().points().get(i + 1).offsetSeconds()) {
                 segmentIndex = i;
                 break;
             }
         }
 
-        TrackPoint previous = track.routeTrack.points.get(segmentIndex);
-        TrackPoint next = track.routeTrack.points.get(segmentIndex + 1);
+        TrackPoint previous = track.routeTrack().points().get(segmentIndex);
+        TrackPoint next = track.routeTrack().points().get(segmentIndex + 1);
 
-        // Calcula a percentagem de progresso (0.0 a 1.0) entre a paragem anterior e a próxima
-        long segmentDuration = next.offsetSeconds - previous.offsetSeconds;
+        long segmentDuration = next.offsetSeconds() - previous.offsetSeconds();
         double progress = 0.0;
         if (segmentDuration > 0) {
-            progress = (double) (elapsedSeconds - previous.offsetSeconds) / segmentDuration;
+            progress = (double) (elapsedSeconds - previous.offsetSeconds()) / segmentDuration;
         }
 
-        // Calcula a latitude e longitude exata usando a interpolação suave (LERP)
-        double latitude = lerp(previous.latitude, next.latitude, progress);
-        double longitude = lerp(previous.longitude, next.longitude, progress);
+        // ==================== OBSERVER PATTERN TRIGGER ====================
+        double toleranceMargin = 0.15;
+        
+        if (progress <= toleranceMargin) {
+            UUID lastStopId = lastNotifiedStops.get(track.vehicleId());
+            
+            if (!previous.stopId().equals(lastStopId)) {
+                lastNotifiedStops.put(track.vehicleId(), previous.stopId()); 
+                
+                try {
+                    // Passamos agora também o routeId e o routeName extraídos do record do track!
+                    this.vehicleService.arrive(
+                        track.vehicleId(), 
+                        previous.stopId(),
+                        track.routeTrack().routeId(),
+                        track.routeTrack().routeName()
+                    );
+                } catch (Exception e) {
+                    logger.error("Error processing vehicle arrival for vehicle {} at stop {}", 
+                            track.vehicleId(), previous.stopId(), e);
+                }
+            }
+        }
+        // ==================================================================
+
+        double latitude = lerp(previous.latitude(), next.latitude(), progress);
+        double longitude = lerp(previous.longitude(), next.longitude(), progress);
 
         return new VehicleSimulationSnapshotDTO(
-                track.vehicleId,
-                track.routeTrack.routeId,
-                track.routeTrack.routeName,
+                track.vehicleId(),
+                track.routeTrack().routeId(),
+                track.routeTrack().routeName(),
                 latitude,
                 longitude,
-                previous.stopId,
-                previous.stopName,
-                next.stopId,
-                next.stopName,
+                previous.stopId(),
+                previous.stopName(),
+                next.stopId(),
+                next.stopName(),
                 progress,
                 OffsetDateTime.now(ZONE).toString());
     }
@@ -193,12 +215,10 @@ public class VehicleSimulationService {
                 continue;
             }
 
-            // Evita adicionar paragens duplicadas seguidas
-            if (!points.isEmpty() && points.get(points.size() - 1).stopId.equals(stop.getId())) {
+            if (!points.isEmpty() && points.get(points.size() - 1).stopId().equals(stop.getId())) {
                 continue;
             }
 
-            // Se já não for a primeira paragem, incrementa o tempo necessário para chegar a esta
             if (!points.isEmpty()) {
                 currentOffset += TIME_BETWEEN_STOPS_SECONDS;
             }
@@ -217,11 +237,11 @@ public class VehicleSimulationService {
             return null;
         }
 
-        long totalDurationSeconds = points.get(points.size() - 1).offsetSeconds;
-        
-        logger.info("Route {} has {} unique stops, total duration {} seconds", 
+        long totalDurationSeconds = points.get(points.size() - 1).offsetSeconds();
+
+        logger.info("Route {} has {} unique stops, total duration {} seconds",
                 route.getName(), points.size(), totalDurationSeconds);
-                
+
         return new RouteTrack(route.getId(), route.getName(), points, totalDurationSeconds);
     }
 

@@ -30,18 +30,48 @@ public class UserNotification {
 	@JsonIgnore
 	private User user;
 
+	private UUID vehicleId;
+	private UUID routeId;
+	private String routeName;
+
 	public UserNotification() {
 	}
 
-	public UserNotification(Stop stop, String message) {
+	public UserNotification(Stop stop, UUID vehicleId, UUID routeId, String routeName, String message) {
 		this.stopId = stop != null ? stop.getId() : null;
 		this.stopName = stop != null ? stop.getName() : null;
+		this.vehicleId = vehicleId;
+		this.routeId = routeId;
+		this.routeName = routeName;
 		this.message = message;
 		this.createdAt = LocalDateTime.now();
 	}
-
 	public UUID getId() {
 		return this.id;
+	}
+
+	public UUID getVehicleId() {
+		return vehicleId;
+	}
+
+	public void setVehicleId(UUID vehicleId) {
+		this.vehicleId = vehicleId;
+	}
+
+	public UUID getRouteId() {
+		return routeId;
+	}
+
+	public void setRouteId(UUID routeId) {
+		this.routeId = routeId;
+	}
+
+	public String getRouteName() {
+		return routeName;
+	}
+
+	public void setRouteName(String routeName) {
+		this.routeName = routeName;
 	}
 
 	public void setId(UUID _id) {

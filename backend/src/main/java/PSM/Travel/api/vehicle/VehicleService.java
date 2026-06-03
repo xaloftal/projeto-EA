@@ -8,10 +8,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import PSM.Location.Stop;
 import PSM.Location.api.stop.StopService;
-import PSM.UserManagement.User;
-import PSM.UserManagement.notification.NotificationCacheService;
-import PSM.UserManagement.api.user.UserRepository;
 import PSM.Travel.Vehicle;
+import PSM.UserManagement.User;
+import PSM.UserManagement.api.user.UserRepository;
+import PSM.UserManagement.notification.NotificationCacheService;
 
 @Service
 public class VehicleService {
@@ -53,20 +53,35 @@ public class VehicleService {
         repository.deleteById(id);
     }
 
-	@Transactional
-	public Vehicle arrive(UUID vehicleId, UUID stopId) {
-		Vehicle vehicle = findById(vehicleId);
-		Stop stop = stopService.findById(stopId);
-		List<User> observers = userRepository.findObserversByStop(stop);
+    @Transactional
+    public Vehicle arrive(UUID vehicleId, UUID stopId, UUID routeId, String routeName) {
+        Vehicle vehicle = findById(vehicleId);
+        Stop stop = stopService.findById(stopId);
+        
+        List<User> observers = userRepository.findObserversByStop(stop);
 
-		observers.forEach(stop::addObserver);
-		vehicle.setStop(stop);
-		vehicle.setLocation(stop.getLocation());
-		vehicle.arrived();
+        stop.setArrivalContext(vehicleId, routeId, routeName);
 
-		repository.save(vehicle);
-		userRepository.saveAll(observers);
+        observers.forEach(stop::addObserver);
+        
+        vehicle.setStop(stop);
+        vehicle.setLocation(stop.getLocation());
+        vehicle.arrived();
+
+        stop.notifyObservers();
+
+        repository.save(vehicle);
+        
+        userRepository.saveAll(observers);
+        
         observers.stream().map(User::getId).forEach(notificationCacheService::evict);
-		return vehicle;
-	}
+        
+        return vehicle;
+    }
+
+    @Transactional
+    public Vehicle arrive(UUID vehicleId, UUID stopId) {
+        // Redireciona para o método principal passando null para a rota
+        return this.arrive(vehicleId, stopId, null, null);
+    }
 }

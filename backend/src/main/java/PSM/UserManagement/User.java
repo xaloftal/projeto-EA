@@ -67,7 +67,7 @@ public class User implements Observer {
 		throw new UnsupportedOperationException();
 	}
 
-	@Override
+@Override
 	public void notifyUser(Subject _stop) {
 		if (!(_stop instanceof Stop stop)) {
 			return;
@@ -77,8 +77,17 @@ public class User implements Observer {
 			return;
 		}
 
-		String message = "O autocarro chegou à paragem " + stop.getName();
-		UserNotification notification = new UserNotification(stop, message);
+		// Extrai as informações de contexto que colocámos temporariamente no Stop
+		UUID vehicleId = stop.getCurrentVehicleId();
+		UUID routeId = stop.getCurrentRouteId();
+		String routeName = stop.getCurrentRouteName();
+
+		// Cria uma mensagem muito mais informativa para o utilizador
+		String message = String.format("O autocarro da linha %s chegou à paragem %s.", 
+				(routeName != null ? routeName : "parceira"), stop.getName());
+
+		// Instancia a notificação com os novos campos
+		UserNotification notification = new UserNotification(stop, vehicleId, routeId, routeName, message);
 		this.addNotification(notification);
 	}
 
