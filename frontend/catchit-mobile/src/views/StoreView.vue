@@ -152,7 +152,12 @@
                 <article v-for="result in searchResults" :key="result.routeId" class="route-result-item">
                   <div>
                     <p class="route-name">{{ result.fromStop.name }} → {{ result.toStop.name }}</p>
-                    <p class="route-meta">{{ result.departureTime }} - {{ result.arrivalTime }}</p>
+                    <router-link
+                      :to="{ name: 'schedule', query: { routeId: result.routeId } }"
+                      class="route-meta route-schedule-link"
+                    >
+                      See all hours
+                    </router-link>
                   </div>
                   <div class="route-actions">
                     <p class="route-price">€{{ result.price.toFixed(2) }}</p>
@@ -814,6 +819,18 @@ onBeforeUnmount(() => {
   margin: 0.2rem 0 0;
   color: #6b7280;
   font-size: 0.8rem;
+}
+
+.route-schedule-link {
+  display: inline-flex;
+  width: fit-content;
+  text-decoration: none;
+  color: #667eea;
+  font-weight: 700;
+}
+
+.route-schedule-link:hover {
+  text-decoration: underline;
 }
 
 .route-actions {

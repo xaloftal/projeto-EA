@@ -38,6 +38,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/stops/geojson").permitAll()
                         .requestMatchers("/api/stops/geojson/**").permitAll()
                         .requestMatchers("/api/routes").permitAll()
+                        .requestMatchers("/api/routes/schedules").permitAll()
+                        .requestMatchers("/api/routes/search").permitAll()
                         .requestMatchers("/api/routes/stop-arrivals").permitAll()
                         .requestMatchers("/api/vehicles/simulation").permitAll()
                         

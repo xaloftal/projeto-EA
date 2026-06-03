@@ -45,7 +45,7 @@
             >
               <input type="radio" :value="trip.id" v-model="selectedTripId" />
               <div class="option-info">
-                <p class="option-title">🚌 {{ trip.routeName }}</p>
+                <p class="option-title"> {{ trip.routeName }}</p>
                 <p class="option-meta">Started at {{ trip.startTime }}</p>
               </div>
             </label>
@@ -75,107 +75,30 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted } from 'vue'
 import { ArrowLeft, House, Map, ShoppingCart, Ticket, User } from 'lucide-vue-next'
 import { useRoute } from 'vue-router'
-import { catchitApi } from '../services/api/catchitApi'
-import { currentUser } from '../viewmodels'
-import { requestJson } from '../services/api/http'
+import { useTransportViewModel } from '../viewmodels'
 
 const route = useRoute()
 const titleId = route.params.titleId as string
 
-type TripOption = {
-  id: string
-  routeName: string
-  startTime: string
-}
-
-const activeTrips = ref<TripOption[]>([])
-const selectedTripId = ref('')
-const isLoadingTrips = ref(false)
-const isCheckingIn = ref(false)
-const isCheckingOut = ref(false)
-const checkInSuccess = ref(false)
-const errorMessage = ref('')
-const checkOutMessage = ref<{ success: boolean; text: string } | null>(null)
-const titleLabel = ref('Loading...')
-
-const formatTime = (date: string) =>
-  new Date(date).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })
-
-const loadTitleInfo = async () => {
-  if (!currentUser.value) return
-
-  // Tenta encontrar nos tickets
-  const ticketsResponse = await catchitApi.getUserTickets(currentUser.value.id)
-  const ticket = ticketsResponse.data?.find(t => t.id === titleId)
-  if (ticket) {
-    titleLabel.value = `🎟️ Ticket: ${ticket.stopFrom?.name ?? '?'} → ${ticket.stopTo?.name ?? '?'}`
-    return
-  }
-
-  // Tenta encontrar nos cards
-  const cardsResponse = await catchitApi.getUserCards(currentUser.value.id)
-  const card = cardsResponse.data?.find(c => c.id === titleId)
-  if (card) {
-    titleLabel.value = `🎫 Card: ${card.name}`
-    return
-  }
-
-  titleLabel.value = 'Title not found'
-}
-
-const loadActiveTrips = async () => {
-  isLoadingTrips.value = true
-  try {
-    const response = await requestJson<Array<{ id: string; startTime: string; routeName: string }>>('/api/trips/active')
-    if (response.success && response.data) {
-      activeTrips.value = response.data.map(t => ({
-        id: t.id,
-        routeName: t.routeName ?? 'Unknown route',
-        startTime: formatTime(t.startTime),
-      }))
-    }
-  } finally {
-    isLoadingTrips.value = false
-  }
-}
-
-const handleCheckIn = async () => {
-  if (!selectedTripId.value) return
-  isCheckingIn.value = true
-  errorMessage.value = ''
-  try {
-    const response = await requestJson<{ success: boolean; message: string }>('/api/checkin', {
-      method: 'POST',
-      body: JSON.stringify({ titleId, tripId: selectedTripId.value }),
-    })
-    if (response.success && response.data?.success) {
-      checkInSuccess.value = true
-    } else {
-      errorMessage.value = response.data?.message ?? response.error ?? 'Check in failed'
-    }
-  } finally {
-    isCheckingIn.value = false
-  }
-}
-
-const handleCheckOut = async () => {
-  isCheckingOut.value = true
-  checkOutMessage.value = null
-  try {
-    const response = await requestJson<{ success: boolean; message: string }>('/api/checkout-transport', {
-      method: 'POST',
-      body: JSON.stringify({ titleId, tripId: selectedTripId.value }),
-    })
-    if (response.success && response.data) {
-      checkOutMessage.value = { success: response.data.success, text: response.data.message }
-    }
-  } finally {
-    isCheckingOut.value = false
-  }
-}
+const transport = useTransportViewModel(titleId)
+const {
+  activeTrips,
+  selectedTripId,
+  isLoadingTrips,
+  isCheckingIn,
+  isCheckingOut,
+  checkInSuccess,
+  errorMessage,
+  checkOutMessage,
+  titleLabel,
+  loadTitleInfo,
+  loadActiveTrips,
+  handleCheckIn,
+  handleCheckOut,
+} = transport
 
 onMounted(() => {
   void loadTitleInfo()
