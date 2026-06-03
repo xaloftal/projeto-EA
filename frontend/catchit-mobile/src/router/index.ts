@@ -32,14 +32,14 @@ const router = createRouter({
       meta: { keepAlive: true },
     },
 
-     // ========== CHECKIN ROUTE ==========
-
+    // ========== SCHEDULE ROUTE ==========
     {
-      path: '/checkin/:titleId',
-      name: 'checkin',
-      component: () => import('../views/TransportCheckInView.vue'),
-      meta: { requiresAuth: true },
+      path: '/schedule',
+      name: 'schedule',
+      component: () => import('../views/ScheduleView.vue'),
     },
+
+     // ========== CHECKIN ROUTE ==========
 
     {
       path: '/checkin/:titleId',
