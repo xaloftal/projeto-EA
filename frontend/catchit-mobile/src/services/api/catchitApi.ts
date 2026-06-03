@@ -354,8 +354,8 @@ const mapVehicle = (vehicle?: BackendTrip['vehicle']): Vehicle => ({
   id: vehicle?.id ?? '',
   capacity: vehicle?.capacity ?? 0,
   currentPassengers: 0,
-  updateLocation: () => {},
-  notifyObservers: () => {},
+  updateLocation: () => { },
+  notifyObservers: () => { },
 })
 
 const mapNotification = (notification: BackendNotification): UserNotification => ({
@@ -491,12 +491,18 @@ export class CatchItApiClient {
 
     if (!response.success || !response.data) return { success: false, error: response.error }
     return { success: true, data: mapUser(response.data) }
-  }
+  };
 
   async getUserTickets(userId: string): Promise<ApiResponse<Ticket[]>> {
-    const response = await this.getUserProfile(userId)
-    if (!response.success || !response.data) return { success: false, error: response.error }
-    return { success: true, data: response.data.tickets }
+    try {
+      const response = await this.getUserProfile(userId)
+      if (response.success && response.data) {
+        return { success: true, data: response.data.tickets }
+      }
+      return { success: false, error: response.error || 'Failed to get tickets' }
+    } catch (e) {
+      return { success: false, error: (e as Error).message }
+    }
   }
 
   async purchaseTickets(data: {
@@ -592,13 +598,16 @@ export class CatchItApiClient {
   }
 
   async getUserCards(userId: string): Promise<ApiResponse<Card[]>> {
-    const userResponse = await requestJson<BackendUser>(`/api/users/${userId}`)
-    if (!userResponse.success || !userResponse.data) {
+    try {
+      const userResponse = await requestJson<BackendUser>(`/api/users/${userId}`)
+      if (!userResponse.success || !userResponse.data) {
+        return { success: true, data: [] }
+      }
+      const userCard = userResponse.data.card
+      return { success: true, data: userCard ? [mapCard(userCard, userId)] : [] }
+    } catch (e) {
       return { success: true, data: [] }
     }
-
-    const userCard = userResponse.data.card
-    return { success: true, data: userCard ? [mapCard(userCard, userId)] : [] }
   }
 
   async getAvailableCards(): Promise<ApiResponse<TravelCard[]>> {
@@ -616,21 +625,21 @@ export class CatchItApiClient {
 
     const selectedCardPayload = selectedCard
       ? {
-          price: selectedCard.price,
-          validFrom: selectedCard.validFrom.toISOString(),
-          validUntil: selectedCard.validUntil.toISOString(),
-          zone: {
-            id: selectedCard.id,
-            name: selectedCard.name,
-            colorHexCode: selectedCard.zoneColorHexCode ?? null,
-          },
-        }
+        price: selectedCard.price,
+        validFrom: selectedCard.validFrom.toISOString(),
+        validUntil: selectedCard.validUntil.toISOString(),
+        zone: {
+          id: selectedCard.id,
+          name: selectedCard.name,
+          colorHexCode: selectedCard.zoneColorHexCode ?? null,
+        },
+      }
       : {
-          price: defaultZoneCardPrice,
-          validFrom: new Date().toISOString(),
-          validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-          zone: null,
-        }
+        price: defaultZoneCardPrice,
+        validFrom: new Date().toISOString(),
+        validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        zone: null,
+      }
 
     const createResponse = await requestJson<BackendCard>('/api/cards', {
       method: 'POST',
@@ -661,7 +670,7 @@ export class CatchItApiClient {
   /**
    * Fetches stops as a GeoJSON FeatureCollection.
    * This is the optimized endpoint for map rendering, reducing frontend processing.
-   */   
+   */
   async getStopsGeoJson(forceRefresh = false): Promise<ApiResponse<GeoJSONFeatureCollection>> {
     if (!forceRefresh && cachedStopsGeoJson) {
       return { success: true, data: cachedStopsGeoJson }
@@ -765,9 +774,9 @@ export class CatchItApiClient {
     const routeResponse = await requestJson<BackendRoute>(`/api/routes/${data.routeId}`)
     const routeStops = routeResponse.success && routeResponse.data
       ? [...(routeResponse.data.schedules ?? [])]
-          .filter((schedule): schedule is BackendRouteSchedule & { stop: BackendStop } => !!schedule.stop)
-          .sort((left, right) => (left.sequence ?? 0) - (right.sequence ?? 0))
-          .map((schedule) => mapStop(schedule.stop))
+        .filter((schedule): schedule is BackendRouteSchedule & { stop: BackendStop } => !!schedule.stop)
+        .sort((left, right) => (left.sequence ?? 0) - (right.sequence ?? 0))
+        .map((schedule) => mapStop(schedule.stop))
       : []
 
     return {

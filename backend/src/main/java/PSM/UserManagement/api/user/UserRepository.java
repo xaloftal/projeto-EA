@@ -26,5 +26,8 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 	@Lock(LockModeType.PESSIMISTIC_WRITE)
 	Optional<User> findWithBalanceLockById(UUID id);
 
-	boolean existsByEmail(String email);
+	    @EntityGraph(attributePaths = {"card", "tickets", "notifications"})
+    Optional<User> findWithDetailsById(UUID id);
+
+    boolean existsByEmail(String email);
 }

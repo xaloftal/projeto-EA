@@ -20,7 +20,6 @@ PSM\Checkout\api\cart\CartController.class
 PSM\Ticketing\Ticket.class
 PSM\Location\api\location\LocationRepository.class
 PSM\Ticketing\TitleFactory.class
-PSM\Ticketing\State\Class.class
 PSM\Ticketing\TicketPack.class
 PSM\Checkout\api\cart\CartService.class
 PSM\Location\api\stopschedule\StopScheduleRepository.class
@@ -48,7 +47,6 @@ PSM\Travel\api\vehicle\VehicleSimulationService$TrackPoint.class
 PSM\Services\Payment\PaymentServiceClient.class
 PSM\Ticketing\State\UsedState.class
 PSM\Travel\api\trip\TripService.class
-PSM\Ticketing\State\_UnusedState.class
 PSM\Ticketing\api\ticketpack\TicketPackController.class
 PSM\ValidationManager\api\validationrecord\ValidationRecordService.class
 PSM\ExitManager\ButtonExit.class

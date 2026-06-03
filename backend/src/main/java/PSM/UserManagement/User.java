@@ -19,7 +19,10 @@ import jakarta.persistence.Id;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.Table;
+
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 
 @Entity
 @Table(name = "users", schema = "catchit")
@@ -39,10 +42,12 @@ public class User implements Observer {
 	@JsonIgnore
 	private List<Trip> trips = new ArrayList<Trip>();
 
-	@OneToOne(optional = true)
+	@OneToOne(optional = true, cascade = CascadeType.ALL)
+
 	private Card card;
 
 	@OneToMany(mappedBy = "user")
+
 	private List<Ticket> tickets = new ArrayList<Ticket>();
 
 	@ManyToMany
@@ -50,6 +55,7 @@ public class User implements Observer {
 	private List<Stop> poi = new ArrayList<Stop>();
 
 	@OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+	@JsonIgnore
 	private List<UserNotification> notifications = new ArrayList<UserNotification>();
 
 
@@ -142,7 +148,7 @@ public class User implements Observer {
 		return this.tickets;
 	}
 
-	public void setCard(List<Ticket> _tickets) {
+	public void setTickets(List<Ticket> _tickets) {
 		this.tickets = _tickets;
 	}
 
