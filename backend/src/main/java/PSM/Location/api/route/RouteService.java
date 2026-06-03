@@ -193,6 +193,7 @@ public class RouteService {
         return new RouteSearchResultDTO.StopSearchResultDTO(
                 stop.getId(),
                 stop.getName(),
+                stop.getStopCode(),
                 latitude,
                 longitude);
     }
@@ -213,7 +214,8 @@ public class RouteService {
                         dto.schedules.add(new RouteWithSchedulesDTO.ScheduleDTO(
                                 schedule.stop.getId(),
                                 schedule.stop.getName(),
-                            schedule.stop.getStopType() != null ? schedule.stop.getStopType().name() : null,
+                                schedule.stop.getStopCode(),
+                                schedule.stop.getStopType() != null ? schedule.stop.getStopType().name() : null,
                                 lat,
                                 lon,
                                 schedule.getArrivalTime(),

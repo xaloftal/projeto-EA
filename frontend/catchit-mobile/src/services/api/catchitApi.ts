@@ -21,6 +21,7 @@ type BackendLocation = {
 type BackendStop = {
   id: string
   name: string
+  stopCode?: string
   stopType?: string
   location?: BackendLocation | null
   latitude?: number
@@ -114,6 +115,7 @@ export type RouteScheduleDTO = {
   schedules?: Array<{
     stopId: string
     stopName: string
+    stopCode?: string
     stopType?: string | null
     latitude: number
     longitude: number
@@ -236,6 +238,7 @@ type BackendCartResponse = {
 
 type RouteSearchResult = {
   routeId: string
+  routeName: string
   fromStop: Stop
   toStop: Stop
   departureTime: string
@@ -273,6 +276,7 @@ const toDate = (value?: string) => (value ? new Date(value) : new Date())
 const mapStop = (stop: BackendStop): Stop => ({
   id: stop.id,
   name: stop.name,
+  code: stop.stopCode,
   latitude: stop.location?.latitude ?? stop.latitude ?? 0,
   longitude: stop.location?.longitude ?? stop.longitude ?? 0,
   stopType: stop.stopType,
@@ -731,6 +735,7 @@ export class CatchItApiClient {
 
     const mappedResults = backendSearch.data.map((result) => ({
       routeId: result.routeId,
+      routeName: result.routeName || 'Unnamed Route',
       fromStop: mapStop(result.fromStop ?? { id: data.fromStopId, name: 'Origin', latitude: 0, longitude: 0 }),
       toStop: mapStop(result.toStop ?? { id: data.toStopId, name: 'Destination', latitude: 0, longitude: 0 }),
       departureTime: result.departureTime ?? '00:00',

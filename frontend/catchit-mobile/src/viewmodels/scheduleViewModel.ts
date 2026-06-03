@@ -4,6 +4,7 @@ import { catchitApi, type RouteScheduleDTO } from '../services/api/catchitApi'
 export type ScheduleStopEntry = {
   stopId: string
   stopName: string
+  stopCode?: string | null
   stopType?: string | null
   latitude: number
   longitude: number
@@ -22,6 +23,7 @@ export type ScheduleRoute = {
 export type ScheduleStopOption = {
   stopId: string
   stopName: string
+  stopCode?: string | null
   stopType?: string | null
 }
 
@@ -37,19 +39,19 @@ export type StopTimetableRow = {
 
 type SelectedTimetable =
   | {
-      kind: 'route'
-      code: string
-      label: string
-      rows: RouteTimetableRow[]
-      distinctCount: number
-    }
+    kind: 'route'
+    code: string
+    label: string
+    rows: RouteTimetableRow[]
+    distinctCount: number
+  }
   | {
-      kind: 'stop'
-      code: string
-      label: string
-      rows: StopTimetableRow[]
-      distinctCount: number
-    }
+    kind: 'stop'
+    code: string
+    label: string
+    rows: StopTimetableRow[]
+    distinctCount: number
+  }
   | null
 
 const normalizeText = (value: string) =>
@@ -81,6 +83,7 @@ const formatTransportType = (value?: string | null) => {
 const toScheduleEntry = (schedule: NonNullable<RouteScheduleDTO['schedules']>[number]): ScheduleStopEntry => ({
   stopId: schedule.stopId,
   stopName: schedule.stopName,
+  stopCode: schedule.stopCode ?? null,
   stopType: schedule.stopType ?? null,
   latitude: schedule.latitude,
   longitude: schedule.longitude,
@@ -105,6 +108,7 @@ const collectDistinctStops = (routes: ScheduleRoute[]) => {
       stops.push({
         stopId: schedule.stopId,
         stopName: schedule.stopName,
+        stopCode: schedule.stopCode ?? null,
         stopType: schedule.stopType ?? null,
       })
     }
@@ -153,12 +157,14 @@ const collectUniqueTimes = (schedules: ScheduleStopEntry[]) => {
 const buildRouteTimetable = (route: ScheduleRoute): SelectedTimetable => {
   // Sort schedules by sequence first
   const sortedSchedules = [...route.schedules].sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0));
-  
-  const stopMap = new Map<string, string[]>();
+
+  const stopMap = new Map<string, { stopName: string; stopCode?: string | null; times: string[] }>();
   sortedSchedules.forEach(s => {
-    if(!stopMap.has(s.stopId)) stopMap.set(s.stopId, []);
+    if (!stopMap.has(s.stopId)) {
+      stopMap.set(s.stopId, { stopName: s.stopName, stopCode: s.stopCode ?? null, times: [] });
+    }
     const time = getScheduleTime(s);
-    if(time) stopMap.get(s.stopId)!.push(parseTimeValue(time));
+    if (time) stopMap.get(s.stopId)!.times.push(parseTimeValue(time));
   });
 
   return {
@@ -166,9 +172,9 @@ const buildRouteTimetable = (route: ScheduleRoute): SelectedTimetable => {
     code: route.name,
     label: route.name,
     distinctCount: route.distinctStopCount,
-    rows: Array.from(stopMap.entries()).map(([stopId, times]) => ({
-      code: stopId, // This is the 1st column
-      times: times.sort() // ASC Sort
+    rows: Array.from(stopMap.values()).map((stopInfo) => ({
+      code: stopInfo.stopCode ? `${stopInfo.stopCode}` : stopInfo.stopName,
+      times: stopInfo.times.sort() // ASC Sort
     })),
   };
 }
@@ -181,14 +187,16 @@ const buildStopTimetable = (stop: ScheduleStopOption, routes: ScheduleRoute[]): 
         .map(s => parseTimeValue(getScheduleTime(s)))
         .sort(); // ASC Sort
 
-      return times.length ? { code: route.id, times } : null;
+      return times.length ? { code: route.name, times } : null;
     })
     .filter(Boolean);
 
+  const displayLabel = stop.stopCode ? `${stop.stopCode} - ${stop.stopName}` : stop.stopName;
+
   return {
     kind: 'stop',
-    code: stop.stopName,
-    label: stop.stopName,
+    code: displayLabel,
+    label: displayLabel,
     distinctCount: rows.length,
     rows: rows as any
   };
@@ -231,6 +239,7 @@ export function useScheduleViewModel(initialRouteId = '') {
           (schedule) =>
             normalizeText(schedule.stopId).includes(query) ||
             normalizeText(schedule.stopName).includes(query) ||
+            normalizeText(schedule.stopCode ?? '').includes(query) ||
             normalizeText(schedule.stopType ?? '').includes(query),
         )
       )
@@ -253,6 +262,7 @@ export function useScheduleViewModel(initialRouteId = '') {
       return (
         normalizeText(stop.stopId).includes(query) ||
         normalizeText(stop.stopName).includes(query) ||
+        normalizeText(stop.stopCode ?? '').includes(query) ||
         normalizeText(stop.stopType ?? '').includes(query)
       )
     })
@@ -345,7 +355,7 @@ export function useScheduleViewModel(initialRouteId = '') {
     transportTypeOptions,
     routeOptions,
     stopOptions,
-    filteredRoutes, 
+    filteredRoutes,
     loadRoutes,
     selectRoute,
     selectStop,

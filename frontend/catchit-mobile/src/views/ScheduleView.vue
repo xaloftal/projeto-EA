@@ -38,13 +38,43 @@
         <button class="clear-btn" @click="clearFilters">Clear filters</button>
       </section>
 
+      <!-- Suggestions list when searching -->
+      <section v-if="searchQuery && (routeOptions.length > 0 || stopOptions.length > 0)" class="suggestions-card">
+        <div v-if="routeOptions.length > 0" class="suggestions-section">
+          <h3>Routes</h3>
+          <div class="suggestions-grid">
+            <button
+              v-for="routeOpt in routeOptions"
+              :key="routeOpt.id"
+              class="suggestion-item-btn"
+              @click="selectRoute(routeOpt.id); searchQuery = ''"
+            >
+              {{ routeOpt.name }}
+            </button>
+          </div>
+        </div>
+        <div v-if="stopOptions.length > 0" class="suggestions-section">
+          <h3>Stops</h3>
+          <div class="suggestions-grid">
+            <button
+              v-for="stopOpt in stopOptions"
+              :key="stopOpt.stopId"
+              class="suggestion-item-btn"
+              @click="selectStop(stopOpt.stopId); searchQuery = ''"
+            >
+              {{ stopOpt.stopCode ??  stopOpt.stopName }}
+            </button>
+          </div>
+        </div>
+      </section>
+
       <section v-if="selectedRoute" class="selected-route-card">
         <div class="selected-route-header">
           <div>
             <p class="selected-route-kicker">Focused route</p>
             <h3>{{ selectedRoute.name }}</h3>
           </div>
-          <span class="selected-route-count">{{ selectedRoute.distinctStopCount }} distinct stops</span>
+          <span class="selected-route-count">{{ selectedRoute.distinctStopCount }} stops</span>
         </div>
       </section>
 
@@ -132,6 +162,10 @@ const {
   selectedTimetable,
   filteredRoutes,
   transportTypeOptions,
+  routeOptions,
+  stopOptions,
+  selectRoute,
+  selectStop,
   loadRoutes,
   clearFilters,
   transportTypeLabel,
@@ -408,5 +442,49 @@ onMounted(() => {
 .cell-empty {
   color: #cbd5e1;
   font-weight: 700;
+}
+
+.suggestions-card {
+  background: var(--color-surface);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 18px;
+  box-shadow: var(--shadow-card);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.suggestions-section h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.suggestions-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.suggestion-item-btn {
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #111827;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.suggestion-item-btn:hover {
+  border-color: #667eea;
+  background: rgba(102, 126, 234, 0.05);
+  color: #4f46e5;
 }
 </style>

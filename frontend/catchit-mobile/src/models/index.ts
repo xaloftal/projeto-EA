@@ -75,6 +75,7 @@ export interface Trip {
 export interface Stop {
   id: string
   name: string
+  code?: string
   latitude: number
   longitude: number
   stopType?: string

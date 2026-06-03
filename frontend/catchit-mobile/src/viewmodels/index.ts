@@ -4,6 +4,7 @@ import type { User, Ticket, Card, CardTier, TravelCard, PaymentMethod, Stop, Veh
 
 export type RouteSearchResult = {
   routeId: string
+  routeName: string
   fromStop: Stop
   toStop: Stop
   departureTime: string

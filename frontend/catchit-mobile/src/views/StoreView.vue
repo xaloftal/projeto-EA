@@ -151,7 +151,7 @@
               <div v-if="searchResults.length > 0" class="route-results">
                 <article v-for="result in searchResults" :key="result.routeId" class="route-result-item">
                   <div>
-                    <p class="route-name">{{ result.fromStop.name }} → {{ result.toStop.name }}</p>
+                    <p class="route-name">{{ result.routeName }} - {{ result.fromStop.code }} → {{ result.toStop.code }}</p>
                     <router-link
                       :to="{ name: 'schedule', query: { routeId: result.routeId } }"
                       class="route-meta route-schedule-link"
@@ -194,22 +194,22 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { ArrowLeft, House, LoaderCircle, Map, MapPin, Search, ShoppingCart, Ticket, User } from 'lucide-vue-next'
 import { useRoute } from 'vue-router'
-import { useCardViewModel, useCheckoutViewModel, useTravelViewModel } from '../viewmodels'
+import { RouteSearchResult, useCardViewModel, useCheckoutViewModel, useTravelViewModel } from '../viewmodels'
 import { catchitApi } from '../services/api/catchitApi'
 import ZoneCard from '../components/ZoneCard.vue'
-import type { Stop, Vehicle } from '../models'
+import type { Stop } from '../models'
 import { useQuasar } from 'quasar'
 const $q = useQuasar()
 
-type RouteResult = {
-  routeId: string
-  fromStop: Stop
-  toStop: Stop
-  departureTime: string
-  arrivalTime: string
-  price: number
-  vehicle: Vehicle
-}
+// type RouteResult = {
+//   routeId: string
+//   fromStop: Stop
+//   toStop: Stop
+//   departureTime: string
+//   arrivalTime: string
+//   price: number
+//   vehicle: Vehicle
+// }
 
 const cardViewModel = useCardViewModel()
 const travelViewModel = useTravelViewModel()
@@ -263,7 +263,7 @@ const filterStopsByName = (search: string) => {
 const filteredFromStops = computed(() => filterStopsByName(fromStopSearch.value))
 const filteredToStops = computed(() => filterStopsByName(toStopSearch.value))
 
-const searchResults = computed(() => travelViewModel.searchResults.value as RouteResult[])
+const searchResults = computed(() => travelViewModel.searchResults.value as RouteSearchResult[])
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
 
@@ -420,17 +420,17 @@ const purchaseZone = async (zone: { id: string; name: string }) => {
     $q.notify({
       message: `${zone.name} card added to cart successfully`,
       color: 'positive',
-      position: 'bottom',
+      position: 'top',
       timeout: 3000,
     })
   }
 
-  const addTicketToCart = (result: RouteResult) => {
+  const addTicketToCart = (result: RouteSearchResult) => {
     void checkoutViewModel.addTicketToCart(result)
     $q.notify({
       message: 'Ticket added to cart successfully',
       color: 'positive',
-      position: 'bottom',
+      position: 'top',
       timeout: 3000,
     })
   }
