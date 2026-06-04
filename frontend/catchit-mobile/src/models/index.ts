@@ -149,6 +149,12 @@ export interface Card {
   validUntil: Date
   tier?: CardTier
   zoneColorHexCode?: string
+  // Optional zone information from backend
+  zone?: {
+    id: string
+    name?: string
+    colorHexCode?: string
+  }
 }
 
 export interface TravelCard extends Card {

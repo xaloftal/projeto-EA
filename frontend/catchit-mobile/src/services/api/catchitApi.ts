@@ -327,6 +327,7 @@ const mapCard = (card: BackendCard, userId = ''): Card & TravelCard => {
     monthlyPrice: price,
     annualPrice: price,
     zoneColorHexCode: card.zone?.colorHexCode ?? undefined,
+    zone: card.zone ? { id: card.zone.id, name: card.zone.name ?? undefined, colorHexCode: card.zone.colorHexCode ?? undefined } : undefined,
   }
 }
 
@@ -347,6 +348,11 @@ const mapZoneCard = (zone: BackendZone): Card & TravelCard => {
     monthlyPrice: defaultZoneCardPrice,
     annualPrice: defaultZoneCardPrice,
     zoneColorHexCode: zone.colorHexCode ?? undefined,
+    zone: {
+      id: zone.id,
+      name: zone.name ?? undefined,
+      colorHexCode: zone.colorHexCode ?? undefined,
+    },
   }
 }
 
@@ -791,10 +797,18 @@ export class CatchItApiClient {
     }
   }
 
-  async getActiveTrips(): Promise<ApiResponse<Array<{ id: string; startTime?: string; routeName?: string }>>> {
-    const response = await requestJson<Array<{ id: string; startTime?: string; routeName?: string }>>('/api/trips/active')
+  async getActiveTrips(): Promise<ApiResponse<Array<{ id: string; startTime?: string; routeName?: string; zoneName?: string; stopIds?: string[] }>>> {
+    const response = await requestJson<Array<{ id: string; startTime?: string; routeName?: string; zoneName?: string; stopIds?: string[] }>>('/api/trips/active')
     if (!response.success || !response.data) return { success: false, error: response.error }
-    return { success: true, data: response.data }
+    // Ensure each trip includes zoneName and stopIds (may be undefined)
+    const trips = response.data.map((trip) => ({
+      id: trip.id,
+      startTime: trip.startTime,
+      routeName: trip.routeName,
+      zoneName: trip.zoneName,
+      stopIds: trip.stopIds,
+    }))
+    return { success: true, data: trips }
   }
 
   async checkIn(data: { titleId: string; tripId: string }): Promise<ApiResponse<{ success: boolean; message: string }>> {

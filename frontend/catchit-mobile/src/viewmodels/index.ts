@@ -343,7 +343,7 @@ export function useTravelViewModel() {
  * Encapsulates API interactions and state for the TransportCheckIn view
  */
 export function useTransportViewModel(titleId?: string) {
-  type TripOption = { id: string; routeName: string; startTime?: string }
+  type TripOption = { id: string; routeName: string; startTime?: string; stopIds?: string[]; zoneName?: string }
 
   const activeTrips = ref<TripOption[]>([])
   const selectedTripId = ref('')
@@ -384,10 +384,30 @@ export function useTransportViewModel(titleId?: string) {
     try {
       const response = await catchitApi.getActiveTrips()
       if (response.success && response.data) {
-        activeTrips.value = response.data.map((t) => ({
+        // Determine filtering based on current title (ticket or card)
+        let filtered = response.data
+        if (titleId) {
+          // Try to find a ticket first
+          const ticketsResponse = await catchitApi.getUserTickets(currentUser.value.id)
+          const ticket = ticketsResponse.data?.find((t) => t.id === titleId)
+          if (ticket) {
+            const ticketStopIds = [ticket.stopFrom?.id, ticket.stopTo?.id].filter(Boolean) as string[]
+            filtered = filtered.filter((trip) => (trip.stopIds ?? []).some((sid) => ticketStopIds.includes(sid)))
+          } else {
+            // Fallback to card
+            const cardsResponse = await catchitApi.getUserCards(currentUser.value.id)
+            const card = cardsResponse.data?.find((c) => c.id === titleId)
+            if (card && card.zone?.name) {
+              filtered = filtered.filter((trip) => trip.zoneName === card.zone.name)
+            }
+          }
+        }
+        activeTrips.value = filtered.map((t) => ({
           id: t.id,
           routeName: t.routeName ?? 'Unknown route',
           startTime: formatTime(t.startTime),
+          stopIds: t.stopIds,
+          zoneName: t.zoneName,
         }))
       }
     } finally {
