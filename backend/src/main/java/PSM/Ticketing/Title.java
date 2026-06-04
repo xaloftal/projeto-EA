@@ -32,6 +32,7 @@ import jakarta.persistence.Table;
 import jakarta.persistence.Transient;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.zxing.BarcodeFormat;
 import com.google.zxing.common.BitMatrix;
 import com.google.zxing.qrcode.QRCodeWriter;
@@ -55,6 +56,7 @@ public abstract class Title {
 	private String stateName;
 
 	@Transient
+	@JsonIgnore
 	public TitleState status;
 
 	@ManyToMany
@@ -172,6 +174,7 @@ public abstract class Title {
 		this.qrCode = _qrCode;
 	}
 
+	@JsonProperty("status")
 	public String getStateName() {
 		return this.stateName;
 	}
@@ -180,6 +183,7 @@ public abstract class Title {
 		this.stateName = stateName;
 	}
 
+	@JsonIgnore
 	public TitleState getStatus() {
 		return this.status;
 	}
