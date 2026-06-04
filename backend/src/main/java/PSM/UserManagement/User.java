@@ -49,7 +49,7 @@ public class User implements Observer {
 	@JsonIgnore
 	private List<Stop> poi = new ArrayList<Stop>();
 
-	@OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+	@OneToMany(mappedBy = "user", cascade = {CascadeType.PERSIST, CascadeType.MERGE}, orphanRemoval = true)
 	private List<UserNotification> notifications = new ArrayList<UserNotification>();
 
 
@@ -68,19 +68,25 @@ public class User implements Observer {
 	}
 
 	@Override
-	public void notifyUser(Subject _stop) {
-		if (!(_stop instanceof Stop stop)) {
-			return;
-		}
+    public void notifyUser(Subject _stop) {
+        if (!(_stop instanceof Stop stop)) {
+            return;
+        }
 
-		if (!this.hasPOI(stop)) {
-			return;
-		}
+        if (!this.hasPOI(stop)) {
+            return;
+        }
 
-		String message = "O autocarro chegou à paragem " + stop.getName();
-		UserNotification notification = new UserNotification(stop, message);
-		this.addNotification(notification);
-	}
+        UUID vehicleId = stop.getCurrentVehicleId();
+        UUID routeId = stop.getCurrentRouteId();
+        String routeName = stop.getCurrentRouteName();
+
+        String message = String.format("O autocarro da linha %s chegou à paragem %s.", 
+                (routeName != null ? routeName : "parceira"), stop.getName());
+
+        UserNotification notification = new UserNotification(stop, vehicleId, routeId, routeName, null, message);
+        this.addNotification(notification);
+    }
 
 	public UUID getId() {
 		return this.id;
