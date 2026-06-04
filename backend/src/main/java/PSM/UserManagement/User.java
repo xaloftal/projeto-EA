@@ -22,13 +22,11 @@ import jakarta.persistence.OneToOne;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.Table;
 
-@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
-
 @Entity
 @Table(name = "users", schema = "catchit")
 public class User implements Observer {
 	@Id
-	@GeneratedValue(strategy= GenerationType.UUID)
+	@GeneratedValue(strategy = GenerationType.UUID)
 	private UUID id;
 
 	private String name;
@@ -54,11 +52,8 @@ public class User implements Observer {
 	@JsonIgnore
 	private List<Stop> poi = new ArrayList<Stop>();
 
-	@OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
-	@JsonIgnore
+	@OneToMany(mappedBy = "user", cascade = { CascadeType.PERSIST, CascadeType.MERGE }, orphanRemoval = true)
 	private List<UserNotification> notifications = new ArrayList<UserNotification>();
-
-
 
 	public void purchaseTicket() {
 		throw new UnsupportedOperationException();
@@ -83,8 +78,14 @@ public class User implements Observer {
 			return;
 		}
 
-		String message = "O autocarro chegou à paragem " + stop.getName();
-		UserNotification notification = new UserNotification(stop, message);
+		UUID vehicleId = stop.getCurrentVehicleId();
+		UUID routeId = stop.getCurrentRouteId();
+		String routeName = stop.getCurrentRouteName();
+
+		String message = String.format("O autocarro da linha %s chegou à paragem %s.",
+				(routeName != null ? routeName : "parceira"), stop.getName());
+
+		UserNotification notification = new UserNotification(stop, vehicleId, routeId, routeName, null, message);
 		this.addNotification(notification);
 	}
 
@@ -189,7 +190,8 @@ public class User implements Observer {
 			return;
 		}
 
-		this.poi.removeIf(existingStop -> existingStop != null && existingStop.getId() != null && existingStop.getId().equals(stop.getId()));
+		this.poi.removeIf(existingStop -> existingStop != null && existingStop.getId() != null
+				&& existingStop.getId().equals(stop.getId()));
 	}
 
 	public boolean hasPOI(Stop stop) {
@@ -197,7 +199,8 @@ public class User implements Observer {
 			return false;
 		}
 
-		return this.poi.stream().anyMatch(existingStop -> existingStop != null && existingStop.getId() != null && existingStop.getId().equals(stop.getId()));
+		return this.poi.stream().anyMatch(existingStop -> existingStop != null && existingStop.getId() != null
+				&& existingStop.getId().equals(stop.getId()));
 	}
 
 	public void addNotification(UserNotification notification) {
