@@ -1,7 +1,8 @@
 package PSM.UserManagement;
 
-import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -19,7 +20,6 @@ import jakarta.persistence.Id;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.Table;
 
 @Entity
@@ -38,22 +38,20 @@ public class User implements Observer {
 
 	@ManyToMany
 	@JsonIgnore
-	private List<Trip> trips = new ArrayList<Trip>();
+	private Set<Trip> trips = new HashSet<Trip>();
 
-	@OneToOne(optional = true, cascade = CascadeType.ALL)
-
+	@OneToOne(optional = true)
 	private Card card;
 
 	@OneToMany(mappedBy = "user")
-
-	private List<Ticket> tickets = new ArrayList<Ticket>();
+	private Set<Ticket> tickets = new HashSet<Ticket>();
 
 	@ManyToMany
 	@JsonIgnore
-	private List<Stop> poi = new ArrayList<Stop>();
+	private Set<Stop> poi = new HashSet<Stop>();
 
 	@OneToMany(mappedBy = "user", cascade = { CascadeType.PERSIST, CascadeType.MERGE }, orphanRemoval = true)
-	private List<UserNotification> notifications = new ArrayList<UserNotification>();
+	private Set<UserNotification> notifications = new HashSet<UserNotification>();
 
 	public void purchaseTicket() {
 		throw new UnsupportedOperationException();
@@ -129,11 +127,11 @@ public class User implements Observer {
 		this.balance = _balance;
 	}
 
-	public List<Trip> getTrips() {
+	public Set<Trip> getTrips() {
 		return this.trips;
 	}
 
-	public void setTrips(List<Trip> _trips) {
+	public void setTrips(Set<Trip> _trips) {
 		this.trips = _trips;
 	}
 
@@ -145,11 +143,11 @@ public class User implements Observer {
 		this.card = _card;
 	}
 
-	public List<Ticket> getTickets() {
+	public Set<Ticket> getTickets() {
 		return this.tickets;
 	}
 
-	public void setTickets(List<Ticket> _tickets) {
+	public void setTickets(Set<Ticket> _tickets) {
 		this.tickets = _tickets;
 	}
 
@@ -161,19 +159,19 @@ public class User implements Observer {
 		ticket.setUser(this);
 	}
 
-	public List<Stop> getPOI() {
+	public Set<Stop> getPOI() {
 		return this.poi;
 	}
 
-	public void setPOI(List<Stop> _poi) {
+	public void setPOI(Set<Stop> _poi) {
 		this.poi = _poi;
 	}
 
-	public List<UserNotification> getNotifications() {
+	public Set<UserNotification> getNotifications() {
 		return this.notifications;
 	}
 
-	public void setNotifications(List<UserNotification> _notifications) {
+	public void setNotifications(Set<UserNotification> _notifications) {
 		this.notifications = _notifications;
 	}
 

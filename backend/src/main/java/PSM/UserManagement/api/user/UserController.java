@@ -1,6 +1,7 @@
 package PSM.UserManagement.api.user;
 
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,7 +30,7 @@ public class UserController {
         this.service = service;
     }
 
-    @GetMapping(value = {"", "/"})
+    @GetMapping(value = { "", "/" })
     public List<User> getAll() {
         logger.debug("Fetching all users");
         return service.findAll();
@@ -48,9 +49,9 @@ public class UserController {
     }
 
     @PostMapping("/{id}/card")
-        public User assignCard(@PathVariable UUID id, @RequestBody Card card) {
-            logger.debug("Assigning card {} to user {}", card, id);
-            return service.assignCard(id, card);
+    public User assignCard(@PathVariable UUID id, @RequestBody Card card) {
+        logger.debug("Assigning card {} to user {}", card, id);
+        return service.assignCard(id, card);
     }
 
     @PutMapping("/{id}")
@@ -66,7 +67,7 @@ public class UserController {
     }
 
     @GetMapping("/{id}/notifications")
-    public List<UserNotification> getNotifications(@PathVariable UUID id) {
+    public Set<UserNotification> getNotifications(@PathVariable UUID id) {
         logger.debug("Fetching notifications for user {}", id);
         return service.findNotifications(id);
     }
@@ -78,7 +79,7 @@ public class UserController {
     }
 
     @GetMapping("/{id}/poi")
-    public List<Stop> getPOI(@PathVariable UUID id) {
+    public Set<Stop> getPOI(@PathVariable UUID id) {
         logger.debug("Fetching POI for user {}", id);
         return service.getUserPOI(id);
     }

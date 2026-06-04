@@ -17,17 +17,21 @@ import jakarta.persistence.LockModeType;
 public interface UserRepository extends JpaRepository<User, UUID> {
 	Optional<User> findByEmail(String email);
 
-	@EntityGraph(attributePaths = {"notifications"})
+	@EntityGraph(attributePaths = { "notifications" })
 	Optional<User> findWithNotificationsById(UUID id);
 
 	@Query("select distinct u from User u join u.poi p where p = :stop")
 	java.util.List<User> findObserversByStop(Stop stop);
 
+	@EntityGraph(attributePaths = { "notifications" })
+	@Query("select distinct u from User u join u.poi p where p = :stop")
+	java.util.List<User> findObserversWithNotificationsByStop(Stop stop);
+
 	@Lock(LockModeType.PESSIMISTIC_WRITE)
 	Optional<User> findWithBalanceLockById(UUID id);
 
-	    @EntityGraph(attributePaths = {"card", "tickets", "notifications"})
-    Optional<User> findWithDetailsById(UUID id);
+	@EntityGraph(attributePaths = { "card", "tickets", "notifications" })
+	Optional<User> findWithDetailsById(UUID id);
 
-    boolean existsByEmail(String email);
+	boolean existsByEmail(String email);
 }

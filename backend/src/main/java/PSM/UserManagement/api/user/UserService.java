@@ -4,6 +4,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import org.slf4j.Logger;
@@ -41,15 +42,15 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
-    public List<UserNotification> findNotifications(UUID id) {
+    public Set<UserNotification> findNotifications(UUID id) {
         logger.debug("Fetching notifications for user {}", id);
-        Optional<List<UserNotification>> cached = notificationCacheService.get(id);
+        Optional<Set<UserNotification>> cached = notificationCacheService.get(id);
         if (cached.isPresent()) {
             return cached.get();
         }
-        List<UserNotification> notifications = repository.findWithNotificationsById(id)
+        Set<UserNotification> notifications = repository.findWithNotificationsById(id)
                 .map(User::getNotifications)
-                .orElseGet(Collections::emptyList);
+                .orElseGet(Collections::emptySet);
         notificationCacheService.put(id, notifications);
         return notifications;
     }
@@ -82,7 +83,7 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
-    public List<Stop> getUserPOI(UUID userId) {
+    public Set<Stop> getUserPOI(UUID userId) {
         logger.debug("Fetching POI for user {}", userId);
         User user = repository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));

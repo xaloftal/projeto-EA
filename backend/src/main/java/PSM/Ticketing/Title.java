@@ -58,11 +58,15 @@ public abstract class Title {
 	public TitleState status;
 
 	@ManyToMany
+	@JsonIgnore
 	public List<Trip> trips = new ArrayList<Trip>();
 
-	
 	@PostLoad
 	private void restoreState() {
+		if (this.stateName == null) {
+			this.status = new UnusedState();
+			return;
+		}
 		switch (this.stateName) {
 			case "UNUSED" -> this.status = new UnusedState();
 			case "ACTIVE" -> this.status = new ActiveState();
@@ -77,15 +81,25 @@ public abstract class Title {
 	@JsonIgnore
 	private User user;
 
-	public void activate() { throw new UnsupportedOperationException(); }
+	public void activate() {
+		throw new UnsupportedOperationException();
+	}
 
-	public void renew() { throw new UnsupportedOperationException(); }
-	
-	public void expire() { throw new UnsupportedOperationException(); }
+	public void renew() {
+		throw new UnsupportedOperationException();
+	}
 
-	public void use() { throw new UnsupportedOperationException(); }
+	public void expire() {
+		throw new UnsupportedOperationException();
+	}
 
-	public boolean validate() { throw new UnsupportedOperationException(); }
+	public void use() {
+		throw new UnsupportedOperationException();
+	}
+
+	public boolean validate() {
+		throw new UnsupportedOperationException();
+	}
 
 	@JsonIgnore
 	public boolean isValid() {
@@ -188,6 +202,21 @@ public abstract class Title {
 
 	public void setUser(User _user) {
 		this.user = _user;
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o)
+			return true;
+		if (o == null || getClass() != o.getClass())
+			return false;
+		Title title = (Title) o;
+		return id != null && id.equals(title.id);
+	}
+
+	@Override
+	public int hashCode() {
+		return id != null ? id.hashCode() : 0;
 	}
 
 }
