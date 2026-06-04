@@ -17,6 +17,7 @@ import PSM.UserManagement.UserNotification;
 import PSM.UserManagement.api.user.UserNotificationRepository;
 import PSM.UserManagement.api.user.UserRepository;
 import PSM.UserManagement.notification.NotificationCacheService;
+import PSM.UserManagement.notification.NotificationWebSocketService;
 
 @Service
 public class VehicleService {
@@ -25,13 +26,15 @@ public class VehicleService {
     private final UserRepository userRepository;
     private final UserNotificationRepository userNotificationRepository;
     private final NotificationCacheService notificationCacheService;
+    private final NotificationWebSocketService notificationWebSocketService;
 
-    public VehicleService(VehicleRepository repository, StopService stopService, UserRepository userRepository, UserNotificationRepository userNotificationRepository, NotificationCacheService notificationCacheService) {
+    public VehicleService(VehicleRepository repository, StopService stopService, UserRepository userRepository, UserNotificationRepository userNotificationRepository, NotificationCacheService notificationCacheService, NotificationWebSocketService notificationWebSocketService) {
         this.repository = repository;
         this.stopService = stopService;
         this.userRepository = userRepository;
         this.userNotificationRepository = userNotificationRepository;
         this.notificationCacheService = notificationCacheService;
+        this.notificationWebSocketService = notificationWebSocketService;
     }
 
     @Transactional(readOnly = true)
@@ -101,6 +104,7 @@ public class VehicleService {
                 (routeName != null ? routeName : "parceira"), 
                 stop.getName(), stop.getStopCode());
 
+        // 5. Criar e persistir notificações
         List<UserNotification> notificationsToSave = new ArrayList<>();
         for (User user : distinctObservers) {
             UserNotification notification = new UserNotification(stop, vehicleId, routeId, routeName, vehicleType, message);
@@ -108,7 +112,7 @@ public class VehicleService {
             notificationsToSave.add(notification);
         }
 
-        // 5. Gravação Blindada Antiduplicados de milissegundo
+        // Gravação Blindada Antiduplicados
         if (!notificationsToSave.isEmpty()) {
             List<UserNotification> uniqueNotifications = notificationsToSave.stream()
                     .collect(Collectors.toMap(
@@ -121,9 +125,15 @@ public class VehicleService {
                     .toList();
 
             userNotificationRepository.saveAll(uniqueNotifications);
+            
+            // 6. NOVO: Enviar notificações em TEMPO REAL via WebSocket (push)
+            // Isto faz com que o cliente receba a notificação imediatamente, sem polling
+            for (UserNotification notification : uniqueNotifications) {
+                notificationWebSocketService.notifyUser(notification.getUser().getId(), notification);
+            }
         }
 
-        // 6. Atualizar os utilizadores afetados e limpar a cache do Redis
+        // 7. Atualizar os utilizadores afetados e limpar a cache do Redis
         userRepository.saveAll(distinctObservers);
         distinctObservers.stream().map(User::getId).forEach(notificationCacheService::evict);
         
