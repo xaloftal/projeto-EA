@@ -21,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 import PSM.Location.Route;
 import PSM.Location.RouteStop;
 import PSM.Location.Stop;
+import PSM.Travel.VehicleType;
 import jakarta.annotation.PostConstruct;
 
 @Service
@@ -29,7 +30,6 @@ public class VehicleSimulationService {
     private static final Logger logger = LoggerFactory.getLogger(VehicleSimulationService.class);
     private static final ZoneId ZONE = ZoneId.systemDefault();
 
-    // Tempo simulado padrão (em segundos) que o veículo demora entre cada paragem real
     private static final long TIME_BETWEEN_STOPS_SECONDS = 180L;
 
     private final VehicleRepository vehicleRepository;
@@ -39,9 +39,7 @@ public class VehicleSimulationService {
     private final Map<UUID, VehicleTrack> tracksByVehicleId = new ConcurrentHashMap<>();
     private final Map<UUID, VehicleSimulationSnapshotDTO> latestSnapshots = new ConcurrentHashMap<>();
     
-    // ==================== ADICIONA ESTA LINHA AQUI ====================
     private final Map<UUID, UUID> lastNotifiedStops = new ConcurrentHashMap<>();
-    // ==================================================================
 
     public VehicleSimulationService(
             VehicleRepository vehicleRepository,
@@ -88,7 +86,18 @@ public class VehicleSimulationService {
                 .forEach(vehicle -> {
                     RouteTrack routeTrack = routeTracks.get(vehicle.getRoute().getId());
                     if (routeTrack != null) {
-                        rebuilt.put(vehicle.getId(), new VehicleTrack(vehicle.getId(), routeTrack));
+                        String typeString = vehicle.getType();
+                        VehicleType vType = null;
+                        if (typeString != null) {
+                            try {
+                                vType = VehicleType.valueOf(typeString);
+                            } catch (IllegalArgumentException e) {
+                                logger.warn("Tipo de veículo inválido encontrado: {}", typeString);
+                            }
+                        }
+
+                        // Passa o vType para o record VehicleTrack
+                        rebuilt.put(vehicle.getId(), new VehicleTrack(vehicle.getId(), routeTrack, vType));
                     }
                 });
 
@@ -158,23 +167,29 @@ public class VehicleSimulationService {
 
         // ==================== OBSERVER PATTERN TRIGGER ====================
         double toleranceMargin = 0.15;
-        
+
         if (progress <= toleranceMargin) {
-            UUID lastStopId = lastNotifiedStops.get(track.vehicleId());
-            
-            if (!previous.stopId().equals(lastStopId)) {
-                lastNotifiedStops.put(track.vehicleId(), previous.stopId()); 
+            UUID lastNotifiedStopId = lastNotifiedStops.get(track.vehicleId());
+
+            if (lastNotifiedStopId == null || !lastNotifiedStopId.equals(previous.stopId())) {
                 
+                lastNotifiedStops.put(track.vehicleId(), previous.stopId());
+
                 try {
-                    // Passamos agora também o routeId e o routeName extraídos do record do track!
+                    logger.info("Simulador: Veículo {} [{}] chegou à paragem {}. Disparando notificação.", 
+                            track.vehicleId(), track.vehicleType(), previous.stopName());
+                            
+                    // === CHAMADA AO SERVIÇO ATUALIZADA EXPLICITAMENTE COM O PARAMETRO VEHICLETYPE ===
                     this.vehicleService.arrive(
                         track.vehicleId(), 
                         previous.stopId(),
                         track.routeTrack().routeId(),
-                        track.routeTrack().routeName()
+                        track.routeTrack().routeName(),
+                        track.vehicleType() // <--- Enviado de forma nativa e limpa aqui
                     );
                 } catch (Exception e) {
-                    logger.error("Error processing vehicle arrival for vehicle {} at stop {}", 
+                    lastNotifiedStops.remove(track.vehicleId());
+                    logger.error("Erro ao processar chegada do veículo {} à paragem {}", 
                             track.vehicleId(), previous.stopId(), e);
                 }
             }
@@ -249,7 +264,7 @@ public class VehicleSimulationService {
         return a + (b - a) * t;
     }
 
-    private record VehicleTrack(UUID vehicleId, RouteTrack routeTrack) {}
+    private record VehicleTrack(UUID vehicleId, RouteTrack routeTrack, VehicleType vehicleType) {}
 
     private record RouteTrack(UUID routeId, String routeName, List<TrackPoint> points, long totalDurationSeconds) {}
 

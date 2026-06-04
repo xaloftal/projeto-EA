@@ -49,7 +49,7 @@ public class User implements Observer {
 	@JsonIgnore
 	private List<Stop> poi = new ArrayList<Stop>();
 
-	@OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+	@OneToMany(mappedBy = "user", cascade = {CascadeType.PERSIST, CascadeType.MERGE}, orphanRemoval = true)
 	private List<UserNotification> notifications = new ArrayList<UserNotification>();
 
 
@@ -67,29 +67,26 @@ public class User implements Observer {
 		throw new UnsupportedOperationException();
 	}
 
-@Override
-	public void notifyUser(Subject _stop) {
-		if (!(_stop instanceof Stop stop)) {
-			return;
-		}
+	@Override
+    public void notifyUser(Subject _stop) {
+        if (!(_stop instanceof Stop stop)) {
+            return;
+        }
 
-		if (!this.hasPOI(stop)) {
-			return;
-		}
+        if (!this.hasPOI(stop)) {
+            return;
+        }
 
-		// Extrai as informações de contexto que colocámos temporariamente no Stop
-		UUID vehicleId = stop.getCurrentVehicleId();
-		UUID routeId = stop.getCurrentRouteId();
-		String routeName = stop.getCurrentRouteName();
+        UUID vehicleId = stop.getCurrentVehicleId();
+        UUID routeId = stop.getCurrentRouteId();
+        String routeName = stop.getCurrentRouteName();
 
-		// Cria uma mensagem muito mais informativa para o utilizador
-		String message = String.format("O autocarro da linha %s chegou à paragem %s.", 
-				(routeName != null ? routeName : "parceira"), stop.getName());
+        String message = String.format("O autocarro da linha %s chegou à paragem %s.", 
+                (routeName != null ? routeName : "parceira"), stop.getName());
 
-		// Instancia a notificação com os novos campos
-		UserNotification notification = new UserNotification(stop, vehicleId, routeId, routeName, message);
-		this.addNotification(notification);
-	}
+        UserNotification notification = new UserNotification(stop, vehicleId, routeId, routeName, null, message);
+        this.addNotification(notification);
+    }
 
 	public UUID getId() {
 		return this.id;

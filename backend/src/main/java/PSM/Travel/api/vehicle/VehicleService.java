@@ -1,7 +1,9 @@
 package PSM.Travel.api.vehicle;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -9,7 +11,10 @@ import org.springframework.transaction.annotation.Transactional;
 import PSM.Location.Stop;
 import PSM.Location.api.stop.StopService;
 import PSM.Travel.Vehicle;
+import PSM.Travel.VehicleType;
 import PSM.UserManagement.User;
+import PSM.UserManagement.UserNotification;
+import PSM.UserManagement.api.user.UserNotificationRepository;
 import PSM.UserManagement.api.user.UserRepository;
 import PSM.UserManagement.notification.NotificationCacheService;
 
@@ -18,12 +23,14 @@ public class VehicleService {
     private final VehicleRepository repository;
     private final StopService stopService;
     private final UserRepository userRepository;
+    private final UserNotificationRepository userNotificationRepository;
     private final NotificationCacheService notificationCacheService;
 
-    public VehicleService(VehicleRepository repository, StopService stopService, UserRepository userRepository, NotificationCacheService notificationCacheService) {
+    public VehicleService(VehicleRepository repository, StopService stopService, UserRepository userRepository, UserNotificationRepository userNotificationRepository, NotificationCacheService notificationCacheService) {
         this.repository = repository;
         this.stopService = stopService;
         this.userRepository = userRepository;
+        this.userNotificationRepository = userNotificationRepository;
         this.notificationCacheService = notificationCacheService;
     }
 
@@ -54,34 +61,77 @@ public class VehicleService {
     }
 
     @Transactional
-    public Vehicle arrive(UUID vehicleId, UUID stopId, UUID routeId, String routeName) {
+    public Vehicle arrive(UUID vehicleId, UUID stopId, UUID routeId, String routeName, VehicleType vehicleType) {
         Vehicle vehicle = findById(vehicleId);
         Stop stop = stopService.findById(stopId);
         
-        List<User> observers = userRepository.findObserversByStop(stop);
+        List<User> rawObservers = userRepository.findObserversByStop(stop);
 
-        stop.setArrivalContext(vehicleId, routeId, routeName);
+        List<User> distinctObservers = rawObservers.stream()
+                .filter(u -> u.getId() != null)
+                .collect(Collectors.toMap(
+                        User::getId, 
+                        user -> user, 
+                        (existing, replacement) -> existing
+                ))
+                .values()
+                .stream()
+                .toList();
 
-        observers.forEach(stop::addObserver);
-        
+        if (distinctObservers.isEmpty()) {
+            return vehicle;
+        }
+
         vehicle.setStop(stop);
         vehicle.setLocation(stop.getLocation());
         vehicle.arrived();
-
-        stop.notifyObservers();
-
         repository.save(vehicle);
-        
-        userRepository.saveAll(observers);
-        
-        observers.stream().map(User::getId).forEach(notificationCacheService::evict);
+
+        String tipoTexto = "veículo";
+        if (vehicleType != null) {
+            tipoTexto = switch (vehicleType) {
+                case BUS -> "bus";
+                case METRO -> "metro";
+                case TRAIN -> "train";
+            };
+        }
+
+        String message = String.format(" The %s on line %s has arrived at the %s stop (%s).", 
+                tipoTexto,
+                (routeName != null ? routeName : "parceira"), 
+                stop.getName(), stop.getStopCode());
+
+        List<UserNotification> notificationsToSave = new ArrayList<>();
+        for (User user : distinctObservers) {
+            UserNotification notification = new UserNotification(stop, vehicleId, routeId, routeName, vehicleType, message);
+            notification.setUser(user);
+            notificationsToSave.add(notification);
+        }
+
+        // 5. Gravação Blindada Antiduplicados de milissegundo
+        if (!notificationsToSave.isEmpty()) {
+            List<UserNotification> uniqueNotifications = notificationsToSave.stream()
+                    .collect(Collectors.toMap(
+                            n -> n.getUser().getId().toString() + "_" + n.getStopId() + "_" + n.getVehicleId(),
+                            n -> n,
+                            (n1, n2) -> n1
+                    ))
+                    .values()
+                    .stream()
+                    .toList();
+
+            userNotificationRepository.saveAll(uniqueNotifications);
+        }
+
+        // 6. Atualizar os utilizadores afetados e limpar a cache do Redis
+        userRepository.saveAll(distinctObservers);
+        distinctObservers.stream().map(User::getId).forEach(notificationCacheService::evict);
         
         return vehicle;
     }
 
     @Transactional
     public Vehicle arrive(UUID vehicleId, UUID stopId) {
-        // Redireciona para o método principal passando null para a rota
-        return this.arrive(vehicleId, stopId, null, null);
+        return this.arrive(vehicleId, stopId, null, null, null);
     }
 }

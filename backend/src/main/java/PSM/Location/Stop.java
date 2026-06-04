@@ -79,24 +79,26 @@ public class Stop implements Subject {
         }
     }
 
-    @Override
-    public void addObserver(Observer _obs) {
-        if (_obs == null) {
-            return;
-        }
+	@Override
+	public void addObserver(Observer _obs) {
+    if (_obs == null) return;
 
-        if (_obs instanceof User newUser) {
-            boolean alreadyRegistered = this.observers.stream().anyMatch(existingObserver -> existingObserver instanceof User existingUser && existingUser.getId() != null && existingUser.getId().equals(newUser.getId()));
-            if (!alreadyRegistered) {
-                this.observers.add(_obs);
-            }
-            return;
-        }
-
-        if (!this.observers.contains(_obs)) {
+    if (_obs instanceof User newUser) {
+        boolean alreadyRegistered = this.observers.stream().anyMatch(existingObserver -> 
+            existingObserver instanceof User existingUser && 
+            existingUser.getId() != null && 
+            existingUser.getId().equals(newUser.getId())
+        );
+        if (!alreadyRegistered) {
             this.observers.add(_obs);
         }
+        return;
     }
+
+    if (!this.observers.contains(_obs)) {
+        this.observers.add(_obs);
+    }
+}
 
     @Override
     public void removeObserver(Observer _obs) {
