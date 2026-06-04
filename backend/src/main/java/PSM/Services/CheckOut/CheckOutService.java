@@ -165,10 +165,12 @@ public class CheckOutService {
 		for (CartItemDTO item : purchasedItems) {
 			if ("card".equalsIgnoreCase(item.getKind())) {
 				CartItemSourceDTO source = item.getSource();
-				if (source == null || source.getCardId() == null) continue;
+				if (source == null || source.getCardId() == null)
+					continue;
 
 				Zone zone = zoneRepository.findById(UUID.fromString(source.getCardId())).orElse(null);
-				if (zone == null) continue;
+				if (zone == null)
+					continue;
 
 				Card card = new Card();
 				card.setCreatedAt(LocalDateTime.now());
@@ -186,6 +188,7 @@ public class CheckOutService {
 				for (int i = 0; i < quantity; i++) {
 					Ticket ticket = new Ticket();
 					ticket.setCreatedAt(LocalDateTime.now());
+					ticket.setStateName("UNUSED");
 					ticket.setPrice(BigDecimal.valueOf(item.getUnitPrice()).setScale(2, RoundingMode.HALF_UP));
 
 					CartItemSourceDTO source = item.getSource();

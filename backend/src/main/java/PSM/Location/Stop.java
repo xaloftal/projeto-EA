@@ -5,10 +5,8 @@ import java.util.List;
 import java.util.UUID;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonIdentityInfo;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.ObjectIdGenerators;
 
 import PSM.Travel.VehicleType;
 import PSM.UserManagement.Observer;
@@ -28,12 +26,11 @@ import jakarta.persistence.Table;
 import jakarta.persistence.Transient;
 
 @Entity
-@JsonIdentityInfo(generator = ObjectIdGenerators.PropertyGenerator.class, property = "id")
-@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+@JsonIgnoreProperties({ "hibernateLazyInitializer", "handler" })
 @Table(name = "stop", schema = "catchit")
 public class Stop implements Subject {
     @Id
-    @GeneratedValue(strategy= GenerationType.UUID)
+    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
     private String name;
@@ -52,7 +49,7 @@ public class Stop implements Subject {
     @JsonIgnore
     public Location location;
 
-    @OneToMany(mappedBy = "stop",cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "stop", cascade = CascadeType.ALL)
     @JsonIgnore
     public List<StopSchedule> schedules = new ArrayList<StopSchedule>();
 
@@ -79,26 +76,26 @@ public class Stop implements Subject {
         }
     }
 
-	@Override
-	public void addObserver(Observer _obs) {
-    if (_obs == null) return;
+    @Override
+    public void addObserver(Observer _obs) {
+        if (_obs == null)
+            return;
 
-    if (_obs instanceof User newUser) {
-        boolean alreadyRegistered = this.observers.stream().anyMatch(existingObserver -> 
-            existingObserver instanceof User existingUser && 
-            existingUser.getId() != null && 
-            existingUser.getId().equals(newUser.getId())
-        );
-        if (!alreadyRegistered) {
+        if (_obs instanceof User newUser) {
+            boolean alreadyRegistered = this.observers.stream()
+                    .anyMatch(existingObserver -> existingObserver instanceof User existingUser &&
+                            existingUser.getId() != null &&
+                            existingUser.getId().equals(newUser.getId()));
+            if (!alreadyRegistered) {
+                this.observers.add(_obs);
+            }
+            return;
+        }
+
+        if (!this.observers.contains(_obs)) {
             this.observers.add(_obs);
         }
-        return;
     }
-
-    if (!this.observers.contains(_obs)) {
-        this.observers.add(_obs);
-    }
-}
 
     @Override
     public void removeObserver(Observer _obs) {
@@ -107,7 +104,8 @@ public class Stop implements Subject {
         }
 
         if (_obs instanceof User user) {
-            this.observers.removeIf(existingObserver -> existingObserver instanceof User existingUser && existingUser.getId() != null && existingUser.getId().equals(user.getId()));
+            this.observers.removeIf(existingObserver -> existingObserver instanceof User existingUser
+                    && existingUser.getId() != null && existingUser.getId().equals(user.getId()));
             return;
         }
 
@@ -185,7 +183,7 @@ public class Stop implements Subject {
     public List<Observer> getObservers() {
         return this.observers;
     }
-    
+
     public Zone getZone() {
         return this.zone;
     }
