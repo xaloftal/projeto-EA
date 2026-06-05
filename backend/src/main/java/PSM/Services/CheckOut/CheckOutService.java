@@ -23,22 +23,21 @@ import PSM.Checkout.api.cart.CartResponseDTO;
 import PSM.Checkout.api.cart.CartService;
 import PSM.Checkout.api.checkout.CheckoutConfirmRequestDTO;
 import PSM.Checkout.api.checkout.CheckoutConfirmationDTO;
-import PSM.Checkout.api.checkout.CheckoutOrderValidationDTO;
 import PSM.Checkout.api.checkout.CheckoutSessionResponseDTO;
 import PSM.Location.Stop;
 import PSM.Location.Zone;
 import PSM.Location.api.stop.StopRepository;
+import PSM.Location.api.zone.ZoneRepository;
 import PSM.Services.Payment.PaymentAuthorizationRequestDTO;
 import PSM.Services.Payment.PaymentAuthorizationResponseDTO;
 import PSM.Services.Payment.PaymentServiceClient;
 import PSM.Services.Payment.PaymentStrategy;
-import PSM.Services.Payment.PaymentTransactionStatusDTO;
 import PSM.Ticketing.Card;
-import PSM.Ticketing.api.card.CardRepository;
-import PSM.Location.api.zone.ZoneRepository;
 import PSM.Ticketing.Ticket;
 import PSM.Ticketing.Title;
+import PSM.Ticketing.api.card.CardRepository;
 import PSM.Ticketing.api.ticket.TicketRepository;
+import PSM.Ticketing.api.ticketpack.TicketPackService;
 import PSM.UserManagement.User;
 import PSM.UserManagement.api.user.UserRepository;
 
@@ -49,6 +48,7 @@ public class CheckOutService {
 
 	private final CartService cartService;
 	private final PaymentServiceClient paymentServiceClient;
+	private final TicketPackService ticketPackService;
 	private final UserRepository userRepository;
 	private final TicketRepository ticketRepository;
 	private final StopRepository stopRepository;
@@ -68,6 +68,7 @@ public class CheckOutService {
 			ObjectMapper objectMapper,
 			ZoneRepository zoneRepository,
 			CardRepository cardRepository,
+			TicketPackService ticketPackService,
 			@Value("${checkout.session-ttl-minutes:15}") long sessionTtlMinutes) {
 		this.cartService = cartService;
 		this.paymentServiceClient = paymentServiceClient;
@@ -78,178 +79,175 @@ public class CheckOutService {
 		this.objectMapper = objectMapper;
 		this.zoneRepository = zoneRepository;
 		this.cardRepository = cardRepository;
+		this.ticketPackService = ticketPackService;
 		this.sessionTtl = Duration.ofMinutes(Math.max(1, sessionTtlMinutes));
 	}
 
-	public CheckoutSessionResponseDTO createSession(UUID userId) {
-		CartResponseDTO cart = cartService.getCart(userId);
-		if (cart.getItems() == null || cart.getItems().isEmpty()) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cart is empty");
-		}
+public CheckoutSessionResponseDTO createSession(UUID userId) {
+    CartResponseDTO cart = cartService.getCart(userId);
+    if (cart.getItems() == null || cart.getItems().isEmpty()) {
+        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cart is empty");
+    }
 
-		String sessionId = UUID.randomUUID().toString();
+    String sessionId = UUID.randomUUID().toString();
 
-		StoredCheckoutSession stored = new StoredCheckoutSession();
-		stored.setSessionId(sessionId);
-		stored.setSubtotal(cart.getSubtotal());
-		stored.setTaxes(cart.getTaxes());
-		stored.setTotal(cart.getTotal());
-		stored.setItems(new ArrayList<>(cart.getItems()));
-		stored.setItemIds(cart.getItems().stream().map(CartItemDTO::getId).toList());
+    StoredCheckoutSession stored = new StoredCheckoutSession();
+    stored.setSessionId(sessionId);
+    stored.setSubtotal(cart.getSubtotal());
+    stored.setTaxes(cart.getTaxes());
+    stored.setDiscount(cart.getDiscount()); 
+    stored.setTotal(cart.getTotal());       
+    stored.setItems(new ArrayList<>(cart.getItems()));
+    stored.setItemIds(cart.getItems().stream().map(CartItemDTO::getId).toList());
 
-		saveSession(userId, sessionId, stored);
+    saveSession(userId, sessionId, stored);
 
-		CheckoutSessionResponseDTO response = new CheckoutSessionResponseDTO();
-		response.setSessionId(sessionId);
-		response.setSubtotal(cart.getSubtotal());
-		response.setTaxes(cart.getTaxes());
-		response.setTotal(cart.getTotal());
-		return response;
-	}
+    CheckoutSessionResponseDTO response = new CheckoutSessionResponseDTO();
+    response.setSessionId(sessionId);
+    response.setSubtotal(cart.getSubtotal());
+    response.setTaxes(cart.getTaxes());
+    response.setTotal(cart.getTotal());
+    return response;
+}
 
-	@Transactional
-	public CheckoutConfirmationDTO confirm(UUID userId, CheckoutConfirmRequestDTO request) {
-		if (request == null || request.getSessionId() == null || request.getSessionId().isBlank()) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "sessionId is required");
-		}
+@Transactional
+    public CheckoutConfirmationDTO confirm(UUID userId, CheckoutConfirmRequestDTO request) {
+        if (request == null || request.getSessionId() == null || request.getSessionId().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "sessionId is required");
+        }
 
-		if (request.getPaymentMethodId() == null || request.getPaymentMethodId().isBlank()) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "paymentMethodId is required");
-		}
+        if (request.getPaymentMethodId() == null || request.getPaymentMethodId().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "paymentMethodId is required");
+        }
 
-		String sessionId = request.getSessionId().trim();
-		StoredCheckoutSession session = loadSession(userId, sessionId);
-		if (session == null) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Checkout session not found or expired");
-		}
+        String sessionId = request.getSessionId().trim();
+        StoredCheckoutSession session = loadSession(userId, sessionId);
+        if (session == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Checkout session not found or expired");
+        }
 
-		User user = userRepository.findWithBalanceLockById(userId)
-				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        User user = userRepository.findWithBalanceLockById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
-		BigDecimal totalAmount = BigDecimal.valueOf(session.getTotal()).setScale(2, RoundingMode.HALF_UP);
-		BigDecimal currentBalance = BigDecimal.valueOf(user.getBalance()).setScale(2, RoundingMode.HALF_UP);
-		if (currentBalance.compareTo(totalAmount) < 0) {
-			throw new ResponseStatusException(HttpStatus.PAYMENT_REQUIRED,
-					"Insufficient balance. Available=" + currentBalance + ", required=" + totalAmount);
-		}
+        // O totalAmount já reflete o valor líquido (deduzido de descontos) vindo do CartService
+        BigDecimal totalAmount = BigDecimal.valueOf(session.getTotal()).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal currentBalance = BigDecimal.valueOf(user.getBalance()).setScale(2, RoundingMode.HALF_UP);
+        if (currentBalance.compareTo(totalAmount) < 0) {
+            throw new ResponseStatusException(HttpStatus.PAYMENT_REQUIRED,
+                    "Insufficient balance. Available=" + currentBalance + ", required=" + totalAmount);
+        }
 
-		String orderId = "order_" + System.currentTimeMillis();
+        String orderId = "order_" + System.currentTimeMillis();
 
-		PaymentAuthorizationRequestDTO paymentRequest = new PaymentAuthorizationRequestDTO();
-		paymentRequest.setOrderId(orderId);
-		paymentRequest.setUserId(userId.toString());
-		paymentRequest.setSessionId(sessionId);
-		paymentRequest.setPaymentMethodId(request.getPaymentMethodId().trim());
-		paymentRequest.setAmount(totalAmount);
-		paymentRequest.setCurrency("EUR");
+        PaymentAuthorizationRequestDTO paymentRequest = new PaymentAuthorizationRequestDTO();
+        paymentRequest.setOrderId(orderId);
+        paymentRequest.setUserId(userId.toString());
+        paymentRequest.setSessionId(sessionId);
+        paymentRequest.setPaymentMethodId(request.getPaymentMethodId().trim());
+        paymentRequest.setAmount(totalAmount);
+        paymentRequest.setCurrency("EUR");
 
-		PaymentAuthorizationResponseDTO paymentResponse;
-		try {
-			paymentResponse = paymentServiceClient.authorize(paymentRequest);
-		} catch (Exception e) {
-			throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Payment service is unavailable", e);
-		}
+        PaymentAuthorizationResponseDTO paymentResponse;
+        try {
+            paymentResponse = paymentServiceClient.authorize(paymentRequest);
+        } catch (Exception e) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Payment service is unavailable", e);
+        }
 
-		if (!paymentResponse.isApproved()) {
-			throw new ResponseStatusException(HttpStatus.PAYMENT_REQUIRED,
-					"Payment was declined: " + paymentResponse.getMessage());
-		}
+        if (!paymentResponse.isApproved()) {
+            throw new ResponseStatusException(HttpStatus.PAYMENT_REQUIRED,
+                    "Payment was declined: " + paymentResponse.getMessage());
+        }
 
-		List<CartItemDTO> purchasedItems = session.getItems();
-		if (purchasedItems == null || purchasedItems.isEmpty()) {
-			purchasedItems = cartService.getCart(userId).getItems().stream()
-					.filter(item -> session.getItemIds().contains(item.getId()))
-					.toList();
-		}
+        List<CartItemDTO> purchasedItems = session.getItems();
+        if (purchasedItems == null || purchasedItems.isEmpty()) {
+            purchasedItems = cartService.getCart(userId).getItems().stream()
+                    .filter(item -> session.getItemIds().contains(item.getId()))
+                    .toList();
+        }
 
-		for (CartItemDTO item : purchasedItems) {
-			if ("card".equalsIgnoreCase(item.getKind())) {
-				CartItemSourceDTO source = item.getSource();
-				if (source == null || source.getCardId() == null)
-					continue;
+        // Lista temporária para monitorizar e capturar os bilhetes gerados nesta compra
+        List<Title> ticketsCriadosParaPack = new ArrayList<>();
 
-				Zone zone = zoneRepository.findById(UUID.fromString(source.getCardId())).orElse(null);
-				if (zone == null)
-					continue;
+        for (CartItemDTO item : purchasedItems) {
+            if ("card".equalsIgnoreCase(item.getKind())) {
+                CartItemSourceDTO source = item.getSource();
+                if (source == null || source.getCardId() == null)
+                    continue;
 
-				Card card = new Card();
-				card.setCreatedAt(LocalDateTime.now());
-				card.setPrice(BigDecimal.valueOf(item.getUnitPrice()).setScale(2, RoundingMode.HALF_UP));
-				card.setValidFrom(LocalDateTime.now());
-				card.setValidUntil(LocalDateTime.now().plusMonths(1));
-				card.setUser(user);
-				card.zone = zone;
-				card.setStateName("ACTIVE");
-				Card savedCard = cardRepository.save(card);
-				user.setCard(savedCard);
+                Zone zone = zoneRepository.findById(UUID.fromString(source.getCardId())).orElse(null);
+                if (zone == null)
+                    continue;
 
-			} else if ("ticket".equalsIgnoreCase(item.getKind())) {
-				int quantity = Math.max(1, item.getQuantity());
-				for (int i = 0; i < quantity; i++) {
-					Ticket ticket = new Ticket();
-					ticket.setCreatedAt(LocalDateTime.now());
-					ticket.setStateName("UNUSED");
-					ticket.setPrice(BigDecimal.valueOf(item.getUnitPrice()).setScale(2, RoundingMode.HALF_UP));
+                Card card = new Card();
+                card.setCreatedAt(LocalDateTime.now());
+                card.setPrice(BigDecimal.valueOf(item.getUnitPrice()).setScale(2, RoundingMode.HALF_UP));
+                card.setValidFrom(LocalDateTime.now());
+                card.setValidUntil(LocalDateTime.now().plusMonths(1));
+                card.setUser(user);
+                card.zone = zone;
+                card.setStateName("ACTIVE");
+                Card savedCard = cardRepository.save(card);
+                user.setCard(savedCard);
 
-					CartItemSourceDTO source = item.getSource();
-					if (source != null) {
-						ticket.setFrom(resolveStop(source.getFromStopId()));
-						ticket.setTo(resolveStop(source.getToStopId()));
-					}
-					ticket.setValidFrom(LocalDateTime.now());
-					ticket.setValidUntil(LocalDateTime.now().plusWeeks(1));
-					ticket.setUser(user);
-					ticketRepository.save(ticket);
-					try {
-						String qrText = orderId + ":" + ticket.getId();
-						ticket.generateQrCode(qrText, 300);
-						ticketRepository.save(ticket);
-					} catch (Exception e) {
-						System.err.println("QR generation failed for ticket " + ticket.getId() + ": " + e.getMessage());
-					}
-					user.addTicket(ticket);
-				}
-			}
-		}
+            } else if ("ticket".equalsIgnoreCase(item.getKind())) {
+                int quantity = Math.max(1, item.getQuantity());
+                for (int i = 0; i < quantity; i++) {
+                    Ticket ticket = new Ticket();
+                    ticket.setCreatedAt(LocalDateTime.now());
+                    ticket.setStateName("UNUSED");
+                    ticket.setPrice(BigDecimal.valueOf(item.getUnitPrice()).setScale(2, RoundingMode.HALF_UP));
 
-		BigDecimal newBalance = currentBalance.subtract(totalAmount).setScale(2, RoundingMode.HALF_UP);
-		user.setBalance(newBalance.floatValue());
-		userRepository.save(user);
+                    CartItemSourceDTO source = item.getSource();
+                    if (source != null) {
+                        ticket.setFrom(resolveStop(source.getFromStopId()));
+                        ticket.setTo(resolveStop(source.getToStopId()));
+                    }
+                    ticket.setValidFrom(LocalDateTime.now());
+                    ticket.setValidUntil(LocalDateTime.now().plusWeeks(1));
+                    ticket.setUser(user);
+                    
+                    // 1. Persiste o Ticket para gerar o ID primário (UUID)
+                    Ticket savedTicket = ticketRepository.save(ticket);
 
-		cartService.clearCart(userId);
-		redisTemplate.delete(getSessionKey(userId, sessionId));
+                    try {
+                        String qrText = orderId + ":" + savedTicket.getId();
+                        savedTicket.generateQrCode(qrText, 300);
+                        ticketRepository.save(savedTicket);
+                    } catch (Exception e) {
+                        System.err.println("QR generation failed for ticket " + savedTicket.getId() + ": " + e.getMessage());
+                    }
+                    
+                    user.addTicket(savedTicket);
+                    
+                    // 2. Adiciona o bilhete guardado à lista do Pack (Ticket estende Title)
+                    ticketsCriadosParaPack.add(savedTicket);
+                }
+            }
+        }
 
-		CheckoutConfirmationDTO confirmation = new CheckoutConfirmationDTO();
-		confirmation.setOrderId(orderId);
-		confirmation.setConfirmationNumber(UUID.randomUUID().toString().substring(0, 8).toUpperCase());
-		confirmation.setItems(new ArrayList<>(session.getItemIds()));
-		return confirmation;
-	}
+        // =========================================================================
+        // LOGICA DE MATERIALIZAÇÃO DO PACK
+        // Se a sessão indica que houve desconto aplicado, cria o Pack e vincula as FKs
+        // =========================================================================
+        if (session.getDiscount() > 0 && !ticketsCriadosParaPack.isEmpty()) {
+            ticketPackService.createAndBindPack(ticketsCriadosParaPack, session.getDiscount());
+        }
+        // =========================================================================
 
-	public CheckoutOrderValidationDTO validateOrder(UUID userId, String orderId) {
-		if (orderId == null || orderId.isBlank()) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "orderId is required");
-		}
+        BigDecimal newBalance = currentBalance.subtract(totalAmount).setScale(2, RoundingMode.HALF_UP);
+        user.setBalance(newBalance.floatValue());
+        userRepository.save(user);
 
-		PaymentTransactionStatusDTO payment;
-		try {
-			payment = paymentServiceClient.getTransaction(orderId.trim());
-		} catch (ResponseStatusException e) {
-			throw e;
-		} catch (Exception e) {
-			throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Payment service is unavailable", e);
-		}
+        cartService.clearCart(userId);
+        redisTemplate.delete(getSessionKey(userId, sessionId));
 
-		String status = payment.getStatus() == null ? "UNKNOWN" : payment.getStatus().toUpperCase();
-		boolean valid = "AUTHORIZED".equals(status) || "CAPTURED".equals(status) || "REFUNDED".equals(status);
-
-		CheckoutOrderValidationDTO response = new CheckoutOrderValidationDTO();
-		response.setOrderId(payment.getOrderId() != null ? payment.getOrderId() : orderId.trim());
-		response.setPaymentStatus(status);
-		response.setValid(valid);
-		response.setMessage(valid ? "Order payment is valid" : "Order payment is not valid");
-		return response;
-	}
+        CheckoutConfirmationDTO confirmation = new CheckoutConfirmationDTO();
+        confirmation.setOrderId(orderId);
+        confirmation.setConfirmationNumber(UUID.randomUUID().toString().substring(0, 8).toUpperCase());
+        confirmation.setItems(new ArrayList<>(session.getItemIds()));
+        return confirmation;
+    }
 
 	public boolean checkout(User _user, List<Title> _titles, PaymentStrategy _payment) {
 		throw new UnsupportedOperationException();
@@ -302,12 +300,20 @@ public class CheckOutService {
 		private double subtotal;
 		private double taxes;
 		private double total;
+		private double discount;
 		private List<String> itemIds = new ArrayList<>();
 		private List<CartItemDTO> items = new ArrayList<>();
 
 		public String getSessionId() {
 			return sessionId;
 		}
+		public double getDiscount() {
+        return discount;
+    	}
+
+    	public void setDiscount(double discount) {
+    	    this.discount = discount;
+    	}
 
 		public void setSessionId(String sessionId) {
 			this.sessionId = sessionId;

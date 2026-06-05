@@ -457,6 +457,9 @@ export class CatchItApiClient {
     }
   }
 
+
+  
+
   async logout(): Promise<ApiResponse<void>> {
     return requestJson<void>('/api/auth/logout', { method: 'POST' })
   }

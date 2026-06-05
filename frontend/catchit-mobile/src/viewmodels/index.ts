@@ -1,6 +1,11 @@
 import { ref, computed } from 'vue'
 import { catchitApi } from '../services/api/catchitApi'
 import type { User, Ticket, Card, CardTier, TravelCard, PaymentMethod, Stop, Vehicle, UserNotification } from '../models'
+import { requestJson } from 'src/services/api/http'
+
+const error = ref('')
+const isLoading = ref(false)
+const activeTrips = ref<any[]>([])
 
 export type RouteSearchResult = {
   routeId: string
@@ -380,40 +385,7 @@ export function useTransportViewModel(titleId?: string) {
   }
 
   const loadActiveTrips = async () => {
-    isLoadingTrips.value = true
-    try {
-      const response = await catchitApi.getActiveTrips()
-      if (response.success && response.data) {
-        // Determine filtering based on current title (ticket or card)
-        let filtered = response.data
-        if (titleId) {
-          // Try to find a ticket first
-          const ticketsResponse = await catchitApi.getUserTickets(currentUser.value.id)
-          const ticket = ticketsResponse.data?.find((t) => t.id === titleId)
-          if (ticket) {
-            const ticketStopIds = [ticket.stopFrom?.id, ticket.stopTo?.id].filter(Boolean) as string[]
-            filtered = filtered.filter((trip) => (trip.stopIds ?? []).some((sid) => ticketStopIds.includes(sid)))
-          } else {
-            // Fallback to card
-            const cardsResponse = await catchitApi.getUserCards(currentUser.value.id)
-            const card = cardsResponse.data?.find((c) => c.id === titleId)
-            if (card && card.zone?.name) {
-              filtered = filtered.filter((trip) => trip.zoneName === card.zone.name)
-            }
-          }
-        }
-        activeTrips.value = filtered.map((t) => ({
-          id: t.id,
-          routeName: t.routeName ?? 'Unknown route',
-          startTime: formatTime(t.startTime),
-          stopIds: t.stopIds,
-          zoneName: t.zoneName,
-        }))
-      }
-    } finally {
-      isLoadingTrips.value = false
-    }
-  }
+}
 
   const handleCheckIn = async () => {
     if (!selectedTripId.value) return
@@ -616,36 +588,41 @@ export function useCheckoutViewModel() {
     }
   }
 
-  const confirmCheckout = async (paymentMethodId: string) => {
-    if (!currentUser.value) return null
-    if (!cartItems.value.length) {
-      error.value = 'Cart is empty'
-      return null
-    }
-
-    isLoading.value = true
-    error.value = ''
-    try {
-      const sessionId = await createCheckoutSession()
-      if (!sessionId) {
-        error.value = 'Unable to create checkout session'
-        return null
-      }
-
-      const response = await catchitApi.confirmCheckout({
-        sessionId,
-        paymentMethodId,
-      })
-      if (response.success && response.data) {
-        await fetchCart()
-        return response.data
-      }
-      error.value = response.error || 'Checkout failed'
-      return null
-    } finally {
-      isLoading.value = false
-    }
+  // Altera a assinatura para aceitar dois parâmetros: paymentMethodId e sessionId
+  const confirmCheckout = async (paymentMethodId: string, sessionId: string) => {
+  if (!currentUser.value) {
+    error.value = 'No authenticated user found'
+    return null
   }
+
+  isLoading.value = true
+  error.value = ''
+
+  try {
+    // Faz o POST para o teu CheckoutController do Backend
+    const response = await requestJson<{ orderId: string }>('/api/checkout/confirm', {
+      method: 'POST',
+      body: JSON.stringify({
+        paymentMethodId: paymentMethodId,
+        sessionId: sessionId, // <-- PASSAMOS AGORA O SESSÃO ID DO REDIS DAQUI
+      }),
+    })
+
+    if (response.success && response.data) {
+      // Limpa o carrinho local se o pagamento correu bem
+      cartItems.value = []
+      return response.data
+    }
+
+    error.value = response.error || 'Payment confirmation failed'
+    return null
+  } catch (err: any) {
+    error.value = err.message || 'An unexpected error occurred during confirmation'
+    return null
+  } finally {
+    isLoading.value = false
+  }
+}
 
   return {
     cartItems,

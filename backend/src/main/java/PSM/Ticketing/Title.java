@@ -1,12 +1,20 @@
 package PSM.Ticketing;
 
+import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import java.io.ByteArrayOutputStream;
+
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.zxing.BarcodeFormat;
+import com.google.zxing.client.j2se.MatrixToImageWriter;
+import com.google.zxing.common.BitMatrix;
+import com.google.zxing.qrcode.QRCodeWriter;
 
 import PSM.Ticketing.State.ActiveState;
 import PSM.Ticketing.State.ExpiredState;
@@ -19,6 +27,7 @@ import PSM.UserManagement.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.DiscriminatorColumn;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -26,17 +35,10 @@ import jakarta.persistence.Inheritance;
 import jakarta.persistence.InheritanceType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToMany;
-import jakarta.persistence.PostLoad;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.PostLoad;
 import jakarta.persistence.Table;
 import jakarta.persistence.Transient;
-
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.zxing.BarcodeFormat;
-import com.google.zxing.common.BitMatrix;
-import com.google.zxing.qrcode.QRCodeWriter;
-import com.google.zxing.client.j2se.MatrixToImageWriter;
 
 @Entity
 @Table(name = "title", schema = "catchit")
@@ -82,6 +84,11 @@ public abstract class Title {
 	@JoinColumn(name = "user_id")
 	@JsonIgnore
 	private User user;
+
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "ticketpack_id")
+	@JsonBackReference
+	private TicketPack ticketPack;
 
 	public void activate() {
 		throw new UnsupportedOperationException();
@@ -207,6 +214,9 @@ public abstract class Title {
 	public void setUser(User _user) {
 		this.user = _user;
 	}
+
+	public TicketPack getTicketPack() { return ticketPack; }
+	public void setTicketPack(TicketPack ticketPack) { this.ticketPack = ticketPack; }
 
 	@Override
 	public boolean equals(Object o) {
