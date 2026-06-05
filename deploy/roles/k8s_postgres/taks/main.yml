@@ -74,3 +74,33 @@
       - deployment_result.resources[0].status.readyReplicas | default(0) == deployment_result.resources[0].status.replicas
     fail_msg: "PostgreSQL deployment did not become ready in time"
     success_msg: "PostgreSQL deployment is fully ready and running"
+
+
+- name: Create Redis Deployment (Runs in RAM)
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'redis_deployment.yml') | from_yaml }}"
+    wait: true
+    wait_timeout: 300
+
+- name: Create Redis Service (Internal ClusterIP)
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'redis_service.yml') | from_yaml }}"
+
+- name: Wait for Redis deployment to complete
+  kubernetes.core.k8s_info:
+    kind: Deployment
+    namespace: default
+    name: catchit-redis
+    wait: true
+    wait_sleep: 10
+    wait_timeout: 300
+  register: redis_result
+
+- name: Verify Redis success
+  assert:
+    that:
+      - redis_result.resources[0].status.readyReplicas | default(0) == redis_result.resources[0].status.replicas
+    fail_msg: "Redis deployment did not become ready in time"
+    success_msg: "Redis is fully operational for Notification Caching!"
