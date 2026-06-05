@@ -1,0 +1,66 @@
+---
+# 1. DEPLOYS (Criação dos Pods)
+- name: Create CatchIt Backend Deployment
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'backend_deployment.yml') | from_yaml }}"
+    wait: true
+    wait_timeout: 300
+
+- name: Create CatchIt Payment Service Deployment
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'payment-service_deployment.yml') | from_yaml }}"
+    wait: true
+    wait_timeout: 300
+
+- name: Create CatchIt Frontend Deployment
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'frontend_deployment.yml') | from_yaml }}"
+    wait: true
+    wait_timeout: 300
+
+# 2. SERVICES (Rede interna e externa)
+- name: Create CatchIt Backend Service
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'backend_service.yml') | from_yaml }}"
+
+- name: Create CatchIt Payment Service
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'payment-service_service.yml') | from_yaml }}"
+
+- name: Create CatchIt Frontend Service (LoadBalancer)
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'frontend_service.yml') | from_yaml }}"
+    wait: true
+    wait_timeout: 300
+
+# 3. AGUARDAR E CAPTURAR O IP DO FRONTEND (Para o teu JMeter atacar)
+- name: Wait for Frontend LoadBalancer IP to be assigned
+  kubernetes.core.k8s_info:
+    kind: Service
+    name: frontend-loadbalancer # O nome que deste no metadado do teu frontend_service.yml
+    namespace: default
+  register: svc_result
+  until: svc_result.resources[0].status.loadBalancer.ingress[0].ip is defined
+  retries: 20 
+  delay: 10   
+
+- name: Set IP fact
+  set_fact:
+    lb_ip: "{{ svc_result.resources[0].status.loadBalancer.ingress[0].ip }}"
+
+- name: Persist app_ip to inventory/gcp.yml
+  ansible.builtin.lineinfile:
+    path: inventory/gcp.yml
+    regexp: '^\s*app_ip:.*'
+    line: "    app_ip: {{ lb_ip }}" 
+  delegate_to: localhost
+
+- name: Display CatchIt connection info
+  debug:
+    msg: "CatchIt pronto! Aceda ao Frontend em: http://{{ lb_ip }}:9000"

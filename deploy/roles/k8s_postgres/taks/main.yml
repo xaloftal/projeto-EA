@@ -1,0 +1,76 @@
+# STORAGE CONFIGURATION
+
+
+- name: Create StorageClass with Retain Policy for PostgreSQL
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: storage.k8s.io/v1
+      kind: StorageClass
+      metadata:
+        name: postgres-retain     
+      provisioner: pd.csi.storage.gke.io 
+      reclaimPolicy: Retain 
+      parameters:
+        type: pd-balanced
+      volumeBindingMode: Immediate
+
+- name: Create PersistentVolumeClaim for PostgreSQL
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: postgres-pvc
+        namespace: default
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 20Gi
+        # MUDANÇA AQUI: Usa a nova StorageClass com Retain
+        storageClassName: postgres-retain
+
+
+- name: Create Postgres Secret from Vault variables
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'postgres-secret.yml') | from_yaml }}"
+    wait: true
+    wait_timeout: 300
+
+- name: Create PostgreSQL Deployment
+  kubernetes.core.k8s:
+    definition: "{{ lookup('template', 'postgres-deployment.yml') | from_yaml }}"
+    state: present
+    wait: true
+    wait_timeout: 300
+
+- name: Create PostgreSQL Service
+  kubernetes.core.k8s:
+    definition: "{{ lookup('template', 'postgres-service.yml') | from_yaml }}"
+    state: present
+    wait: true
+
+- name: Wait for PostgreSQL deployment to complete
+  kubernetes.core.k8s_info:
+    kind: Deployment
+    namespace: default
+    name: postgres
+    wait: true
+    wait_sleep: 15
+    wait_timeout: 600
+  register: deployment_result
+
+- name: Display deployment status
+  debug:
+    msg: "PostgreSQL deployment completed. Ready replicas: {{ deployment_result.resources[0].status.readyReplicas | default(0) }}/{{ deployment_result.resources[0].status.replicas }}"
+
+- name: Verify deployment success
+  assert:
+    that:
+      - deployment_result.resources[0].status.readyReplicas | default(0) == deployment_result.resources[0].status.replicas
+    fail_msg: "PostgreSQL deployment did not become ready in time"
+    success_msg: "PostgreSQL deployment is fully ready and running"

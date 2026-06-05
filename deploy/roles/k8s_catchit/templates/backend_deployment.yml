@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: catchit-backend
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: catchit-backend
+  template:
+    metadata:
+      labels:
+        app: catchit-backend
+    spec:
+      containers:
+      - name: backend
+        image: "{{ catchit_backend_image }}"
+        env:
+        - name: SPRING_DATASOURCE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-vault-secret
+              key: DB_PASSWORD
+        - name: SPRING_DATASOURCE_URL
+          value: "jdbc:postgresql://postgres-service:5432/{{ db_name }}?currentSchema=catchit"
+        - name: SPRING_DATASOURCE_USERNAME
+          value: "{{ db_username }}"
+        - name: SPRING_DATA_REDIS_HOST
+          value: "redis-service"
+        - name: SPRING_DATA_REDIS_PORT
+          value: "6379"
+        ports:
+        - containerPort: 8080
+

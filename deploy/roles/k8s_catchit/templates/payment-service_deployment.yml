@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: catchit-payment
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: catchit-payment
+  template:
+    metadata:
+      labels:
+        app: catchit-payment
+    spec:
+      containers:
+      - name: payment
+        image: "{{ catchit_payment_image }}"
+        ports:
+        - containerPort: 8081
+
