@@ -20,7 +20,7 @@ spec:
         - name: SPRING_DATASOURCE_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: postgres-vault-secret
+              name: catchitdb-vault
               key: DB_PASSWORD
         - name: SPRING_DATASOURCE_URL
           value: "jdbc:postgresql://postgres-service:5432/{{ db_name }}?currentSchema=catchit"
