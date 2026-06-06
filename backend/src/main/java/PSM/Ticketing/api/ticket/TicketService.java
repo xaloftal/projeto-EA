@@ -35,4 +35,14 @@ public class TicketService {
     public void delete(UUID id) {
         repository.deleteById(id);
     }
+
+    public List<TicketDTO> findTicketsByUserId(UUID userId) {
+    return repository.findTicketsSummaryByUserId(userId);
+    }
+
+    public byte[] getQrCode(UUID id) {
+    Ticket ticket = repository.findById(id)
+        .orElseThrow(() -> new RuntimeException("Ticket not found"));
+    return ticket.getQrCode();
+    }
 }
