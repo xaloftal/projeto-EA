@@ -683,10 +683,18 @@ export class CatchItApiClient {
   }
 
   /**
-   * Fetches stops as a GeoJSON FeatureCollection.
-   * This is the optimized endpoint for map rendering, reducing frontend processing.
-   */
-  async getStopsGeoJson(forceRefresh = false): Promise<ApiResponse<GeoJSONFeatureCollection>> {
+     * Fetches stops as a GeoJSON FeatureCollection.
+     * This is the optimized endpoint for map rendering, reducing frontend processing.
+     * If routeId is provided, fetches only the stops for that specific route and bypasses local cache.
+     */
+  async getStopsGeoJson(routeId?: string, forceRefresh = false): Promise<ApiResponse<GeoJSONFeatureCollection>> {
+    console.log("[DEBUG API TS] getStopsGeoJson chamado com routeId =", routeId);
+
+    if (routeId && routeId.trim() !== '') {
+      return requestJson<GeoJSONFeatureCollection>(`/api/stops/geojson?routeId=${encodeURIComponent(routeId)}`);
+    }
+
+    // SE NÃO HOUVER FILTRO: Mantém o comportamento original com cache
     if (!forceRefresh && cachedStopsGeoJson) {
       return { success: true, data: cachedStopsGeoJson }
     }
@@ -699,7 +707,6 @@ export class CatchItApiClient {
       if (response.success && response.data) {
         cachedStopsGeoJson = response.data
       }
-
       return response
     })
 
