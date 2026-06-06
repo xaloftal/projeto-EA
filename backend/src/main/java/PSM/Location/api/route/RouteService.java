@@ -11,10 +11,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 
 import PSM.Location.Route;
+import PSM.Location.RouteStop;
 import PSM.Location.Stop;
 import PSM.Location.StopSchedule;
 import PSM.Location.api.stopschedule.StopScheduleRepository;
@@ -232,4 +234,26 @@ public class RouteService {
 
         return result;
     }
+
+    // Gets all the stops from a route (used to show the stops of a vehicle in the map view)
+    public List<RouteStopDTO> findRouteStops(UUID routeId) {
+       Route route = findById(routeId);
+        return route.schedules.stream()
+            .sorted(Comparator.comparingInt(StopSchedule::getSequence))
+            .filter(s -> s.stop != null)
+            .collect(Collectors.toMap(
+                s -> s.stop.getId(),
+                s -> new RouteStopDTO(
+                    s.stop.getId().toString(),
+                    s.stop.getName(),
+                    s.getSequence(),
+                    s.getArrivalTime() != null ? s.getArrivalTime().toLocalTime().format(DateTimeFormatter.ofPattern("HH:mm")) : "--"
+                ),
+                (existing, replacement) -> existing,
+                java.util.LinkedHashMap::new
+            ))
+            .values()
+            .stream()
+            .toList();
+        }
 }

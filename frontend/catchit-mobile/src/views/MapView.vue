@@ -85,18 +85,41 @@
 
       <template v-else-if="sheetMode === 'bus' && selectedBus">
         <div class="sheet-header">
-          <h2>Bus {{ selectedBus.lineLabel }}</h2>
-          <span class="provider-badge">{{ selectedBus.lineLabel }}</span>
+          <div class="bus-header-left">
+            <h2>{{ selectedBus.lineLabel }}</h2>
+            <p class="bus-subtitle">
+              <MapPin class="icon-xs" />
+              Next Stop: {{ selectedBus.nextStopName }}
+            </p>
+          </div>
+          <span class="provider-badge">{{ selectedBus.vehicleType }}</span>
         </div>
 
-        <p class="line-name">{{ selectedBus.lineLabel }} information</p>
-        <p class="ids-line">Bus ID: {{ selectedBus.busId }}</p>
-        <p class="next-stop">Next Stop: {{ selectedBus.nextStopName }}</p>
+        <div class="bus-meta-row">
+          <span class="bus-zone">
+            <Star class="icon-xs" /> Coroa 1
+          </span>
+        </div>
 
-        <h3 class="route-title">Arrival Estimate</h3>
-        <div class="route-item">
-          <span>{{ selectedBus.nextStopName }}</span>
-          <span>{{ selectedBus.etaLabel }}</span>
+        <h3 class="route-title">Route</h3>
+        <div class="route-timeline">
+          <div
+            v-for="(stop, index) in routeStops"
+            :key="stop.stopId"
+            class="timeline-item"
+            :class="{ 'timeline-item--active': stop.stopName === selectedBus?.nextStopName }"
+          >
+            <div class="timeline-line" v-if="index > 0"></div>
+            <div class="timeline-dot" :class="{
+              'timeline-dot--active': stop.stopName === selectedBus.nextStopName,
+              'timeline-dot--passed': stop.sequence < (routeStops.find(s => s.stopName === selectedBus?.nextStopName)?.sequence ?? 0),
+              'timeline-dot--large': stop.sequence >= (routeStops.find(s => s.stopName === selectedBus?.nextStopName)?.sequence ?? 0) && stop.stopName !== selectedBus.nextStopName
+            }"></div>
+            <div class="timeline-content">
+              <span class="timeline-stop-name" :class="{ 'stop-passed': stop.sequence < (routeStops.find(s => s.stopName === selectedBus?.nextStopName)?.sequence ?? 0) }">{{ stop.stopName }}</span>
+            </div>
+            <span class="timeline-time">{{ stop.arrivalTime }}</span>
+          </div>
         </div>
       </template>
     </section>
@@ -113,7 +136,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onActivated, onMounted, onUnmounted, ref, watch } from 'vue'
-import { House, Map as MapIcon, Search, ShoppingCart, User, Ticket, Star } from 'lucide-vue-next'
+import { House, Map as MapIcon, Search, ShoppingCart, User, Ticket, Star, MapPin } from 'lucide-vue-next'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { catchitApi, type BackendVehicleSimulationSnapshot } from '../services/api/catchitApi'
@@ -157,6 +180,7 @@ type ActiveBus = {
   progress: number
   etaLabel: string
   updatedAt: string
+  vehicleType: String
 }
 
 const mapContainer = ref<HTMLElement | null>(null)
@@ -183,6 +207,7 @@ const poiStops = ref<Set<string>>(new Set())
 const isLoadingPOI = ref(false)
 const stopRouteArrivals = ref<BackendStopRouteArrival[]>([])
 const { currentUser } = useAuthViewModel()
+const routeStops = ref<Array<{ stopId: string; stopName: string; sequence: number; arrivalTime: string }>>([])
 
 let map: L.Map | null = null
 let stopMarkersLayer: L.LayerGroup | null = null
@@ -668,6 +693,7 @@ const mapSimulationSnapshotToBus = (snapshot: BackendVehicleSimulationSnapshot):
     progress,
     etaLabel: `${Math.round(progress * 100)}% route`,
     updatedAt: snapshot.updatedAt,
+    vehicleType: snapshot.vehicleType
   }
 }
 
@@ -776,9 +802,18 @@ watch(
   { deep: true }
 )
 
-watch(selectedBusId, () => {
+watch(selectedBusId, async () => {
   drawBusMarkers()
   updateSelectedBusArrow()
+
+  if (selectedBus.value?.routeId) {
+    const response = await catchitApi.getRouteStops(selectedBus.value.routeId)
+    if (response.success && response.data) {
+      routeStops.value = response.data.sort((a, b) => b.sequence - a.sequence)
+    }
+  } else {
+    routeStops.value = []
+  }
 })
 
 watch(selectedStop, async () => {
@@ -1144,7 +1179,120 @@ onUnmounted(() => {
   height: 1rem;
 }
 
+.bus-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
 
+.bus-subtitle {
+  margin: 0;
+  color: #6b7280;
+  font-size: 0.88rem;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.bus-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0.4rem 0 0.2rem;
+}
+
+.bus-zone {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+  color: #6b7280;
+}
+
+.icon-xs {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+
+.route-timeline {
+  display: flex;
+  flex-direction: column;
+  padding-left: 0.25rem;
+  gap: 0;
+}
+
+.timeline-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  position: relative;
+  padding: 0.35rem 0;
+  justify-content: space-between;
+}
+
+.timeline-line {
+  position: absolute;
+  left: 5px;
+  top: -0.35rem;
+  bottom: 0.6rem;
+  width: 2px;
+  background: #d1d5db;
+}
+
+.timeline-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid #d1d5db;
+  background: white;
+  flex-shrink: 0;
+  margin-top: 3px;
+  z-index: 1;
+}
+
+.timeline-dot--large {
+  width: 14px;
+  height: 14px;
+  border-color: #9ca3af;
+}
+
+.timeline-dot--active {
+  border-color: var(--color-brand);
+  background: var(--color-brand);
+}
+
+.timeline-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.timeline-stop-name {
+  font-size: 0.9rem;
+  color: #111827;
+  font-weight: 500;
+}
+
+.timeline-eta {
+  font-size: 0.78rem;
+  color: #6b7280;
+}
+
+.timeline-time {
+  font-size: 0.85rem;
+  color: #6b7280;
+  white-space: nowrap;
+}
+
+.timeline-dot--passed {
+  border-color: #9ca3af;
+  background: #9ca3af;
+}
+
+.stop-passed {
+  color: #9ca3af;
+}
 
 :global(.leaflet-bottom) {
   bottom: var(--leaflet-controls-bottom, 88px);

@@ -64,6 +64,11 @@ public class RouteController {
         return service.findById(id);
     }
 
+    @GetMapping("/{id}/stops")
+    public List<RouteStopDTO> getRouteStops(@PathVariable UUID id) {
+        return service.findRouteStops(id);
+    }
+
     @PostMapping
     public Route create(@RequestBody Route entity) {
         return service.create(entity);

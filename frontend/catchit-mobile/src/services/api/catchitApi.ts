@@ -143,6 +143,7 @@ export type BackendVehicleSimulationSnapshot = {
   nextStopName: string
   progress: number
   updatedAt: string
+  vehicleType: string
 }
 
 type BackendRouteSearchResult = {
@@ -710,6 +711,10 @@ export class CatchItApiClient {
     const response = await requestJson<BackendStopRouteArrival[]>(`/api/routes/stop-arrivals?stopId=${encodeURIComponent(stopId)}`)
     if (!response.success || !response.data) return { success: false, error: response.error }
     return { success: true, data: response.data }
+  }
+
+  async getRouteStops(routeId: string): Promise<ApiResponse<Array<{ stopId: string; stopName: string; sequence: number; arrivalTime: string }>>> {
+    return requestJson(`/api/routes/${routeId}/stops`)
   }
 
   async getVehicleSimulation(): Promise<ApiResponse<BackendVehicleSimulationSnapshot[]>> {

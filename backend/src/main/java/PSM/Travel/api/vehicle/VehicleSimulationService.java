@@ -58,12 +58,12 @@ public class VehicleSimulationService {
         recomputeSnapshots();
     }
 
-    @Scheduled(fixedDelayString = "${simulation.vehicle.refresh-ms:30000}")
+    // @Scheduled(fixedDelayString = "${simulation.vehicle.refresh-ms:30000}")
     public void refreshTracks() {
         rebuildTracks();
     }
 
-    @Scheduled(fixedDelayString = "${simulation.vehicle.tick-ms:1000}")
+    // @Scheduled(fixedDelayString = "${simulation.vehicle.tick-ms:1000}")
     public void tick() {
         recomputeSnapshots();
     }
@@ -200,18 +200,19 @@ public class VehicleSimulationService {
         double longitude = lerp(previous.longitude(), next.longitude(), progress);
 
         return new VehicleSimulationSnapshotDTO(
-                track.vehicleId(),
-                track.routeTrack().routeId(),
-                track.routeTrack().routeName(),
-                latitude,
-                longitude,
-                previous.stopId(),
-                previous.stopName(),
-                next.stopId(),
-                next.stopName(),
-                progress,
-                OffsetDateTime.now(ZONE).toString());
-    }
+            track.vehicleId(),
+            track.routeTrack().routeId(),
+            track.routeTrack().routeName(),
+            latitude,
+            longitude,
+            previous.stopId(),
+            previous.stopName(),
+            next.stopId(),
+            next.stopName(),
+            progress,
+            OffsetDateTime.now(ZONE).toString(),
+            track.vehicleType() != null ? track.vehicleType().name() : null
+    );}
 
     private RouteTrack buildRouteTrack(Route route) {
         if (route.routeStops == null || route.routeStops.isEmpty()) {
