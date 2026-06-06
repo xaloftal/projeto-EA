@@ -13,3 +13,7 @@ tmp
 
 .vs_code
 
+*.zip
+*.osm.pbf
+
+target/

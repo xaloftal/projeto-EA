@@ -12,7 +12,7 @@ services:
       - catchit_postgres_data:/var/lib/postgresql/data
       - ./db:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-catchitdb}"]
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-catchitdb}" ]
       interval: 5s
       timeout: 3s
       retries: 20
@@ -25,7 +25,7 @@ services:
     volumes:
       - catchit_redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 5s
       timeout: 3s
       retries: 20
@@ -60,7 +60,7 @@ services:
       payment-service:
         condition: service_started
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/api/vehicles/simulation >/dev/null || exit 1"]
+      test: [ "CMD-SHELL", "curl -fsS http://localhost:8080/api/vehicles/simulation >/dev/null || exit 1" ]
       interval: 10s
       timeout: 5s
       retries: 20
@@ -91,6 +91,26 @@ services:
     container_name: catchit-frontend
     ports:
       - "9000:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  otp:
+    build:
+      context: ./otp
+      dockerfile: Dockerfile
+    image: catchit-otp:local
+    container_name: catchit-otp
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    mem_limit: 16g
+    healthcheck:
+      test: [ "CMD", "wget", "--spider", "-q", "http://localhost:8080/otp/actuators/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
     depends_on:
       backend:
         condition: service_healthy

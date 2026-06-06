@@ -354,6 +354,9 @@ export function useTransportViewModel(titleId?: string) {
   const errorMessage = ref('')
   const checkOutMessage = ref<{ success: boolean; text: string } | null>(null)
   const titleLabel = ref('Loading...')
+  const ticketFromStop = ref<Stop | null>(null)
+  const ticketToStop = ref<Stop | null>(null)
+  const isTicketTitle = ref(false)
 
   const formatTime = (date?: string) => (date ? new Date(date).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' }) : '')
 
@@ -362,10 +365,17 @@ export function useTransportViewModel(titleId?: string) {
     const localId = id ?? titleId
     if (!localId) return
 
+    ticketFromStop.value = null
+    ticketToStop.value = null
+    isTicketTitle.value = false
+
     const ticketsResponse = await catchitApi.getUserTickets(currentUser.value.id)
     const ticket = ticketsResponse.data?.find((t) => t.id === localId)
     if (ticket) {
       titleLabel.value = `🎟️ Ticket: ${ticket.stopFrom?.name ?? '?'} → ${ticket.stopTo?.name ?? '?'}`
+      ticketFromStop.value = ticket.stopFrom ?? null
+      ticketToStop.value = ticket.stopTo ?? null
+      isTicketTitle.value = true
       return
     }
 
@@ -434,6 +444,9 @@ export function useTransportViewModel(titleId?: string) {
     errorMessage,
     checkOutMessage,
     titleLabel,
+    ticketFromStop,
+    ticketToStop,
+    isTicketTitle,
     loadTitleInfo,
     loadActiveTrips,
     handleCheckIn,

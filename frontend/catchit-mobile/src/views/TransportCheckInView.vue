@@ -31,6 +31,19 @@
           </div>
         </section>
 
+        <section v-if="isTicketTitle && ticketFromStop && ticketToStop" class="section route-planner-section">
+          <h2>Suggested route</h2>
+          <RoutePlanner
+            layout="split"
+            :initial-from-stop="ticketFromStop"
+            :initial-to-stop="ticketToStop"
+            :from-label="ticketFromStop.name"
+            :to-label="ticketToStop.name"
+            hide-pickers
+            auto-plan
+          />
+        </section>
+
         <!-- Selecionar trip -->
         <section class="section">
           <h2>Select trip</h2>
@@ -78,6 +91,7 @@
 import { onMounted } from 'vue'
 import { ArrowLeft, House, Map, ShoppingCart, Ticket, User } from 'lucide-vue-next'
 import { useRoute } from 'vue-router'
+import RoutePlanner from '../components/RoutePlanner.vue'
 import { useTransportViewModel } from '../viewmodels'
 
 const route = useRoute()
@@ -94,6 +108,9 @@ const {
   errorMessage,
   checkOutMessage,
   titleLabel,
+  ticketFromStop,
+  ticketToStop,
+  isTicketTitle,
   loadTitleInfo,
   loadActiveTrips,
   handleCheckIn,
@@ -254,6 +271,12 @@ onMounted(() => {
   font-size: 0.875rem;
   font-weight: 600;
   margin: 0;
+}
+
+.route-planner-section {
+  min-height: 460px;
+  display: flex;
+  flex-direction: column;
 }
 
 .bottom-nav {

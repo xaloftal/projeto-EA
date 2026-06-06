@@ -10,6 +10,7 @@ import type {
   User,
   Vehicle,
 } from '../../models'
+import type { RoutingPlanRequest, RoutingPlanResponse } from '../../types/routing'
 import { TicketStatus } from '../../models'
 import { requestJson, type ApiResponse } from './http'
 
@@ -904,6 +905,16 @@ export class CatchItApiClient {
     const response = await requestJson<BackendStop[]>(`/api/users/${userId}/poi`)
     if (!response.success || !response.data) return { success: false, error: response.error }
     return { success: true, data: response.data.map(mapStop) }
+  }
+
+  async planRoute(request: RoutingPlanRequest): Promise<ApiResponse<RoutingPlanResponse>> {
+    const params = new URLSearchParams({
+      fromLat: String(request.fromLat),
+      fromLon: String(request.fromLon),
+      toLat: String(request.toLat),
+      toLon: String(request.toLon),
+    })
+    return requestJson<RoutingPlanResponse>(`/api/routing/plan?${params.toString()}`)
   }
 }
 

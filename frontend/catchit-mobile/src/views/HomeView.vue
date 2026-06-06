@@ -100,9 +100,22 @@
                   </div>
                   <p class="expiry">Expires on {{ formatDate(ticket.validUntil) }}</p>
                   <div class="ticket-stops">
-                    <p><MapPin class="icon-sm" /> {{ getTicketFromStop(ticket) }}</p>
-                    <p><MapPin class="icon-sm" /> {{ getTicketToStop(ticket) }}</p>
+                    <div class="ticket-stop-row">
+                      <span class="ticket-stop-label">From</span>
+                      <p><MapPin class="icon-sm" /> {{ getTicketFromStop(ticket) }}</p>
+                    </div>
+                    <div class="ticket-stop-row">
+                      <span class="ticket-stop-label">To</span>
+                      <p><MapPin class="icon-sm" /> {{ getTicketToStop(ticket) }}</p>
+                    </div>
                   </div>
+                  <router-link
+                    v-if="hasTicketStops(ticket)"
+                    :to="getItineraryLink(ticket)"
+                    class="btn-itinerary"
+                  >
+                    See suggested itinerary
+                  </router-link>
                   <div class="qr-code">
                     <img
                       v-if="getQrCodeSrc(ticket.qrCode)"
@@ -294,6 +307,26 @@ const getQrCodeSrc = (qrCode: string) => {
   if (qrCode.startsWith('http://') || qrCode.startsWith('https://')) return qrCode
   return `data:image/png;base64,${qrCode}`
 }
+
+const hasTicketStops = (ticket: UserTicket) =>
+  !!ticket.stopFrom?.latitude &&
+  !!ticket.stopFrom?.longitude &&
+  !!ticket.stopTo?.latitude &&
+  !!ticket.stopTo?.longitude
+
+const getItineraryLink = (ticket: UserTicket) => ({
+  name: 'itinerary',
+  query: {
+    fromStopId: ticket.stopFrom.id,
+    toStopId: ticket.stopTo.id,
+    fromLat: String(ticket.stopFrom.latitude),
+    fromLon: String(ticket.stopFrom.longitude),
+    toLat: String(ticket.stopTo.latitude),
+    toLon: String(ticket.stopTo.longitude),
+    fromName: ticket.stopFrom.name,
+    toName: ticket.stopTo.name,
+  },
+})
 </script>
 
 <style scoped>
@@ -612,9 +645,39 @@ const getQrCodeSrc = (qrCode: string) => {
   border-radius: 6px;
 }
 
+.ticket-stop-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin-bottom: 0.5rem;
+}
+
+.ticket-stop-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #9ca3af;
+}
+
 .ticket-stops p {
-  margin: 0.25rem 0;
+  margin: 0;
   font-size: 0.9rem;
+}
+
+.btn-itinerary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  margin-top: 0.75rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 8px;
+  background: #111827;
+  color: white;
+  text-decoration: none;
+  font-size: 0.85rem;
+  font-weight: 600;
 }
 
 .qr-code {
