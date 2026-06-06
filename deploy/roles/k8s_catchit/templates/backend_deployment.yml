@@ -23,13 +23,18 @@ spec:
               name: catchitdb-vault
               key: DB_PASSWORD
         - name: SPRING_DATASOURCE_URL
-          value: "jdbc:postgresql://postgres-service:5432/{{ db_name }}?currentSchema=catchit"
+          # Ajustado para bater no serviço 'postgres' que está UP no teu cluster
+          value: "jdbc:postgresql://postgres-service:5432/{{ db_name | default('catchitdb') }}?currentSchema=catchit"
         - name: SPRING_DATASOURCE_USERNAME
-          value: "{{ db_username }}"
+          value: "{{ db_username | default('postgres') }}"
         - name: SPRING_DATA_REDIS_HOST
-          value: "redis-service"
+          # Ajustado para bater no serviço 'catchit-redis' que está UP no teu cluster
+          value: "catchit-redis"
         - name: SPRING_DATA_REDIS_PORT
           value: "6379"
+        - name: JWT_SECRET
+          value: "catchitsecret"
+        - name: JWT_EXPIRATION
+          value: "1800000"
         ports:
         - containerPort: 8080
-

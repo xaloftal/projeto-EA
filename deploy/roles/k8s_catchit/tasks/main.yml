@@ -1,27 +1,25 @@
 ---
+# ==============================================================================
 # 1. DEPLOYS (Criação dos Pods)
+# ==============================================================================
 - name: Create CatchIt Backend Deployment
   kubernetes.core.k8s:
     state: present
     definition: "{{ lookup('template', 'backend_deployment.yml') | from_yaml }}"
-    wait: true
-    wait_timeout: 300
 
 - name: Create CatchIt Payment Service Deployment
   kubernetes.core.k8s:
     state: present
     definition: "{{ lookup('template', 'payment-service_deployment.yml') | from_yaml }}"
-    wait: true
-    wait_timeout: 300
 
 - name: Create CatchIt Frontend Deployment
   kubernetes.core.k8s:
     state: present
     definition: "{{ lookup('template', 'frontend_deployment.yml') | from_yaml }}"
-    wait: true
-    wait_timeout: 300
 
+# ==============================================================================
 # 2. SERVICES (Rede interna e externa)
+# ==============================================================================
 - name: Create CatchIt Backend Service
   kubernetes.core.k8s:
     state: present
@@ -36,18 +34,18 @@
   kubernetes.core.k8s:
     state: present
     definition: "{{ lookup('template', 'frontend_service.yml') | from_yaml }}"
-    wait: true
-    wait_timeout: 300
 
+# ==============================================================================
 # 3. AGUARDAR E CAPTURAR O IP DO FRONTEND (Para o teu JMeter atacar)
+# ==============================================================================
 - name: Wait for Frontend LoadBalancer IP to be assigned
   kubernetes.core.k8s_info:
     kind: Service
-    name: frontend-loadbalancer # O nome que deste no metadado do teu frontend_service.yml
+    name: frontend-loadbalancer
     namespace: default
   register: svc_result
   until: svc_result.resources[0].status.loadBalancer.ingress[0].ip is defined
-  retries: 20 
+  retries: 30  # Aumentado para 30 para dar uma margem segura à Google Cloud
   delay: 10   
 
 - name: Set IP fact

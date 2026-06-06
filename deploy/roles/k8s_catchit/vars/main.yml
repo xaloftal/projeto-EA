@@ -1,12 +1,10 @@
 ---
-catchit_backend_image: "login-ver/catchit-backend:latest"
-catchit_payment_image: "login-ver/catchit-payment:latest"
-catchit_frontend_image: "login-ver/catchit-frontend:latest"
+catchit_backend_image: "rodrigues17/catchit-backend:latest"
+catchit_payment_image: "rodrigues17/catchit-payment:latest"
+catchit_frontend_image: "rodrigues17/catchit-frontend:latest"
 
-db_name: "catchit"
+db_name: "catchitdb"
 db_username: "postgres"
-
-
 
 db_password_enc: !vault |
           $ANSIBLE_VAULT;1.1;AES256

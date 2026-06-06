@@ -76,7 +76,19 @@
     fail_msg: "PostgreSQL deployment did not become ready in time"
     success_msg: "PostgreSQL deployment is fully ready and running"
 
+- name: Garantir que a Base de Dados 'catchitdb' existe no PostgreSQL
+  ansible.builtin.shell: |
+    kubectl exec -n default deployment/postgres -- psql -U {{ db_username | default('postgres') }} -d postgres -c "SELECT 1 FROM pg_database WHERE datname = 'catchitdb';" | grep -q 1 || kubectl exec -n default deployment/postgres -- psql -U {{ db_username | default('postgres') }} -d postgres -c "CREATE DATABASE catchitdb;"
+  register: db_creation
+  until: db_creation.rc == 0
+  retries: 10
+  delay: 5
 
+- name: Criar o Schema 'catchit' dentro da base de dados catchitdb
+  ansible.builtin.shell: |
+    kubectl exec -n default deployment/postgres -- psql -U {{ db_username | default('postgres') }} -d catchitdb -c "CREATE SCHEMA IF NOT EXISTS catchit;"
+
+    
 - name: Create Redis Deployment (Runs in RAM)
   kubernetes.core.k8s:
     state: present
