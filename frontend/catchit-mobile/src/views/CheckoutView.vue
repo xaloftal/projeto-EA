@@ -1,7 +1,9 @@
 <template>
   <div class="checkout-container app-screen">
     <header class="app-header">
-      <router-link to="/cart" class="back-btn" aria-label="Back"><ArrowLeft class="icon-md" /></router-link>
+      <router-link to="/cart" class="back-btn" aria-label="Back">
+        <ArrowLeft class="icon-md" />
+      </router-link>
       <h1>Checkout</h1>
       <div style="width: 1rem"></div>
     </header>
@@ -44,34 +46,50 @@
         </div>
       </section>
 
-      <section class="pricing-summary">
+      <div class="pricing-summary">
         <div class="price-row">
           <span>Subtotal</span>
-          <span>€{{ subtotal.toFixed(2) }}</span>
+          <span>€{{ checkoutSessionData?.subtotal?.toFixed(2) || '0.00' }}</span>
         </div>
+
+        <div 
+          v-if="checkoutSessionData && (checkoutSessionData.subtotal + checkoutSessionData.taxes - checkoutSessionData.total) > 0.01" 
+          class="price-row pack-discount"
+        >
+          <span>Desconto de Pack (Ativo)</span>
+          <span>-€{{ (checkoutSessionData.subtotal + checkoutSessionData.taxes - checkoutSessionData.total).toFixed(2) }}</span>
+        </div>
+
         <div class="price-row">
           <span>Taxes</span>
-          <span>€{{ taxes.toFixed(2) }}</span>
+          <span>€{{ checkoutSessionData?.taxes?.toFixed(2) || '0.00' }}</span>
         </div>
-        <div class="price-row total">
-          <span>Total</span>
-          <span>€{{ total.toFixed(2) }}</span>
-        </div>
-      </section>
-    </div>
 
-    <div v-if="cartItems.length > 0" class="checkout-footer">
+        <div class="price-row total-row">
+          <strong>Total to Pay</strong>
+          <strong>€{{ checkoutSessionData?.total?.toFixed(2) || '0.00' }}</strong>
+        </div>
+      </div>
+    </div> <div v-if="cartItems.length > 0" class="checkout-footer">
       <button class="btn-confirm" :disabled="isProcessing || !selectedPaymentMethodId" @click="confirmCheckout">
         {{ isProcessing ? 'Processing...' : 'Pay now' }}
       </button>
     </div>
 
     <nav class="bottom-nav">
-      <router-link to="/home" class="nav-item"><House class="nav-icon" /></router-link>
+      <router-link to="/home" class="nav-item">
+        <House class="nav-icon" />
+      </router-link>
       <router-link to="/map" class="nav-item"><Map class="nav-icon" /></router-link>
-      <router-link to="/cart" class="nav-item active"><ShoppingCart class="nav-icon" /></router-link>
-      <router-link to="/notifications" class="nav-item"><Bell class="nav-icon" /></router-link>
-      <router-link to="/profile" class="nav-item"><User class="nav-icon" /></router-link>
+      <router-link to="/cart" class="nav-item active">
+        <ShoppingCart class="nav-icon" />
+      </router-link>
+      <router-link to="/notifications" class="nav-item">
+        <Bell class="nav-icon" />
+      </router-link>
+      <router-link to="/profile" class="nav-item">
+        <User class="nav-icon" />
+      </router-link>
     </nav>
   </div>
 </template>
@@ -81,15 +99,20 @@ import { computed, onMounted, ref } from 'vue'
 import { ArrowLeft, Bell, CreditCard, House, Map, ShoppingCart, User } from 'lucide-vue-next'
 import { useRouter } from 'vue-router'
 import { useCheckoutViewModel, useCardViewModel } from '../viewmodels'
+import { requestJson } from '../services/api/http'
 
 const cardViewModel = useCardViewModel()
-
 const router = useRouter()
 const checkoutViewModel = useCheckoutViewModel()
-const { cartItems, subtotal, taxes, total, paymentMethods, fetchCart, error: checkoutError } = checkoutViewModel
+
+const { cartItems, total, paymentMethods, fetchCart } = checkoutViewModel
 
 const selectedPaymentMethodId = ref('')
 const isProcessing = ref(false)
+const checkoutError = ref('') 
+
+const sessionId = ref('')
+const checkoutSessionData = ref<{ subtotal: number; taxes: number; discount: number; total: number } | null>(null)
 
 const selectedPaymentMethod = computed(
   () => paymentMethods.value.find((method) => method.id === selectedPaymentMethodId.value) ?? null
@@ -106,29 +129,48 @@ const labelPaymentMethod = (method: { type: string; cardLast4?: string }) => {
 }
 
 onMounted(async () => {
-  await fetchCart()
-  await checkoutViewModel.fetchPaymentMethods()
-  selectedPaymentMethodId.value = paymentMethods.value.find((method) => method.isDefault)?.id ?? paymentMethods.value[0]?.id ?? ''
+  try {
+    await fetchCart()
+    await checkoutViewModel.fetchPaymentMethods()
+
+    selectedPaymentMethodId.value = paymentMethods.value.find((method) => method.isDefault)?.id ?? paymentMethods.value[0]?.id ?? ''
+
+    const response = await requestJson<{ sessionId: string; subtotal: number; taxes: number; discount: number; total: number }>('/api/checkout/session', {
+      method: 'POST'
+    })
+
+    if (response.success && response.data) {
+      checkoutSessionData.value = response.data
+      sessionId.value = response.data.sessionId 
+    } else {
+      checkoutError.value = response.error || 'Failed to initialize checkout session'
+    }
+  } catch (err: any) {
+    checkoutError.value = err.message || 'An unexpected error occurred'
+  }
 })
 
 const confirmCheckout = async () => {
-  if (!selectedPaymentMethodId.value) return
+  if (!selectedPaymentMethodId.value || !sessionId.value) return
 
   isProcessing.value = true
   try {
-    const result = await checkoutViewModel.confirmCheckout(selectedPaymentMethodId.value)
+    const result = await checkoutViewModel.confirmCheckout(selectedPaymentMethodId.value, sessionId.value)
+
     if (result) {
       await cardViewModel.fetchUserCards()
       void router.push({
         name: 'checkout-success',
         params: { orderId: result.orderId },
         query: {
-          total: total.value.toFixed(2),
+          total: checkoutSessionData.value ? checkoutSessionData.value.total.toFixed(2) : total.value.toFixed(2),
           items: String(cartItems.value.length),
           payment: selectedPaymentMethod.value ? labelPaymentMethod(selectedPaymentMethod.value) : 'Payment method',
         },
       })
     }
+  } catch (err: any) {
+    checkoutError.value = err.error || 'Payment failed. Please try again.'
   } finally {
     isProcessing.value = false
   }
@@ -169,6 +211,14 @@ const confirmCheckout = async () => {
   font-weight: 600;
 }
 
+.pack-discount {
+  color: #10b981;
+  font-weight: bold;
+  background-color: #ecfdf5;
+  padding: 0.5rem;
+  border-radius: var(--radius-sm);
+}
+
 .checkout-content {
   flex: 1;
   overflow-y: auto;
@@ -200,7 +250,7 @@ const confirmCheckout = async () => {
   letter-spacing: 1px;
 }
 
-.section > p {
+.section>p {
   margin: 0 0 1rem 0;
   color: var(--color-text-muted);
   font-size: 0.9rem;
@@ -263,7 +313,7 @@ const confirmCheckout = async () => {
   border-bottom: 1px solid #f0f0f0;
 }
 
-.price-row.total {
+.price-row.total-row {
   border: none;
   border-top: 2px solid #e0e0e0;
   margin-top: 0.5rem;

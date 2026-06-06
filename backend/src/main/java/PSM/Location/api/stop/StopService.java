@@ -13,41 +13,42 @@ import PSM.UserManagement.api.user.UserRepository;
 
 @Service
 public class StopService {
-    private final StopRepository repository;
-    private final UserRepository userRepository;
+	private final StopRepository repository;
+	private final UserRepository userRepository;
 	private final NotificationCacheService notificationCacheService;
 
-	public StopService(StopRepository repository, UserRepository userRepository, NotificationCacheService notificationCacheService) {
-        this.repository = repository;
-        this.userRepository = userRepository;
+	public StopService(StopRepository repository, UserRepository userRepository,
+			NotificationCacheService notificationCacheService) {
+		this.repository = repository;
+		this.userRepository = userRepository;
 		this.notificationCacheService = notificationCacheService;
-    }
+	}
 
-    @Transactional(readOnly = true)
-    public List<Stop> findAll() {
-        return repository.findAll();
-    }
+	@Transactional(readOnly = true)
+	public List<Stop> findAll() {
+		return repository.findAll();
+	}
 
-    @Transactional(readOnly = true)
-    public Stop findById(UUID id) {
-        return repository.findById(id).orElseThrow(() -> new RuntimeException("Stop not found"));
-    }
+	@Transactional(readOnly = true)
+	public Stop findById(UUID id) {
+		return repository.findById(id).orElseThrow(() -> new RuntimeException("Stop not found"));
+	}
 
-    @Transactional
-    public Stop create(Stop entity) {
-        return repository.save(entity);
-    }
+	@Transactional
+	public Stop create(Stop entity) {
+		return repository.save(entity);
+	}
 
-    @Transactional
-    public Stop update(UUID id, Stop entity) {
-        findById(id);
-        return repository.save(entity);
-    }
+	@Transactional
+	public Stop update(UUID id, Stop entity) {
+		findById(id);
+		return repository.save(entity);
+	}
 
-    @Transactional
-    public void delete(UUID id) {
-        repository.deleteById(id);
-    }
+	@Transactional
+	public void delete(UUID id) {
+		repository.deleteById(id);
+	}
 
 	@Transactional(readOnly = true)
 	public List<User> getObservers(UUID stopId) {
@@ -74,7 +75,7 @@ public class StopService {
 	@Transactional
 	public int notifyObservers(UUID stopId) {
 		Stop stop = findById(stopId);
-		List<User> observers = userRepository.findObserversByStop(stop);
+		List<User> observers = userRepository.findObserversWithNotificationsByStop(stop);
 		observers.forEach(stop::addObserver);
 		stop.notifyObservers();
 		userRepository.saveAll(observers);

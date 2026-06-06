@@ -90,7 +90,6 @@
         </div>
 
         <p class="line-name">{{ selectedBus.lineLabel }} information</p>
-        <p class="ids-line">Bus ID: {{ selectedBus.busId }}</p>
         <p class="next-stop">Next Stop: {{ selectedBus.nextStopName }}</p>
 
         <h3 class="route-title">Arrival Estimate</h3>
@@ -665,9 +664,11 @@ const mapSimulationSnapshotToBus = (snapshot: BackendVehicleSimulationSnapshot):
     previousStopName: snapshot.previousStopName,
     nextStopId: snapshot.nextStopId,
     nextStopName: snapshot.nextStopName,
-    progress,
-    etaLabel: `${Math.round(progress * 100)}% route`,
+    // Calculate ETA label based on remaining progress (approximation)
+    // Assuming a typical segment travel time of 1 minute (60,000 ms)
+    etaLabel: formatCountdown((1 - progress) * 60000),
     updatedAt: snapshot.updatedAt,
+    progress: progress
   }
 }
 

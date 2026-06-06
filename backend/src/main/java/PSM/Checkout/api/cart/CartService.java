@@ -105,17 +105,36 @@ public class CartService {
     }
 
     private CartResponseDTO toResponse(List<CartItemDTO> items) {
-        double subtotal = items.stream().mapToDouble(CartItemDTO::getTotalPrice).sum();
-        double taxes = subtotal * TAX_RATE;
+    double subtotal = 0;
+    int totalTickets = 0;
 
-        CartResponseDTO response = new CartResponseDTO();
-        response.setItems(items);
-        response.setSubtotal(subtotal);
-        response.setTaxes(taxes);
-        response.setTotal(subtotal + taxes);
-
-        return response;
+    for (CartItemDTO item : items) {
+        subtotal += item.getUnitPrice() * item.getQuantity();
+        item.setTotalPrice(item.getUnitPrice() * item.getQuantity());
+        
+        // Contabiliza quantos bilhetes de viagem estão no carrinho
+        if ("ticket".equals(item.getKind())) {
+            totalTickets += item.getQuantity();
+        }
     }
+
+    
+    double discount = 0;
+    if (totalTickets >= 10) {
+        discount = subtotal * 0.15; // 15% de desconto
+    }
+
+    double taxes = (subtotal - discount) * TAX_RATE;
+
+    CartResponseDTO response = new CartResponseDTO();
+    response.setItems(items);
+    response.setSubtotal(subtotal);
+    response.setDiscount(discount);
+    response.setTaxes(taxes);
+    response.setTotal((subtotal - discount) + taxes); 
+
+    return response;
+}
 
     private List<CartItemDTO> loadItems(UUID userId) {
         String json = redisTemplate.opsForValue().get(getCartKey(userId));

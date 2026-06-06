@@ -31,7 +31,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         // 2. Ativa o message broker padrão (/topic e /queue) com o agendador e os teus 25s de heartbeat
         config.enableSimpleBroker("/topic", "/queue")
               .setHeartbeatValue(new long[]{25000, 25000})
-              .setTaskScheduler(scheduler); // <--- ISTO RESOLVE O ERRO COMPLETAMENTE
+              .setTaskScheduler(scheduler);
         
         // Prefixo para mensagens vindas do cliente para o servidor
         config.setApplicationDestinationPrefixes("/app");

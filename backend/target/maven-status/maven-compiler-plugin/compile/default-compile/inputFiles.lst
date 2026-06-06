@@ -1,123 +1,125 @@
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/CatchItApplication.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Checkout/api/cart/CartController.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Checkout/api/cart/CartItemDTO.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Checkout/api/cart/CartItemSourceDTO.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Checkout/api/cart/CartResponseDTO.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Checkout/api/cart/CartService.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Checkout/api/checkout/CheckoutConfirmRequestDTO.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Checkout/api/checkout/CheckoutConfirmationDTO.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Checkout/api/checkout/CheckoutController.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Checkout/api/checkout/CheckoutOrderValidationDTO.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Checkout/api/checkout/CheckoutSessionResponseDTO.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/ExitManager/ButtonExit.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/ExitManager/ExitRecord.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/ExitManager/ExitStrategy.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/ExitManager/api/checkout/CheckOutController.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/ExitManager/api/checkout/CheckOutRequestDTO.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/ExitManager/api/checkout/CheckOutResponseDTO.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/ExitManager/api/checkout/CheckOutScheduler.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/ExitManager/api/checkout/CheckOutTransportService.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/ExitManager/api/exitrecord/ExitRecordController.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/ExitManager/api/exitrecord/ExitRecordRepository.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/ExitManager/api/exitrecord/ExitRecordService.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Location/Location.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Location/Route.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Location/RouteStop.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Location/Stop.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Location/StopSchedule.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Location/Subject.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Location/Zone.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Location/api/location/LocationController.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Location/api/location/LocationRepository.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Location/api/location/LocationService.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Location/api/route/RouteController.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Location/api/route/RouteRepository.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Location/api/route/RouteSearchResultDTO.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Location/api/route/RouteService.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Location/api/route/RouteWithSchedulesDTO.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Location/api/route/StopRouteArrivalDTO.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Location/api/routestop/RouteStopRepository.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Location/api/stop/GeoJsonGeneratorService.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Location/api/stop/StopController.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Location/api/stop/StopRepository.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Location/api/stop/StopService.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Location/api/stopschedule/StopScheduleController.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Location/api/stopschedule/StopScheduleRepository.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Location/api/stopschedule/StopScheduleService.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Location/api/zone/ZoneController.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Location/api/zone/ZoneRepository.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Location/api/zone/ZoneService.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Services/CheckOut/CheckOutService.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Services/Payment/BalancePayment.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Services/Payment/PaymentAuthorizationRequestDTO.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Services/Payment/PaymentAuthorizationResponseDTO.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Services/Payment/PaymentServiceClient.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Services/Payment/PaymentServiceUnavailableException.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Services/Payment/PaymentStrategy.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Services/Payment/PaymentTransactionStatusDTO.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Ticketing/Card.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Ticketing/State/ActiveState.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Ticketing/State/ExpiredState.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Ticketing/State/TitleState.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Ticketing/State/UnusedState.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Ticketing/State/UsedState.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Ticketing/State/ValidatedState.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Ticketing/Ticket.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Ticketing/TicketPack.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Ticketing/Title.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Ticketing/TitleFactory.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Ticketing/api/card/CardController.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Ticketing/api/card/CardRepository.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Ticketing/api/card/CardService.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Ticketing/api/ticket/TicketController.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Ticketing/api/ticket/TicketRepository.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Ticketing/api/ticket/TicketService.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Ticketing/api/ticketpack/TicketPackController.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Ticketing/api/ticketpack/TicketPackRepository.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Ticketing/api/ticketpack/TicketPackService.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Ticketing/api/title/TitleRepository.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Travel/Trip.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Travel/Vehicle.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Travel/VehicleType.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Travel/api/trip/ActiveTripDTO.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Travel/api/trip/TripController.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Travel/api/trip/TripRepository.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Travel/api/trip/TripService.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Travel/api/vehicle/VehicleController.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Travel/api/vehicle/VehicleRepository.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Travel/api/vehicle/VehicleService.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Travel/api/vehicle/VehicleSimulationController.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Travel/api/vehicle/VehicleSimulationService.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Travel/api/vehicle/VehicleSimulationSnapshotDTO.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/UserManagement/Observer.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/UserManagement/User.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/UserManagement/UserNotification.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/UserManagement/api/auth/AuthController.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/UserManagement/api/auth/AuthRequest.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/UserManagement/api/auth/AuthResponse.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/UserManagement/api/auth/AuthService.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/UserManagement/api/auth/AuthenticatedUserDTO.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/UserManagement/api/user/UserController.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/UserManagement/api/user/UserNotificationRepository.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/UserManagement/api/user/UserRepository.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/UserManagement/api/user/UserService.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/UserManagement/notification/NotificationCacheService.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/UserManagement/notification/NotificationRetentionService.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/ValidationManager/QRCodeValidation.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/ValidationManager/ValidationRecord.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/ValidationManager/ValidationStrategy.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/ValidationManager/api/checkin/CheckInController.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/ValidationManager/api/checkin/CheckInRequestDTO.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/ValidationManager/api/checkin/CheckInResponseDTO.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/ValidationManager/api/checkin/CheckInService.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/ValidationManager/api/validationrecord/ValidationRecordController.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/ValidationManager/api/validationrecord/ValidationRecordRepository.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/ValidationManager/api/validationrecord/ValidationRecordService.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/config/CorsConfig.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/config/DatabaseSeeder.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/config/DatabaseSeeder_test.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/config/JwtAuthenticationFilter.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/config/JwtUtil.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/config/RedisConfig.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/config/RestExceptionHandler.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/config/SecurityConfig.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\CatchItApplication.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Checkout\api\cart\CartController.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Checkout\api\cart\CartItemDTO.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Checkout\api\cart\CartItemSourceDTO.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Checkout\api\cart\CartResponseDTO.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Checkout\api\cart\CartService.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Checkout\api\checkout\CheckoutConfirmationDTO.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Checkout\api\checkout\CheckoutConfirmRequestDTO.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Checkout\api\checkout\CheckoutController.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Checkout\api\checkout\CheckoutOrderValidationDTO.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Checkout\api\checkout\CheckoutSessionResponseDTO.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\config\CorsConfig.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\config\DatabaseSeeder.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\config\DatabaseSeeder_test.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\config\JwtAuthenticationFilter.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\config\JwtUtil.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\config\RedisConfig.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\config\RestExceptionHandler.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\config\SecurityConfig.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\ExitManager\api\checkout\CheckOutController.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\ExitManager\api\checkout\CheckOutRequestDTO.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\ExitManager\api\checkout\CheckOutResponseDTO.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\ExitManager\api\checkout\CheckOutScheduler.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\ExitManager\api\checkout\CheckOutTransportService.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\ExitManager\api\exitrecord\ExitRecordController.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\ExitManager\api\exitrecord\ExitRecordRepository.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\ExitManager\api\exitrecord\ExitRecordService.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\ExitManager\ButtonExit.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\ExitManager\ExitRecord.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\ExitManager\ExitStrategy.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Location\api\location\LocationController.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Location\api\location\LocationRepository.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Location\api\location\LocationService.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Location\api\route\RouteController.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Location\api\route\RouteRepository.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Location\api\route\RouteSearchResultDTO.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Location\api\route\RouteService.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Location\api\route\RouteWithSchedulesDTO.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Location\api\route\StopRouteArrivalDTO.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Location\api\routestop\RouteStopRepository.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Location\api\stop\GeoJsonGeneratorService.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Location\api\stop\StopController.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Location\api\stop\StopRepository.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Location\api\stop\StopService.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Location\api\stopschedule\StopScheduleController.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Location\api\stopschedule\StopScheduleRepository.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Location\api\stopschedule\StopScheduleService.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Location\api\zone\ZoneController.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Location\api\zone\ZoneRepository.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Location\api\zone\ZoneService.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Location\Location.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Location\Route.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Location\RouteStop.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Location\Stop.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Location\StopSchedule.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Location\Subject.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Location\Zone.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Services\CheckOut\CheckOutService.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Services\Payment\BalancePayment.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Services\Payment\PaymentAuthorizationRequestDTO.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Services\Payment\PaymentAuthorizationResponseDTO.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Services\Payment\PaymentServiceClient.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Services\Payment\PaymentServiceUnavailableException.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Services\Payment\PaymentStrategy.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Services\Payment\PaymentTransactionStatusDTO.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Ticketing\api\card\CardController.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Ticketing\api\card\CardRepository.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Ticketing\api\card\CardService.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Ticketing\api\ticket\TicketController.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Ticketing\api\ticket\TicketRepository.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Ticketing\api\ticket\TicketService.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Ticketing\api\ticketpack\TicketPackController.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Ticketing\api\ticketpack\TicketPackRepository.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Ticketing\api\ticketpack\TicketPackService.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Ticketing\api\title\TitleRepository.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Ticketing\Card.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Ticketing\State\ActiveState.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Ticketing\State\ExpiredState.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Ticketing\State\TitleState.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Ticketing\State\UnusedState.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Ticketing\State\UsedState.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Ticketing\State\ValidatedState.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Ticketing\Ticket.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Ticketing\TicketPack.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Ticketing\Title.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Ticketing\TitleFactory.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Travel\api\trip\ActiveTripDTO.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Travel\api\trip\TripController.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Travel\api\trip\TripRepository.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Travel\api\trip\TripService.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Travel\api\vehicle\VehicleController.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Travel\api\vehicle\VehicleRepository.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Travel\api\vehicle\VehicleService.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Travel\api\vehicle\VehicleSimulationController.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Travel\api\vehicle\VehicleSimulationService.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Travel\api\vehicle\VehicleSimulationSnapshotDTO.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Travel\Trip.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Travel\Vehicle.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Travel\VehicleType.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\UserManagement\api\auth\AuthController.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\UserManagement\api\auth\AuthenticatedUserDTO.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\UserManagement\api\auth\AuthRequest.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\UserManagement\api\auth\AuthResponse.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\UserManagement\api\auth\AuthService.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\UserManagement\api\user\GlobalExceptionHandler.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\UserManagement\api\user\UserController.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\UserManagement\api\user\UserNotFoundException.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\UserManagement\api\user\UserNotificationRepository.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\UserManagement\api\user\UserRepository.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\UserManagement\api\user\UserService.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\UserManagement\notification\NotificationCacheService.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\UserManagement\notification\NotificationRetentionService.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\UserManagement\Observer.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\UserManagement\User.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\UserManagement\UserNotification.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\ValidationManager\api\checkin\CheckInController.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\ValidationManager\api\checkin\CheckInRequestDTO.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\ValidationManager\api\checkin\CheckInResponseDTO.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\ValidationManager\api\checkin\CheckInService.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\ValidationManager\api\validationrecord\ValidationRecordController.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\ValidationManager\api\validationrecord\ValidationRecordRepository.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\ValidationManager\api\validationrecord\ValidationRecordService.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\ValidationManager\QRCodeValidation.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\ValidationManager\ValidationRecord.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\ValidationManager\ValidationStrategy.java
