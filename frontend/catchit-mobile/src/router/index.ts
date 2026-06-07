@@ -105,6 +105,15 @@ const router = createRouter({
       path: '/:pathMatch(.*)*',
       redirect: '/',
     },
+
+    {
+      path: '/history',
+      name: 'history',
+      component: () => import('../views/HistoryView.vue'),
+      meta: { requiresAuth: true },
+
+    }
+    
   ],
 })
 
@@ -120,5 +129,8 @@ router.beforeEach((to, from, next) => {
     next()
   }
 })
+
+
+
 
 export default router

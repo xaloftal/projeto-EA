@@ -458,7 +458,7 @@ export class CatchItApiClient {
   }
 
 
-  
+
 
   async logout(): Promise<ApiResponse<void>> {
     return requestJson<void>('/api/auth/logout', { method: 'POST' })
@@ -486,6 +486,12 @@ export class CatchItApiClient {
     return requestJson<void>(`/api/users/${userId}/notifications/${notificationId}`, {
       method: 'DELETE',
     })
+  }
+
+  public async getUserHistory(userId: string): Promise<ApiResponse<any[]>> {
+    return await requestJson<any[]>(`/api/exitrecords/user/${userId}`, {
+      method: 'GET'
+    });
   }
 
   async updateUserProfile(userId: string, updates: Partial<User>): Promise<ApiResponse<User>> {

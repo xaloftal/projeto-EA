@@ -15,6 +15,11 @@ public class ExitRecordService {
         this.repository = repository;
     }
 
+    public List<ExitRecord> findHistoryByUserId(String userId) {
+        UUID userUuid = UUID.fromString(userId);
+        return repository.findHistoryByUserId(userUuid);
+    }
+
     public List<ExitRecord> findAll() {
         return repository.findAll();
     }

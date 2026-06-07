@@ -3,6 +3,8 @@ package PSM.ExitManager.api.exitrecord;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -17,10 +19,19 @@ import PSM.ExitManager.ExitRecord;
 @RestController
 @RequestMapping("/api/exitrecords")
 public class ExitRecordController {
+
     private final ExitRecordService service;
+    @Autowired
+    private ExitRecordRepository exitRecordRepository;
 
     public ExitRecordController(ExitRecordService service) {
         this.service = service;
+    }
+
+    @GetMapping("/user/{userId}")
+    public ResponseEntity<List<ExitRecord>> getUserHistory(@PathVariable UUID userId) {
+        List<ExitRecord> history = exitRecordRepository.findHistoryByUserId(userId);
+        return ResponseEntity.ok(history);
     }
 
     @GetMapping
