@@ -395,7 +395,20 @@ export function useTransportViewModel(titleId?: string) {
   }
 
   const loadActiveTrips = async () => {
-}
+    isLoadingTrips.value = true
+    try {
+      const response = await catchitApi.getActiveTrips()
+      if (response.success && response.data) {
+        activeTrips.value = response.data.map((t) => ({
+          id: t.id,
+          routeName: t.routeName ?? 'Unknown route',
+          startTime: formatTime(t.startTime),
+        }))
+      }
+    } finally {
+      isLoadingTrips.value = false
+    }
+  }
 
   const handleCheckIn = async () => {
     if (!selectedTripId.value) return
