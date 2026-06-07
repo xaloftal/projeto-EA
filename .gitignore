@@ -17,3 +17,9 @@ tmp
 *.osm.pbf
 
 target/
+
+.vscode/
+.idea/
+.github/
+.ini
+*.ini

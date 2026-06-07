@@ -10,8 +10,10 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import PSM.Location.api.route.RouteStopDTO;
 import PSM.Travel.Trip;
 
 @RestController
@@ -55,6 +57,13 @@ public class TripController {
                 );
             })
             .toList();
+    }
+
+   @GetMapping("/{id}/stops")
+    public List<RouteStopDTO> getTripStops(
+        @PathVariable UUID id,
+        @RequestParam(required = false) UUID currentStopId) {
+        return service.findTripStops(id, currentStopId);
     }
 
     @PostMapping

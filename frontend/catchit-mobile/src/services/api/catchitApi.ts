@@ -130,6 +130,8 @@ type BackendStopRouteArrival = {
   routeId: string
   routeName?: string | null
   nextArrivalAt: string
+  firstStopName?: string | null
+  lastStopName?: string | null
 }
 
 export type BackendVehicleSimulationSnapshot = {
@@ -144,6 +146,8 @@ export type BackendVehicleSimulationSnapshot = {
   nextStopName: string
   progress: number
   updatedAt: string
+  vehicleType: string
+  tripId?: string | null
 }
 
 type BackendRouteSearchResult = {
@@ -509,7 +513,7 @@ export class CatchItApiClient {
     return { success: true, data: mapUser(response.data) }
   };
 
-async getUserTickets(userId: string): Promise<ApiResponse<Ticket[]>> {
+  async getUserTickets(userId: string): Promise<ApiResponse<Ticket[]>> {
     try {
       const response = await requestJson<any[]>(`/api/tickets/user/${userId}`)
       if (!response.success || !response.data) {
@@ -538,7 +542,7 @@ async getUserTickets(userId: string): Promise<ApiResponse<Ticket[]>> {
   async getTicketQrCode(ticketId: string): Promise<string> {
     const viteEnv = (import.meta as any).env ?? {}
     const apiBaseUrl = (viteEnv.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
-    
+
     // Retorna diretamente o URL do endpoint que cospe a imagem PNG do QR Code
     return `${apiBaseUrl}/api/tickets/${ticketId}/qrcode`
   }
@@ -765,6 +769,10 @@ async getUserTickets(userId: string): Promise<ApiResponse<Ticket[]>> {
     return { success: true, data: response.data }
   }
 
+  async getRouteStops(routeId: string): Promise<ApiResponse<Array<{ stopId: string; stopName: string; sequence: number; arrivalTime: string }>>> {
+    return requestJson(`/api/routes/${routeId}/stops`)
+  }
+
   async getVehicleSimulation(): Promise<ApiResponse<BackendVehicleSimulationSnapshot[]>> {
     const response = await requestJson<BackendVehicleSimulationSnapshot[]>('/api/vehicles/simulation')
     if (!response.success || !response.data) return { success: false, error: response.error }
@@ -975,6 +983,18 @@ async getUserTickets(userId: string): Promise<ApiResponse<Ticket[]>> {
       toLon: String(request.toLon),
     })
     return requestJson<RoutingPlanResponse>(`/api/routing/plan?${params.toString()}`)
+  }
+
+  async getTripStops(tripId: string, currentStopId: string): Promise<ApiResponse<Array<{ stopId: string; stopName: string; sequence: number; arrivalTime: string }>>> {
+    return requestJson(`/api/trips/${tripId}/stops?currentStopId=${currentStopId}`)
+  }
+
+  async getStop(stopId: string): Promise<ApiResponse<{ id: string; name: string; zone?: { name: string } }>> {
+    return requestJson(`/api/stops/${stopId}`)
+  }
+
+  async getStopZone(stopId: string): Promise<ApiResponse<string>> {
+    return requestJson(`/api/stops/${stopId}/zone`)
   }
 }
 

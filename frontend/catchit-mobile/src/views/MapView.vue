@@ -1,6 +1,10 @@
 <template>
   <div class="search-container" :style="containerStyle">
     <div ref="mapContainer" class="map" :style="mapStyle"></div>
+    <div class="map-attribution">
+      <a href="https://leafletjs.com" target="_blank">Leaflet</a> | 
+      © <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors
+    </div>
 
     <header ref="topOverlayRef" class="app-header map-search-header">
       <div class="map-toolbar">
@@ -97,13 +101,11 @@
           >
             <Star :size="20" :fill="isStopPOI ? 'currentColor' : 'none'" />
           </button>
-          <span class="provider-badge">{{ selectedStop.stopType || 'STOP' }}</span>
+          <span class="provider-badge">{{ selectedStop.stopType ? selectedStop.stopType + ' STOP' : 'STOP' }}</span>
         </div>
       </div>
 
       <template v-if="sheetMode === 'stop' && selectedStop">
-        <p class="line-name">{{ selectedStop.stopType || 'STOP' }} stop information</p>
-        <p class="ids-line">Stop Code: {{ selectedStop.code }}</p>
         <p class="next-stop">Next arrival: {{ nextArrivalLabel }}</p>
 
         <h3 class="route-title">Routes at this stop</h3>
@@ -112,7 +114,12 @@
           :key="route.routeId"
           class="route-item"
         >
-          <span>{{ route.lineLabel }}</span>
+          <div class="route-item-left">
+              <span class="route-label">{{ route.lineLabel }}</span>
+              <span class="route-direction" v-if="route.firstStopName && route.lastStopName">
+                {{ route.firstStopName }} → {{ route.lastStopName }}
+              </span>
+          </div>
           <span class="route-time">
             {{ route.nextTime }}
             <small class="route-eta">{{ route.etaLabel }}</small>
@@ -122,17 +129,43 @@
 
       <template v-else-if="sheetMode === 'bus' && selectedBus">
         <div class="sheet-header">
-          <h2>Bus {{ selectedBus.lineLabel }}</h2>
-          <span class="provider-badge">{{ selectedBus.lineLabel }}</span>
+          <div class="bus-header-left">
+            <h2>{{ selectedBus.lineLabel }}</h2>
+            <p class="bus-subtitle">
+              <MapPin class="icon-xs" />
+              Next Stop: {{ selectedBus.nextStopName }}
+              <Clock class="icon-xs" />
+              {{ busEta ?? selectedBus.etaLabel }}
+            </p>
+          </div>
+          <span class="provider-badge">{{ selectedBus.vehicleType }}</span>
         </div>
 
-        <p class="line-name">{{ selectedBus.lineLabel }} information</p>
-        <p class="next-stop">Next Stop: {{ selectedBus.nextStopName }}</p>
+        <div class="bus-meta-row" v-if="busZone">
+          <span class="bus-zone">
+            <Star class="icon-xs" /> {{ busZone }}
+          </span>
+        </div>
 
-        <h3 class="route-title">Arrival Estimate</h3>
-        <div class="route-item">
-          <span>{{ selectedBus.nextStopName }}</span>
-          <span>{{ selectedBus.etaLabel }}</span>
+        <h3 class="route-title">Route</h3>
+        <div class="route-timeline">
+          <div
+            v-for="(stop, index) in routeStops"
+            :key="stop.stopId"
+            class="timeline-item"
+            :class="{ 'timeline-item--active': stop.stopName === selectedBus?.nextStopName }"
+          >
+            <div class="timeline-line" v-if="index > 0"></div>
+            <div class="timeline-dot" :class="{
+              'timeline-dot--active': stop.stopName === selectedBus.nextStopName,
+              'timeline-dot--passed': stop.sequence < (routeStops.find(s => s.stopName === selectedBus?.nextStopName)?.sequence ?? 0),
+              'timeline-dot--large': stop.sequence >= (routeStops.find(s => s.stopName === selectedBus?.nextStopName)?.sequence ?? 0) && stop.stopName !== selectedBus.nextStopName
+            }"></div>
+            <div class="timeline-content">
+              <span class="timeline-stop-name" :class="{ 'stop-passed': stop.sequence < (routeStops.find(s => s.stopName === selectedBus?.nextStopName)?.sequence ?? 0) }">{{ stop.stopName }}</span>
+            </div>
+            <span class="timeline-time">{{ stop.arrivalTime }}</span>
+          </div>
         </div>
       </template>
     </section>
@@ -149,7 +182,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onActivated, onMounted, onUnmounted, ref, watch } from 'vue'
-import { House, Map as MapIcon, Search, ShoppingCart, User, Ticket, Star, X } from 'lucide-vue-next'
+import { House, Map as MapIcon, Search, ShoppingCart, User, Ticket, Star } from 'lucide-vue-next'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { catchitApi, type BackendVehicleSimulationSnapshot } from '../services/api/catchitApi'
@@ -170,6 +203,8 @@ type BackendStopRouteArrival = {
   routeId: string
   routeName?: string | null
   nextArrivalAt: string
+  firstStopName?: string | null
+  lastStopName?: string | null
 }
 
 type StopRouteInfo = {
@@ -178,6 +213,8 @@ type StopRouteInfo = {
   nextArrivalAt: Date
   nextTime: string
   etaLabel: string
+  firstStopName: string | null
+  lastStopName: string | null
 }
 
 type ActiveBus = {
@@ -193,6 +230,8 @@ type ActiveBus = {
   progress: number
   etaLabel: string
   updatedAt: string
+  vehicleType: String
+  tripId: string | null
 }
 
 const mapContainer = ref<HTMLElement | null>(null)
@@ -219,6 +258,9 @@ const poiStops = ref<Set<string>>(new Set())
 const isLoadingPOI = ref(false)
 const stopRouteArrivals = ref<BackendStopRouteArrival[]>([])
 const { currentUser } = useAuthViewModel()
+const routeStops = ref<Array<{ stopId: string; stopName: string; sequence: number; arrivalTime: string }>>([])
+const busZone = ref<string | null>(null)
+const busEta = ref<string | null>(null)
 
 // ESTADOS DO FILTRO
 const showFilterModal = ref(false)
@@ -320,8 +362,10 @@ const stopRouteInfo = computed(() => {
         routeId: arrival.routeId,
         lineLabel: arrival.routeName?.trim() || arrival.routeId.slice(0, 8),
         nextArrivalAt,
-        nextTime: nextArrivalAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        nextTime: nextArrivalAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         etaLabel: formatCountdown(nextArrivalAt.getTime() - now.getTime()),
+        firstStopName: arrival.firstStopName ?? null,
+        lastStopName: arrival.lastStopName ?? null,
       }
     })
     .filter((entry): entry is StopRouteInfo => !!entry)
@@ -689,9 +733,11 @@ const mapSimulationSnapshotToBus = (snapshot: BackendVehicleSimulationSnapshot):
     previousStopName: snapshot.previousStopName,
     nextStopId: snapshot.nextStopId,
     nextStopName: snapshot.nextStopName,
-    etaLabel: formatCountdown((1 - progress) * 60000),
+    progress,
+    etaLabel: '',
     updatedAt: snapshot.updatedAt,
-    progress: progress
+    vehicleType: snapshot.vehicleType,
+    tripId: snapshot.tripId ? String(snapshot.tripId) : null,
   }
 }
 
@@ -753,9 +799,58 @@ watch(stopsToShow, () => { drawStopMarkers() }, { deep: true })
 // Redesenha os autocarros quando a lista filtrada de autocarros muda
 watch(activeBuses, () => { drawBusMarkers() }, { deep: true })
 
-watch(selectedBusId, () => { drawBusMarkers(); updateSelectedBusArrow() })
-watch(selectedStop, async () => { await nextTick(); measureSheetHeight() })
-watch(visibleSuggestions, async () => { await nextTick(); measureTopOverlayHeight() })
+watch(selectedBusId, async () => {
+  drawBusMarkers()
+  updateSelectedBusArrow()
+  busZone.value = null
+  routeStops.value = []
+  busEta.value = null
+
+  if (!selectedBus.value?.tripId) return
+  
+  const [tripResponse, stopResponse] = await Promise.all([
+    catchitApi.getTripStops(
+      selectedBus.value.tripId,
+      selectedBus.value.previousStopId
+    ),
+    selectedBus.value.previousStopId
+      ? catchitApi.getStopZone(selectedBus.value.previousStopId)
+      : Promise.resolve({ success: false, data: undefined })
+  ])
+
+  if (stopResponse.success && stopResponse.data) {
+    busZone.value = stopResponse.data
+  }
+
+  if (tripResponse.success && tripResponse.data) {
+    routeStops.value = tripResponse.data.sort((a, b) => a.sequence - b.sequence)
+
+    const nextStop = tripResponse.data.find(s => s.stopName === selectedBus.value?.nextStopName)
+    if (nextStop?.arrivalTime) {
+      const now = new Date()
+      const [hours, minutes] = nextStop.arrivalTime.split(':').map(Number)
+      const arrivalTime = new Date()
+      arrivalTime.setHours(hours, minutes, 0, 0)
+      const diffMs = arrivalTime.getTime() - now.getTime()
+      const diffMinutes = Math.ceil(diffMs / 60000)
+      if (diffMinutes > 0) {
+        busEta.value = `in ${diffMinutes}m`
+      } else {
+        busEta.value = 'arriving'
+      }
+    }
+  }
+})
+
+watch(selectedStop, async () => {
+  await nextTick()
+  measureSheetHeight()
+})
+
+watch(visibleSuggestions, async () => {
+  await nextTick()
+  measureTopOverlayHeight()
+})
 
 onMounted(async () => {
   await nextTick()
@@ -769,7 +864,7 @@ onMounted(async () => {
     attribution: '&copy; OpenStreetMap contributors',
   }).addTo(map)
 
-  L.control.zoom({ position: 'bottomleft' }).addTo(map)
+  L.control.zoom({ position: 'topright' }).addTo(map)
 
   stopMarkersLayer = L.layerGroup().addTo(map)
   busMarkersLayer = L.layerGroup().addTo(map)
@@ -1073,6 +1168,7 @@ onUnmounted(() => {
   transition: color 0.2s ease;
   padding: 0;
 }
+
 .poi-btn:hover { color: #fbbf24; }
 .poi-btn.is-added { color: #fbbf24; }
 .poi-btn:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -1085,12 +1181,56 @@ onUnmounted(() => {
 .route-item { display: flex; justify-content: space-between; align-items: center; padding: 0.45rem 0; color: #111827; }
 .route-time { display: inline-flex; flex-direction: column; align-items: flex-end; line-height: 1.1; }
 .route-eta { margin-top: 0.2rem; color: #6b7280; font-size: 0.72rem; font-weight: 600; }
+.route-item-light { color: #4b5563; }
 
+.bus-header-left { display: flex; flex-direction: column; gap: 0.2rem; }
+.bus-subtitle { margin: 0; color: #6b7280; font-size: 0.88rem; display: flex; align-items: center; gap: 0.3rem; }
+.bus-meta-row { display: flex; align-items: center; gap: 0.75rem; margin: 0.4rem 0 0.2rem; }
+.bus-zone { display: flex; align-items: center; gap: 0.25rem; font-size: 0.85rem; color: #6b7280; }
+
+.route-timeline { display: flex; flex-direction: column; padding-left: 0.25rem; gap: 0; }
+.timeline-item { display: flex; align-items: center; gap: 0.75rem; position: relative; padding: 0.35rem 0; justify-content: space-between; }
+.timeline-line { position: absolute; left: 5px; top: -0.35rem; bottom: 0.6rem; width: 2px; background: #d1d5db; }
+.timeline-dot { width: 12px; height: 12px; border-radius: 50%; border: 2px solid #d1d5db; background: white; flex-shrink: 0; margin-top: 3px; z-index: 1; }
+.timeline-dot--large { width: 14px; height: 14px; border-color: #9ca3af; }
+.timeline-dot--active { border-color: var(--color-brand); background: var(--color-brand); }
+.timeline-content { flex: 1; display: flex; flex-direction: column; gap: 0.1rem; }
+.timeline-stop-name { font-size: 0.9rem; color: #111827; font-weight: 500; }
+.timeline-eta { font-size: 0.78rem; color: #6b7280; }
+.timeline-time { font-size: 0.85rem; color: #6b7280; white-space: nowrap; }
+.timeline-dot--passed { border-color: #9ca3af; background: #9ca3af; }
+.stop-passed { color: #9ca3af; }
+
+.route-item-left { display: flex; flex-direction: column; gap: 0.2rem; }
+.route-label { font-weight: 700; color: #111827; }
+.route-direction { font-size: 0.78rem; color: #6b7280; }
+
+.map-attribution { position: absolute; top: calc(var(--header-height) + 0.25rem); right: 0.5rem; z-index: 700; font-size: 0.7rem; color: #333; background: rgba(255, 255, 255, 0.8); padding: 2px 5px; border-radius: 4px; }
+.map-attribution a { color: #0078a8; text-decoration: none; }
 .bottom-nav { position: absolute; left: 0; right: 0; bottom: 0; z-index: 800; }
-.nav-item { padding: 0.75rem; }
-.nav-item.active { color: var(--color-brand); }
-.icon-sm { width: 1rem; height: 1rem; }
+.nav-item {
+  padding: 0.75rem;
+}
+
+.nav-item.active {
+  color: var(--color-brand);
+}
+
+.icon-sm {
+  width: 1rem;
+  height: 1rem;
+}
+
+
 
 :global(.leaflet-bottom) { bottom: var(--leaflet-controls-bottom, 88px); }
 :global(.leaflet-bottom .leaflet-control) { margin-bottom: -40px; }
+
+:global(.leaflet-control-attribution) {
+  display: none;
+}
+
+:global(.leaflet-top.leaflet-right) {
+  top: 1rem;
+}
 </style>
