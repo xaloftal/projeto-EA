@@ -123,7 +123,19 @@ public class RouteService {
             }
 
             if (nextArrivalAt != null) {
-                arrivals.add(new StopRouteArrivalDTO(route.getId(), route.getName(), nextArrivalAt));
+                String firstStop = route.routeStops.isEmpty() ? null : 
+                    route.routeStops.stream()
+                        .min(Comparator.comparingInt(RouteStop::getSequence))
+                        .map(rs -> rs.getStop().getName())
+                        .orElse(null);
+                
+                String lastStop = route.routeStops.isEmpty() ? null :
+                    route.routeStops.stream()
+                        .max(Comparator.comparingInt(RouteStop::getSequence))
+                        .map(rs -> rs.getStop().getName())
+                        .orElse(null);
+
+                arrivals.add(new StopRouteArrivalDTO(route.getId(), route.getName(), nextArrivalAt, firstStop, lastStop));
             }
         }
 
@@ -237,23 +249,32 @@ public class RouteService {
 
     // Gets all the stops from a route (used to show the stops of a vehicle in the map view)
     public List<RouteStopDTO> findRouteStops(UUID routeId) {
-       Route route = findById(routeId);
+        Route route = findById(routeId);
+        LocalTime now = LocalTime.now(APP_TIMEZONE);
+        
         return route.schedules.stream()
-            .sorted(Comparator.comparingInt(StopSchedule::getSequence))
             .filter(s -> s.stop != null)
             .collect(Collectors.toMap(
                 s -> s.stop.getId(),
-                s -> new RouteStopDTO(
-                    s.stop.getId().toString(),
-                    s.stop.getName(),
-                    s.getSequence(),
-                    s.getArrivalTime() != null ? s.getArrivalTime().toLocalTime().format(DateTimeFormatter.ofPattern("HH:mm")) : "--"
-                ),
-                (existing, replacement) -> existing,
+                s -> s,
+                (existing, replacement) -> {
+                    LocalTime existingTime = scheduleTime(existing);
+                    LocalTime replacementTime = scheduleTime(replacement);
+                    if (existingTime == null) return replacement;
+                    if (replacementTime == null) return existing;
+                    return existingTime.isBefore(replacementTime) ? existing : replacement;
+                },
                 java.util.LinkedHashMap::new
             ))
             .values()
             .stream()
+            .sorted(Comparator.comparingInt(StopSchedule::getSequence))
+            .map(s -> new RouteStopDTO(
+                s.stop.getId().toString(),
+                s.stop.getName(),
+                s.getSequence(),
+                s.getArrivalTime() != null ? s.getArrivalTime().toLocalTime().format(DateTimeFormatter.ofPattern("HH:mm")) : "--"
+            ))
             .toList();
-        }
+    }
 }

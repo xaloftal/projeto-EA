@@ -129,6 +129,8 @@ type BackendStopRouteArrival = {
   routeId: string
   routeName?: string | null
   nextArrivalAt: string
+  firstStopName?: string | null
+  lastStopName?: string | null
 }
 
 export type BackendVehicleSimulationSnapshot = {
@@ -144,6 +146,7 @@ export type BackendVehicleSimulationSnapshot = {
   progress: number
   updatedAt: string
   vehicleType: string
+  tripId?: string | null
 }
 
 type BackendRouteSearchResult = {
@@ -909,6 +912,18 @@ export class CatchItApiClient {
     const response = await requestJson<BackendStop[]>(`/api/users/${userId}/poi`)
     if (!response.success || !response.data) return { success: false, error: response.error }
     return { success: true, data: response.data.map(mapStop) }
+  }
+
+  async getTripStops(tripId: string, currentStopId: string): Promise<ApiResponse<Array<{ stopId: string; stopName: string; sequence: number; arrivalTime: string }>>> {
+    return requestJson(`/api/trips/${tripId}/stops?currentStopId=${currentStopId}`)
+  }
+
+  async getStop(stopId: string): Promise<ApiResponse<{ id: string; name: string; zone?: { name: string } }>> {
+    return requestJson(`/api/stops/${stopId}`)
+  }
+
+  async getStopZone(stopId: string): Promise<ApiResponse<string>> {
+    return requestJson(`/api/stops/${stopId}/zone`)
   }
 }
 

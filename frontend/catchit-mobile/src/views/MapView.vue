@@ -1,6 +1,10 @@
 <template>
   <div class="search-container" :style="containerStyle">
     <div ref="mapContainer" class="map" :style="mapStyle"></div>
+    <div class="map-attribution">
+      <a href="https://leafletjs.com" target="_blank">Leaflet</a> | 
+      © <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors
+    </div>
 
     <header ref="topOverlayRef" class="app-header map-search-header">
       <div class="map-toolbar">
@@ -60,13 +64,11 @@
           >
             <Star :size="20" :fill="isStopPOI ? 'currentColor' : 'none'" />
           </button>
-          <span class="provider-badge">{{ selectedStop.stopType || 'STOP' }}</span>
+          <span class="provider-badge">{{ selectedStop.stopType ? selectedStop.stopType + ' STOP' : 'STOP' }}</span>
         </div>
       </div>
 
       <template v-if="sheetMode === 'stop' && selectedStop">
-        <p class="line-name">{{ selectedStop.stopType || 'STOP' }} stop information</p>
-        <p class="ids-line">Stop Code: {{ selectedStop.code }}</p>
         <p class="next-stop">Next arrival: {{ nextArrivalLabel }}</p>
 
         <h3 class="route-title">Routes at this stop</h3>
@@ -75,7 +77,12 @@
           :key="route.routeId"
           class="route-item"
         >
-          <span>{{ route.lineLabel }}</span>
+          <div class="route-item-left">
+              <span class="route-label">{{ route.lineLabel }}</span>
+              <span class="route-direction" v-if="route.firstStopName && route.lastStopName">
+                {{ route.firstStopName }} → {{ route.lastStopName }}
+              </span>
+          </div>
           <span class="route-time">
             {{ route.nextTime }}
             <small class="route-eta">{{ route.etaLabel }}</small>
@@ -90,14 +97,16 @@
             <p class="bus-subtitle">
               <MapPin class="icon-xs" />
               Next Stop: {{ selectedBus.nextStopName }}
+              <Clock class="icon-xs" />
+              {{ busEta ?? selectedBus.etaLabel }}
             </p>
           </div>
           <span class="provider-badge">{{ selectedBus.vehicleType }}</span>
         </div>
 
-        <div class="bus-meta-row">
+        <div class="bus-meta-row" v-if="busZone">
           <span class="bus-zone">
-            <Star class="icon-xs" /> Coroa 1
+            <Star class="icon-xs" /> {{ busZone }}
           </span>
         </div>
 
@@ -136,7 +145,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onActivated, onMounted, onUnmounted, ref, watch } from 'vue'
-import { House, Map as MapIcon, Search, ShoppingCart, User, Ticket, Star, MapPin } from 'lucide-vue-next'
+import { House, Map as MapIcon, Search, ShoppingCart, User, Ticket, Star, MapPin, Clock } from 'lucide-vue-next'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { catchitApi, type BackendVehicleSimulationSnapshot } from '../services/api/catchitApi'
@@ -157,6 +166,8 @@ type BackendStopRouteArrival = {
   routeId: string
   routeName?: string | null
   nextArrivalAt: string
+  firstStopName?: string | null
+  lastStopName?: string | null
 }
 
 type StopRouteInfo = {
@@ -165,6 +176,8 @@ type StopRouteInfo = {
   nextArrivalAt: Date
   nextTime: string
   etaLabel: string
+  firstStopName: string | null
+  lastStopName: string | null
 }
 
 type ActiveBus = {
@@ -181,6 +194,7 @@ type ActiveBus = {
   etaLabel: string
   updatedAt: string
   vehicleType: String
+  tripId: string | null
 }
 
 const mapContainer = ref<HTMLElement | null>(null)
@@ -208,6 +222,8 @@ const isLoadingPOI = ref(false)
 const stopRouteArrivals = ref<BackendStopRouteArrival[]>([])
 const { currentUser } = useAuthViewModel()
 const routeStops = ref<Array<{ stopId: string; stopName: string; sequence: number; arrivalTime: string }>>([])
+const busZone = ref<string | null>(null)
+const busEta = ref<string | null>(null)
 
 let map: L.Map | null = null
 let stopMarkersLayer: L.LayerGroup | null = null
@@ -281,8 +297,10 @@ const stopRouteInfo = computed(() => {
         routeId: arrival.routeId,
         lineLabel: arrival.routeName?.trim() || arrival.routeId.slice(0, 8),
         nextArrivalAt,
-        nextTime: nextArrivalAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        nextTime: nextArrivalAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         etaLabel: formatCountdown(nextArrivalAt.getTime() - now.getTime()),
+        firstStopName: arrival.firstStopName ?? null,
+        lastStopName: arrival.lastStopName ?? null,
       }
     })
     .filter((entry): entry is StopRouteInfo => !!entry)
@@ -691,9 +709,10 @@ const mapSimulationSnapshotToBus = (snapshot: BackendVehicleSimulationSnapshot):
     nextStopId: snapshot.nextStopId,
     nextStopName: snapshot.nextStopName,
     progress,
-    etaLabel: `${Math.round(progress * 100)}% route`,
+    etaLabel: '',
     updatedAt: snapshot.updatedAt,
-    vehicleType: snapshot.vehicleType
+    vehicleType: snapshot.vehicleType,
+    tripId: snapshot.tripId ? String(snapshot.tripId) : null,
   }
 }
 
@@ -805,14 +824,43 @@ watch(
 watch(selectedBusId, async () => {
   drawBusMarkers()
   updateSelectedBusArrow()
+  busZone.value = null
+  routeStops.value = []
+  busEta.value = null
 
-  if (selectedBus.value?.routeId) {
-    const response = await catchitApi.getRouteStops(selectedBus.value.routeId)
-    if (response.success && response.data) {
-      routeStops.value = response.data.sort((a, b) => b.sequence - a.sequence)
+  if (!selectedBus.value?.tripId) return
+  
+  const [tripResponse, stopResponse] = await Promise.all([
+    catchitApi.getTripStops(
+      selectedBus.value.tripId,
+      selectedBus.value.previousStopId
+    ),
+    selectedBus.value.previousStopId
+      ? catchitApi.getStopZone(selectedBus.value.previousStopId)
+      : Promise.resolve({ success: false, data: undefined })
+  ])
+
+  if (stopResponse.success && stopResponse.data) {
+    busZone.value = stopResponse.data
+  }
+
+  if (tripResponse.success && tripResponse.data) {
+    routeStops.value = tripResponse.data.sort((a, b) => a.sequence - b.sequence)
+
+    const nextStop = tripResponse.data.find(s => s.stopName === selectedBus.value?.nextStopName)
+    if (nextStop?.arrivalTime) {
+      const now = new Date()
+      const [hours, minutes] = nextStop.arrivalTime.split(':').map(Number)
+      const arrivalTime = new Date()
+      arrivalTime.setHours(hours, minutes, 0, 0)
+      const diffMs = arrivalTime.getTime() - now.getTime()
+      const diffMinutes = Math.ceil(diffMs / 60000)
+      if (diffMinutes > 0) {
+        busEta.value = `in ${diffMinutes}m`
+      } else {
+        busEta.value = 'arriving'
+      }
     }
-  } else {
-    routeStops.value = []
   }
 })
 
@@ -842,7 +890,7 @@ onMounted(async () => {
     attribution: '&copy; OpenStreetMap contributors',
   }).addTo(map)
 
-  L.control.zoom({ position: 'bottomleft' }).addTo(map)
+  L.control.zoom({ position: 'topright' }).addTo(map)
 
   stopMarkersLayer = L.layerGroup().addTo(map)
   busMarkersLayer = L.layerGroup().addTo(map)
@@ -1294,11 +1342,52 @@ onUnmounted(() => {
   color: #9ca3af;
 }
 
+.route-item-left {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.route-label {
+  font-weight: 700;
+  color: #111827;
+}
+
+.route-direction {
+  font-size: 0.78rem;
+  color: #6b7280;
+}
+
+.map-attribution {
+  position: absolute;
+  top: calc(var(--header-height) + 0.25rem);
+  right: 0.5rem;
+  z-index: 700;
+  font-size: 0.7rem;
+  color: #333;
+  background: rgba(255, 255, 255, 0.8);
+  padding: 2px 5px;
+  border-radius: 4px;
+}
+
+.map-attribution a {
+  color: #0078a8;
+  text-decoration: none;
+}
+
 :global(.leaflet-bottom) {
   bottom: var(--leaflet-controls-bottom, 88px);
 }
 
 :global(.leaflet-bottom .leaflet-control) {
   margin-bottom: -40px;
+}
+
+:global(.leaflet-control-attribution) {
+  display: none;
+}
+
+:global(.leaflet-top.leaflet-right) {
+  top: 1rem;
 }
 </style>
