@@ -44,7 +44,16 @@ public class TripController {
                 return new ActiveTripDTO(
                     t.getId().toString(),
                     t.getStartTime().toString(),
-                    routeName
+                    routeName,
+                    t.getRoute().getSchedules().stream()
+                        .map(sch -> sch.getStop().getId().toString())
+                        .distinct()
+                        .toList(),
+                    t.getRoute().getSchedules().stream()
+                        .map(sch -> sch.getStop().getZone() != null ? sch.getStop().getZone().getName() : null)
+                        .filter(java.util.Objects::nonNull)
+                        .findFirst()
+                        .orElse(null)
                 );
             })
             .toList();

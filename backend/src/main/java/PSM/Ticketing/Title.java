@@ -1,12 +1,20 @@
 package PSM.Ticketing;
 
+import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import java.io.ByteArrayOutputStream;
+
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.zxing.BarcodeFormat;
+import com.google.zxing.client.j2se.MatrixToImageWriter;
+import com.google.zxing.common.BitMatrix;
+import com.google.zxing.qrcode.QRCodeWriter;
 
 import PSM.Ticketing.State.ActiveState;
 import PSM.Ticketing.State.ExpiredState;
@@ -19,6 +27,7 @@ import PSM.UserManagement.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.DiscriminatorColumn;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -26,16 +35,10 @@ import jakarta.persistence.Inheritance;
 import jakarta.persistence.InheritanceType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToMany;
-import jakarta.persistence.PostLoad;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.PostLoad;
 import jakarta.persistence.Table;
 import jakarta.persistence.Transient;
-
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.google.zxing.BarcodeFormat;
-import com.google.zxing.common.BitMatrix;
-import com.google.zxing.qrcode.QRCodeWriter;
-import com.google.zxing.client.j2se.MatrixToImageWriter;
 
 @Entity
 @Table(name = "title", schema = "catchit")
@@ -55,14 +58,19 @@ public abstract class Title {
 	private String stateName;
 
 	@Transient
+	@JsonIgnore
 	public TitleState status;
 
 	@ManyToMany
+	@JsonIgnore
 	public List<Trip> trips = new ArrayList<Trip>();
 
-	
 	@PostLoad
 	private void restoreState() {
+		if (this.stateName == null) {
+			this.status = new UnusedState();
+			return;
+		}
 		switch (this.stateName) {
 			case "UNUSED" -> this.status = new UnusedState();
 			case "ACTIVE" -> this.status = new ActiveState();
@@ -77,15 +85,30 @@ public abstract class Title {
 	@JsonIgnore
 	private User user;
 
-	public void activate() { throw new UnsupportedOperationException(); }
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "ticketpack_id")
+	@JsonBackReference
+	private TicketPack ticketPack;
 
-	public void renew() { throw new UnsupportedOperationException(); }
-	
-	public void expire() { throw new UnsupportedOperationException(); }
+	public void activate() {
+		throw new UnsupportedOperationException();
+	}
 
-	public void use() { throw new UnsupportedOperationException(); }
+	public void renew() {
+		throw new UnsupportedOperationException();
+	}
 
-	public boolean validate() { throw new UnsupportedOperationException(); }
+	public void expire() {
+		throw new UnsupportedOperationException();
+	}
+
+	public void use() {
+		throw new UnsupportedOperationException();
+	}
+
+	public boolean validate() {
+		throw new UnsupportedOperationException();
+	}
 
 	@JsonIgnore
 	public boolean isValid() {
@@ -158,6 +181,7 @@ public abstract class Title {
 		this.qrCode = _qrCode;
 	}
 
+	@JsonProperty("status")
 	public String getStateName() {
 		return this.stateName;
 	}
@@ -166,6 +190,7 @@ public abstract class Title {
 		this.stateName = stateName;
 	}
 
+	@JsonIgnore
 	public TitleState getStatus() {
 		return this.status;
 	}
@@ -188,6 +213,24 @@ public abstract class Title {
 
 	public void setUser(User _user) {
 		this.user = _user;
+	}
+
+	public TicketPack getTicketPack() { return ticketPack; }
+	public void setTicketPack(TicketPack ticketPack) { this.ticketPack = ticketPack; }
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o)
+			return true;
+		if (o == null || getClass() != o.getClass())
+			return false;
+		Title title = (Title) o;
+		return id != null && id.equals(title.id);
+	}
+
+	@Override
+	public int hashCode() {
+		return id != null ? id.hashCode() : 0;
 	}
 
 }

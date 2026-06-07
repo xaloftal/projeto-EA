@@ -13,3 +13,13 @@ tmp
 
 .vs_code
 
+*.zip
+*.osm.pbf
+
+target/
+
+.vscode/
+.idea/
+.github/
+.ini
+*.ini

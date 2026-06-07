@@ -1,9 +1,14 @@
 package PSM.Ticketing;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 import PSM.Location.Zone;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.Entity;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.DiscriminatorValue;
+
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 
 @Entity
 @DiscriminatorValue("card")

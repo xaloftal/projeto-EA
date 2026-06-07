@@ -195,16 +195,15 @@ public class VehicleSimulationService {
                 lastNotifiedStops.put(track.vehicleId(), previous.stopId());
 
                 try {
-                    logger.info("Simulador: Veículo {} [{}] chegou à paragem {}. Disparando notificação.", 
-                            track.vehicleId(), track.vehicleType(), previous.stopName());
+                    // logger.info("Simulador: Veículo {} [{}] chegou à paragem {}. Disparando notificação.", 
+                    //         track.vehicleId(), track.vehicleType(), previous.stopName());
                             
-                    // === CHAMADA AO SERVIÇO ATUALIZADA EXPLICITAMENTE COM O PARAMETRO VEHICLETYPE ===
                     this.vehicleService.arrive(
                         track.vehicleId(), 
                         previous.stopId(),
                         track.routeTrack().routeId(),
                         track.routeTrack().routeName(),
-                        track.vehicleType() // <--- Enviado de forma nativa e limpa aqui
+                        track.vehicleType()
                     );
                 } catch (Exception e) {
                     lastNotifiedStops.remove(track.vehicleId());
@@ -268,15 +267,15 @@ public class VehicleSimulationService {
             ));
         }
 
-        if (points.size() < 2) {
-            logger.warn("Route {} has only {} unique stops, skipping", route.getName(), points.size());
-            return null;
-        }
+        // if (points.size() < 2) {
+        //     logger.warn("Route {} has only {} unique stops, skipping", route.getName(), points.size());
+        //     return null;
+        // }
 
         long totalDurationSeconds = points.get(points.size() - 1).offsetSeconds();
 
-        logger.info("Route {} has {} unique stops, total duration {} seconds",
-                route.getName(), points.size(), totalDurationSeconds);
+        // logger.info("Route {} has {} unique stops, total duration {} seconds",
+        //         route.getName(), points.size(), totalDurationSeconds);
 
         return new RouteTrack(route.getId(), route.getName(), points, totalDurationSeconds);
     }
