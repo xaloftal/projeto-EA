@@ -88,13 +88,14 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, watch } from 'vue'
 import { ArrowLeft, House, Map, ShoppingCart, Ticket, User } from 'lucide-vue-next'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import RoutePlanner from '../components/RoutePlanner.vue'
 import { useTransportViewModel } from '../viewmodels'
 
 const route = useRoute()
+const router = useRouter()
 const titleId = route.params.titleId as string
 
 const transport = useTransportViewModel(titleId)
@@ -114,12 +115,17 @@ const {
   loadTitleInfo,
   loadActiveTrips,
   handleCheckIn,
-  handleCheckOut,
+  handleCheckOut
 } = transport
 
 onMounted(() => {
   void loadTitleInfo()
   void loadActiveTrips()
+})
+watch(() => checkOutMessage.value, (msg) => {
+  if (msg && msg.success) {
+    router.push('/home')
+  }
 })
 </script>
 

@@ -8,6 +8,7 @@ public class CartResponseDTO {
     private double subtotal;
     private double taxes;
     private double total;
+    private double discount;
 
     public List<CartItemDTO> getItems() {
         return items;
@@ -40,4 +41,6 @@ public class CartResponseDTO {
     public void setTotal(double total) {
         this.total = total;
     }
+    public double getDiscount() { return discount; }
+    public void setDiscount(double discount) { this.discount = discount; }
 }
