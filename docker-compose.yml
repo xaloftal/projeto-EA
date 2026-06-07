@@ -102,11 +102,11 @@ services:
     image: catchit-otp:local
     container_name: catchit-otp
     ports:
-      - "8080:8080"
+      - "8085:8080"
     restart: unless-stopped
     mem_limit: 16g
     healthcheck:
-      test: [ "CMD", "wget", "--spider", "-q", "http://localhost:8080/otp/actuators/health" ]
+      test: [ "CMD", "wget", "--spider", "-q", "http://localhost:8085/otp/actuators/health" ]
       interval: 30s
       timeout: 10s
       retries: 5

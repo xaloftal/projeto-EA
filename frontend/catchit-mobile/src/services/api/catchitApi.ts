@@ -283,8 +283,8 @@ const mapStop = (stop: BackendStop): Stop => ({
   stopType: stop.stopType,
 })
 
-const mapTicketStatus = (status?: string): TicketStatus => {
-  const normalized = (status ?? '').toUpperCase()
+const mapTicketStatus = (status?: any): TicketStatus => {
+  const normalized = String(status ?? '').toUpperCase()
   if (normalized.includes('VALID')) return TicketStatus.Valid
   if (normalized.includes('EXPIRED')) return TicketStatus.Expired
   if (normalized.includes('USED')) return TicketStatus.Used
