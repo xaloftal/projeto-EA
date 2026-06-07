@@ -1,6 +1,5 @@
 <template>
   <div class="home-container app-screen">
-    <!-- Header -->
     <header class="app-header">
       <h1>
         <img src="../assets/app-logo-wt.png" alt="CatchIt" class="logo" />
@@ -10,7 +9,6 @@
       </router-link>
     </header>
 
-    <!-- Tabs -->
     <div class="tabs">
       <button
         :class="['tab', { active: activeTab === 'cards' }]"
@@ -64,31 +62,32 @@
                 </div>
 
                 <div class="card-bottom">
-                  <router-link to="/cards" class="btn-primary card-action-btn">{{ currentCard ? 'Renew' : 'Buy Card' }}</router-link>
-                  <router-link v-if="currentCard" :to="`/checkin/${currentCard.id}`" class="btn-secondary card-action-btn">Check In</router-link>
-                  <div class="card-qr" @click="showQrModal = true" style="cursor: pointer;">
-                    <QrCode class="card-qr-icon" />
-                  </div>
+                  <router-link to="/cards" class="btn-primary card-action-btn">
+                    {{ currentCard ? 'Renew' : 'Buy Card' }}
+                  </router-link>
+                  <router-link v-if="currentCard" :to="`/checkin/${currentCard.id}`" class="btn-secondary card-action-btn">
+                    Check In
+                  </router-link>
                 </div>
               </template>
             </div>
           </div>
         </div>
 
-        <div class="swipe-pane">
+        <div class="swipe-pane" @scroll="onTicketsScroll">
           <div class="tab-content">
             <div v-if="isTicketsLoading" class="ticket-item ticket-skeleton">
               <LoaderCircle class="spinner-icon spinner-icon-dark" />
             </div>
 
             <template v-else>
-              <div v-if="tickets.length === 0" class="empty-state">
+              <div v-if="paginatedTickets.length === 0" class="empty-state">
                 <p><Ticket class="empty-icon" /> No tickets yet</p>
                 <router-link :to="{ path: '/cards', query: { tab: 'tickets' } }" class="btn-primary">Buy Tickets</router-link>
               </div>
 
               <div v-else>
-                <div v-for="ticket in tickets" :key="ticket.id" class="ticket-item">
+                <div v-for="ticket in paginatedTickets" :key="ticket.id" class="ticket-item">
                   <div class="ticket-header">
                     <h3>Ticket</h3>
                     <span class="status-badge" :class="ticket.status.toLowerCase()">
@@ -110,13 +109,16 @@
                     </div>
                   </div>
                   <router-link
-                    v-if="hasTicketStops(ticket)"
                     :to="getItineraryLink(ticket)"
                     class="btn-itinerary"
                   >
                     See suggested itinerary
                   </router-link>
+                </div>
 
+                <div v-if="hasMoreTickets" class="loading-more-indicator">
+                  <LoaderCircle class="spinner-icon-small" />
+                  <span>Loading more tickets...</span>
                 </div>
               </div>
             </template>
@@ -125,15 +127,6 @@
       </div>
     </div>
 
-    <!-- QR Modal -->
-    <div v-if="showQrModal" class="qr-modal" @click="showQrModal = false">
-      <div class="qr-modal-content">
-        <QrCode class="qr-modal-icon" />
-        <p>Tap to close</p>
-      </div>
-    </div>
-
-    <!-- Bottom Navigation -->
     <nav class="bottom-nav">
       <router-link to="/home" class="nav-item active">
         <House class="nav-icon" />
@@ -155,8 +148,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { Bell, House, MapPin, QrCode, Map, ShoppingCart, Ticket, User, LoaderCircle } from 'lucide-vue-next'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { Bell, House, MapPin, Map, ShoppingCart, Ticket, User, LoaderCircle } from 'lucide-vue-next'
 import ZoneCard from '../components/ZoneCard.vue'
 import { useTicketViewModel, useCardViewModel, currentUser } from '../viewmodels'
 import type { Ticket as UserTicket } from '../models'
@@ -167,16 +160,51 @@ const viewportWidth = ref(0)
 const touchStartX = ref(0)
 const currentDragX = ref(0)
 const isDragging = ref(false)
+
 const ticketViewModel = useTicketViewModel()
 const cardViewModel = useCardViewModel()
-const tickets = computed(() => ticketViewModel.tickets.value)
+
+const frozenTicketsList = ref<readonly UserTicket[]>([])
+
 const userCards = computed(() => cardViewModel.userCards.value)
 const currentCard = computed(() => userCards.value[0] ?? null)
 const currentUserName = computed(() => currentUser.value?.name ?? '')
+
 const isInitialLoad = ref(true)
 const isCardsLoading = computed(() => isInitialLoad.value || cardViewModel.isLoading.value)
 const isTicketsLoading = computed(() => isInitialLoad.value || ticketViewModel.isLoading.value)
-const showQrModal = ref(false)
+
+// --- ESTADOS DA PAGINAÇÃO ---
+const itemsPerPage = 10
+const visibleCount = ref(10)
+
+watch(() => ticketViewModel.tickets.value, (newTickets) => {
+  if (newTickets) {
+    frozenTicketsList.value = Object.freeze([...newTickets])
+    visibleCount.value = itemsPerPage
+  }
+}, { immediate: true })
+
+// Mapeia apenas o bloco atual de bilhetes permitidos para renderização (Lendo da lista leve congelada)
+const paginatedTickets = computed(() => {
+  return frozenTicketsList.value.slice(0, visibleCount.value)
+})
+
+// Verifica se ainda existem mais bilhetes escondidos por carregar
+const hasMoreTickets = computed(() => {
+  return visibleCount.value < frozenTicketsList.value.length
+})
+
+// Deteta quando o utilizador faz scroll até ao fundo do painel de bilhetes
+const onTicketsScroll = (event: Event) => {
+  const target = event.target as HTMLElement
+  const isAtBottom = target.scrollHeight - target.scrollTop <= target.clientHeight + 50
+  
+  if (isAtBottom && hasMoreTickets.value) {
+    visibleCount.value += itemsPerPage
+  }
+}
+// ----------------------------
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
 
@@ -258,6 +286,8 @@ const onTouchEnd = () => {
 onMounted(async () => {
   updateViewportWidth()
   window.addEventListener('resize', updateViewportWidth)
+  
+  // Executa os fetches assíncronos. O ticketViewModel usará o novo endpoint DTO leve
   await Promise.all([
     ticketViewModel.fetchUserTickets(),
     cardViewModel.fetchUserCards(),
@@ -293,25 +323,28 @@ const getTicketFromStop = (ticket: UserTicket) =>
 const getTicketToStop = (ticket: UserTicket) =>
   ticket.stopTo?.name ?? 'Route details unavailable'
 
-const hasTicketStops = (ticket: UserTicket) =>
-  !!ticket.stopFrom?.latitude &&
-  !!ticket.stopFrom?.longitude &&
-  !!ticket.stopTo?.latitude &&
-  !!ticket.stopTo?.longitude
-
-const getItineraryLink = (ticket: UserTicket) => ({
-  name: 'itinerary',
-  query: {
+const getItineraryLink = (ticket: UserTicket) => {
+  const query: Record<string, string> = {
     fromStopId: ticket.stopFrom.id,
     toStopId: ticket.stopTo.id,
-    fromLat: String(ticket.stopFrom.latitude),
-    fromLon: String(ticket.stopFrom.longitude),
-    toLat: String(ticket.stopTo.latitude),
-    toLon: String(ticket.stopTo.longitude),
     fromName: ticket.stopFrom.name,
     toName: ticket.stopTo.name,
-  },
-})
+  }
+
+  if (ticket.stopFrom.latitude && ticket.stopFrom.longitude) {
+    query.fromLat = String(ticket.stopFrom.latitude)
+    query.fromLon = String(ticket.stopFrom.longitude)
+  }
+  if (ticket.stopTo.latitude && ticket.stopTo.longitude) {
+    query.toLat = String(ticket.stopTo.latitude)
+    query.toLon = String(ticket.stopTo.longitude)
+  }
+
+  return {
+    name: 'itinerary',
+    query,
+  }
+}
 </script>
 
 <style scoped>
@@ -405,6 +438,12 @@ const getItineraryLink = (ticket: UserTicket) => ({
   justify-content: center;
 }
 
+.ticket-stops p {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
 .empty-state {
   display: flex;
   flex-direction: column;
@@ -434,18 +473,6 @@ const getItineraryLink = (ticket: UserTicket) => ({
   height: 1.4rem;
 }
 
-.ticket-stops p {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-}
-
-.qr-code {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
 .btn-checkin-small {
   padding: 0.35rem 0.75rem;
   background: var(--color-brand);
@@ -473,18 +500,6 @@ const getItineraryLink = (ticket: UserTicket) => ({
   font-weight: 600;
 }
 
-.ticket-qr-image {
-  width: 180px;
-  height: 180px;
-  object-fit: contain;
-  image-rendering: pixelated;
-}
-
-.qr-fallback {
-  color: #999;
-  font-size: 0.9rem;
-}
-
 .card-bottom {
   display: flex;
   flex-direction: column;
@@ -497,48 +512,6 @@ const getItineraryLink = (ticket: UserTicket) => ({
   display: inline-flex;
   align-items: center;
   justify-content: center;
-}
-
-.card-qr {
-  border-radius: 6px;
-  border: 1px solid #d4d4d8;
-  background: #ededed;
-  min-height: 220px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.9rem;
-}
-
-.card-qr-icon {
-  width: 10.5rem;
-  height: 10.5rem;
-  color: #0b0b0b;
-}
-
-.qr-modal {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.7);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-}
-
-.qr-modal-content {
-  background: white;
-  border-radius: 16px;
-  padding: 2rem;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1rem;
-}
-
-.qr-modal-icon {
-  width: 18rem;
-  height: 18rem;
 }
 
 .card-display {
@@ -624,7 +597,7 @@ const getItineraryLink = (ticket: UserTicket) => ({
 }
 
 .ticket-stops {
-  margin: 1rem 0;
+  margin: 0.5rem 0;
   padding: 0.75rem;
   background: #f9f9f9;
   border-radius: 6px;
@@ -648,6 +621,9 @@ const getItineraryLink = (ticket: UserTicket) => ({
 .ticket-stops p {
   margin: 0;
   font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
 }
 
 .btn-itinerary {
@@ -670,7 +646,12 @@ const getItineraryLink = (ticket: UserTicket) => ({
   font-size: 3rem;
   margin: 1rem 0;
 }
-
+.spinner-icon-small {
+  width: 1.25rem;
+  height: 1.25rem;
+  animation: spin 1s linear infinite;
+  color: #6b7280;
+}
 .bottom-nav {
   margin-top: auto;
 }

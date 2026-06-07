@@ -509,16 +509,38 @@ export class CatchItApiClient {
     return { success: true, data: mapUser(response.data) }
   };
 
-  async getUserTickets(userId: string): Promise<ApiResponse<Ticket[]>> {
+async getUserTickets(userId: string): Promise<ApiResponse<Ticket[]>> {
     try {
-      const response = await this.getUserProfile(userId)
-      if (response.success && response.data) {
-        return { success: true, data: response.data.tickets }
+      const response = await requestJson<any[]>(`/api/tickets/user/${userId}`)
+      if (!response.success || !response.data) {
+        return { success: false, error: response.error || 'Failed to get tickets' }
       }
-      return { success: false, error: response.error || 'Failed to get tickets' }
+
+      const mappedTickets: Ticket[] = response.data.map((dto) => ({
+        id: dto.id,
+        userID: userId,
+        createdAt: dto.createdAt ? new Date(dto.createdAt) : new Date(),
+        validFrom: dto.validFrom ? new Date(dto.validFrom) : new Date(),
+        validUntil: dto.validUntil ? new Date(dto.validUntil) : new Date(),
+        price: Number(dto.price ?? 0),
+        qrCode: '', // Vazio na listagem por motivos de performance!
+        status: mapTicketStatus(dto.status),
+        stopFrom: { id: dto.fromStopId, name: dto.fromStopName, latitude: 0, longitude: 0 },
+        stopTo: { id: dto.toStopId, name: dto.toStopName, latitude: 0, longitude: 0 },
+      }))
+
+      return { success: true, data: mappedTickets }
     } catch (e) {
       return { success: false, error: (e as Error).message }
     }
+  }
+
+  async getTicketQrCode(ticketId: string): Promise<string> {
+    const viteEnv = (import.meta as any).env ?? {}
+    const apiBaseUrl = (viteEnv.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
+    
+    // Retorna diretamente o URL do endpoint que cospe a imagem PNG do QR Code
+    return `${apiBaseUrl}/api/tickets/${ticketId}/qrcode`
   }
 
   async purchaseTickets(data: {
@@ -695,7 +717,6 @@ export class CatchItApiClient {
       return requestJson<GeoJSONFeatureCollection>(`/api/stops/geojson?routeId=${encodeURIComponent(routeId)}`);
     }
 
-    // SE NÃO HOUVER FILTRO: Mantém o comportamento original com cache
     if (!forceRefresh && cachedStopsGeoJson) {
       return { success: true, data: cachedStopsGeoJson }
     }
