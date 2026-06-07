@@ -35,42 +35,44 @@
       No route found between the selected stops. Try different stops or departure time.
     </q-banner>
 
-    <div v-if="routingStore.isLoading" class="route-planner__loading">
-      <q-spinner color="primary" size="42px" />
-      <p>Planning your trip...</p>
-    </div>
+    <div class="route-planner__content">
+      <div v-if="routingStore.isLoading" class="route-planner__loading-overlay">
+        <q-spinner color="primary" size="42px" />
+        <p>Planning your trip...</p>
+      </div>
 
-    <q-splitter
-      v-else-if="layout === 'split'"
-      v-model="splitterModel"
-      class="route-planner__splitter"
-      :limits="[28, 72]"
-    >
-      <template #before>
+      <q-splitter
+        v-if="layout === 'split'"
+        v-model="splitterModel"
+        class="route-planner__splitter"
+        :limits="[28, 72]"
+      >
+        <template #before>
+          <ItineraryPanel
+            v-if="hasPlan"
+            :plan="routingStore.currentPlan"
+            :from-label="fromLabel"
+            :to-label="toLabel"
+          />
+          <div v-else class="route-planner__placeholder">
+            <p>Select origin and destination, then plan your route.</p>
+          </div>
+        </template>
+        <template #after>
+          <div ref="mapContainer" class="route-planner__map" />
+        </template>
+      </q-splitter>
+
+      <div v-else class="route-planner__stacked">
+        <div ref="mapContainerStacked" class="route-planner__map route-planner__map--stacked" />
         <ItineraryPanel
           v-if="hasPlan"
           :plan="routingStore.currentPlan"
           :from-label="fromLabel"
           :to-label="toLabel"
+          class="route-planner__stacked-panel"
         />
-        <div v-else class="route-planner__placeholder">
-          <p>Select origin and destination, then plan your route.</p>
-        </div>
-      </template>
-      <template #after>
-        <div ref="mapContainer" class="route-planner__map" />
-      </template>
-    </q-splitter>
-
-    <div v-else class="route-planner__stacked">
-      <div ref="mapContainer" class="route-planner__map route-planner__map--stacked" />
-      <ItineraryPanel
-        v-if="hasPlan"
-        :plan="routingStore.currentPlan"
-        :from-label="fromLabel"
-        :to-label="toLabel"
-        class="route-planner__stacked-panel"
-      />
+      </div>
     </div>
   </div>
 </template>
@@ -114,6 +116,7 @@ const { currentPlan, currentError } = storeToRefs(routingStore)
 const fromStop = ref<Stop | null>(props.initialFromStop)
 const toStop = ref<Stop | null>(props.initialToStop)
 const mapContainer = ref<HTMLElement | null>(null)
+const mapContainerStacked = ref<HTMLElement | null>(null)
 const splitterModel = ref(42)
 
 const portoCenter: [number, number] = [41.1579, -8.6291]
@@ -176,9 +179,10 @@ const styleLegFeature = (feature: RoutingLegFeature): L.PathOptions => {
 
 const initMap = async () => {
   await nextTick()
-  if (!mapContainer.value || map) return
+  const activeContainer = props.layout === 'split' ? mapContainer.value : mapContainerStacked.value
+  if (!activeContainer || map) return
 
-  map = L.map(mapContainer.value, {
+  map = L.map(activeContainer, {
     zoomControl: true,
     minZoom: 10,
     maxZoom: 18,
@@ -227,10 +231,14 @@ const renderItineraryLayer = (plan: RoutingPlanResponse) => {
     style: (feature) => styleLegFeature(feature as RoutingLegFeature),
   }).addTo(map)
 
-  const bounds = itineraryLayer.getBounds()
-  if (bounds.isValid()) {
-    map.fitBounds(bounds, { padding: [40, 40] })
-  }
+  setTimeout(() => {
+    if (!map || !itineraryLayer) return
+    map.invalidateSize()
+    const bounds = itineraryLayer.getBounds()
+    if (bounds.isValid()) {
+      map.fitBounds(bounds, { padding: [40, 40] })
+    }
+  }, 150)
 }
 
 const planRoute = async () => {
@@ -336,14 +344,25 @@ onBeforeUnmount(() => {
   width: 100%;
 }
 
-.route-planner__loading {
+.route-planner__content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.route-planner__loading-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(255, 255, 255, 0.85);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 0.75rem;
-  padding: 2rem 1rem;
   color: #6b7280;
+  border-radius: 12px;
 }
 
 .route-planner__splitter {
