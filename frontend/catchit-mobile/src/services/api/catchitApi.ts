@@ -10,6 +10,7 @@ import type {
   User,
   Vehicle,
 } from '../../models'
+import type { RoutingPlanRequest, RoutingPlanResponse } from '../../types/routing'
 import { TicketStatus } from '../../models'
 import { requestJson, type ApiResponse } from './http'
 
@@ -282,8 +283,8 @@ const mapStop = (stop: BackendStop): Stop => ({
   stopType: stop.stopType,
 })
 
-const mapTicketStatus = (status?: string): TicketStatus => {
-  const normalized = (status ?? '').toUpperCase()
+const mapTicketStatus = (status?: any): TicketStatus => {
+  const normalized = String(status ?? '').toUpperCase()
   if (normalized.includes('VALID')) return TicketStatus.Valid
   if (normalized.includes('EXPIRED')) return TicketStatus.Expired
   if (normalized.includes('USED')) return TicketStatus.Used
@@ -964,6 +965,16 @@ async getUserTickets(userId: string): Promise<ApiResponse<Ticket[]>> {
     const response = await requestJson<BackendStop[]>(`/api/users/${userId}/poi`)
     if (!response.success || !response.data) return { success: false, error: response.error }
     return { success: true, data: response.data.map(mapStop) }
+  }
+
+  async planRoute(request: RoutingPlanRequest): Promise<ApiResponse<RoutingPlanResponse>> {
+    const params = new URLSearchParams({
+      fromLat: String(request.fromLat),
+      fromLon: String(request.fromLon),
+      toLat: String(request.toLat),
+      toLon: String(request.toLon),
+    })
+    return requestJson<RoutingPlanResponse>(`/api/routing/plan?${params.toString()}`)
   }
 }
 

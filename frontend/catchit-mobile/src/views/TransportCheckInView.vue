@@ -353,6 +353,12 @@ watch(() => checkOutMessage.value, (msg) => {
   margin: 0;
 }
 
+.route-planner-section {
+  min-height: 460px;
+  display: flex;
+  flex-direction: column;
+}
+
 .bottom-nav {
   margin-top: auto;
 }

@@ -17,6 +17,7 @@ C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\b
 C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\config\RedisConfig.java
 C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\config\RestExceptionHandler.java
 C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\config\SecurityConfig.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\config\WebSocketConfig.java
 C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\ExitManager\api\checkout\CheckOutController.java
 C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\ExitManager\api\checkout\CheckOutRequestDTO.java
 C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\ExitManager\api\checkout\CheckOutResponseDTO.java
@@ -56,6 +57,7 @@ C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\b
 C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Location\Subject.java
 C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Location\Zone.java
 C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Services\CheckOut\CheckOutService.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Services\OTP\OtpRoutingService.java
 C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Services\Payment\BalancePayment.java
 C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Services\Payment\PaymentAuthorizationRequestDTO.java
 C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\Services\Payment\PaymentAuthorizationResponseDTO.java
@@ -102,14 +104,14 @@ C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\b
 C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\UserManagement\api\auth\AuthRequest.java
 C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\UserManagement\api\auth\AuthResponse.java
 C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\UserManagement\api\auth\AuthService.java
-C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\UserManagement\api\user\GlobalExceptionHandler.java
 C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\UserManagement\api\user\UserController.java
-C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\UserManagement\api\user\UserNotFoundException.java
 C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\UserManagement\api\user\UserNotificationRepository.java
 C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\UserManagement\api\user\UserRepository.java
 C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\UserManagement\api\user\UserService.java
 C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\UserManagement\notification\NotificationCacheService.java
 C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\UserManagement\notification\NotificationRetentionService.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\UserManagement\notification\NotificationWebSocketController.java
+C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\UserManagement\notification\NotificationWebSocketService.java
 C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\UserManagement\Observer.java
 C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\UserManagement\User.java
 C:\Users\Diana\OneDrive\Ambiente de Trabalho\MEI\4ano\2semestre\PEA\projeto-EA\backend\src\main\java\PSM\UserManagement\UserNotification.java

@@ -48,6 +48,13 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
 
+    {
+      path: '/itinerary',
+      name: 'itinerary',
+      component: () => import('../views/ItineraryView.vue'),
+      meta: { requiresAuth: true },
+    },
+
     // ========== CARD ROUTES ==========
     {
       path: '/cards',

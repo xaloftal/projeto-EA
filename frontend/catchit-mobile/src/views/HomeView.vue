@@ -99,9 +99,21 @@
                   </div>
                   <p class="expiry">Expires on {{ formatDate(ticket.validUntil) }}</p>
                   <div class="ticket-stops">
-                    <p><MapPin class="icon-sm" /> {{ getTicketFromStop(ticket) }}</p>
-                    <p><MapPin class="icon-sm" /> {{ getTicketToStop(ticket) }}</p>
+                    <div class="ticket-stop-row">
+                      <span class="ticket-stop-label">From</span>
+                      <p><MapPin class="icon-sm" /> {{ getTicketFromStop(ticket) }}</p>
+                    </div>
+                    <div class="ticket-stop-row">
+                      <span class="ticket-stop-label">To</span>
+                      <p><MapPin class="icon-sm" /> {{ getTicketToStop(ticket) }}</p>
+                    </div>
                   </div>
+                  <router-link
+                    :to="getItineraryLink(ticket)"
+                    class="btn-itinerary"
+                  >
+                    See suggested itinerary
+                  </router-link>
                 </div>
 
                 <div v-if="hasMoreTickets" class="loading-more-indicator">
@@ -310,6 +322,29 @@ const getTicketFromStop = (ticket: UserTicket) =>
 
 const getTicketToStop = (ticket: UserTicket) =>
   ticket.stopTo?.name ?? 'Route details unavailable'
+
+const getItineraryLink = (ticket: UserTicket) => {
+  const query: Record<string, string> = {
+    fromStopId: ticket.stopFrom.id,
+    toStopId: ticket.stopTo.id,
+    fromName: ticket.stopFrom.name,
+    toName: ticket.stopTo.name,
+  }
+
+  if (ticket.stopFrom.latitude && ticket.stopFrom.longitude) {
+    query.fromLat = String(ticket.stopFrom.latitude)
+    query.fromLon = String(ticket.stopFrom.longitude)
+  }
+  if (ticket.stopTo.latitude && ticket.stopTo.longitude) {
+    query.toLat = String(ticket.stopTo.latitude)
+    query.toLon = String(ticket.stopTo.longitude)
+  }
+
+  return {
+    name: 'itinerary',
+    query,
+  }
+}
 </script>
 
 <style scoped>
@@ -401,6 +436,12 @@ const getTicketToStop = (ticket: UserTicket) =>
   display: flex;
   flex-direction: column;
   justify-content: center;
+}
+
+.ticket-stops p {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
 }
 
 .empty-state {
@@ -562,33 +603,55 @@ const getTicketToStop = (ticket: UserTicket) =>
   border-radius: 6px;
 }
 
+.ticket-stop-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin-bottom: 0.5rem;
+}
+
+.ticket-stop-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #9ca3af;
+}
+
 .ticket-stops p {
-  margin: 0.25rem 0;
+  margin: 0;
   font-size: 0.9rem;
   display: flex;
   align-items: center;
   gap: 0.35rem;
 }
 
-/* Elemento do Loader Inferior */
-.loading-more-indicator {
-  display: flex;
+.btn-itinerary {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
-  padding: 1rem 0;
-  color: #6b7280;
-  font-size: 0.9rem;
-  font-weight: 500;
+  width: 100%;
+  margin-top: 0.75rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 8px;
+  background: #111827;
+  color: white;
+  text-decoration: none;
+  font-size: 0.85rem;
+  font-weight: 600;
 }
 
+.qr-code {
+  text-align: center;
+  font-size: 3rem;
+  margin: 1rem 0;
+}
 .spinner-icon-small {
   width: 1.25rem;
   height: 1.25rem;
   animation: spin 1s linear infinite;
   color: #6b7280;
 }
-
 .bottom-nav {
   margin-top: auto;
 }

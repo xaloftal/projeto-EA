@@ -42,6 +42,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/routes/search").permitAll()
                         .requestMatchers("/api/routes/stop-arrivals").permitAll()
                         .requestMatchers("/api/vehicles/simulation").permitAll()
+                        .requestMatchers("/api/routing/plan").permitAll()
                         
                         // All other /api/** requests require authentication
                         .requestMatchers("/api/**").authenticated()
