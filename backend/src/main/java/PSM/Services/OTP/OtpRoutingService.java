@@ -86,7 +86,8 @@ public class OtpRoutingService {
 
     private JsonNode callOtp(double fromLat, double fromLon,
                              double toLat, double toLon) {
-        String date = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+        // GTFS data is from 2022-09-10 to 2022-12-31, so we hardcode the date to a valid weekday
+        String date = "2022-10-12"; // A valid Wednesday in the GTFS calendar
         String time = LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"));
 
         Map<String, Object> variables = Map.of(

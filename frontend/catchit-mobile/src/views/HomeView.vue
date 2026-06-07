@@ -116,15 +116,7 @@
                   >
                     See suggested itinerary
                   </router-link>
-                  <div class="qr-code">
-                    <img
-                      v-if="getQrCodeSrc(ticket.qrCode)"
-                      :src="getQrCodeSrc(ticket.qrCode)"
-                      alt="Ticket QR code"
-                      class="ticket-qr-image"
-                    />
-                    <span v-else class="qr-fallback">QR code unavailable</span>
-                  </div>
+
                 </div>
               </div>
             </template>
@@ -300,13 +292,6 @@ const getTicketFromStop = (ticket: UserTicket) =>
 
 const getTicketToStop = (ticket: UserTicket) =>
   ticket.stopTo?.name ?? 'Route details unavailable'
-
-const getQrCodeSrc = (qrCode: string) => {
-  if (!qrCode) return ''
-  if (qrCode.startsWith('data:image/')) return qrCode
-  if (qrCode.startsWith('http://') || qrCode.startsWith('https://')) return qrCode
-  return `data:image/png;base64,${qrCode}`
-}
 
 const hasTicketStops = (ticket: UserTicket) =>
   !!ticket.stopFrom?.latitude &&
