@@ -1,6 +1,11 @@
 import { ref, computed } from 'vue'
 import { catchitApi } from '../services/api/catchitApi'
 import type { User, Ticket, Card, CardTier, TravelCard, PaymentMethod, Stop, Vehicle, UserNotification } from '../models'
+import { requestJson } from 'src/services/api/http'
+
+const error = ref('')
+const isLoading = ref(false)
+const activeTrips = ref<any[]>([])
 
 export type RouteSearchResult = {
   routeId: string
@@ -343,7 +348,7 @@ export function useTravelViewModel() {
  * Encapsulates API interactions and state for the TransportCheckIn view
  */
 export function useTransportViewModel(titleId?: string) {
-  type TripOption = { id: string; routeName: string; startTime?: string }
+  type TripOption = { id: string; routeName: string; startTime?: string; stopIds?: string[]; zoneName?: string }
 
   const activeTrips = ref<TripOption[]>([])
   const selectedTripId = ref('')
@@ -354,6 +359,9 @@ export function useTransportViewModel(titleId?: string) {
   const errorMessage = ref('')
   const checkOutMessage = ref<{ success: boolean; text: string } | null>(null)
   const titleLabel = ref('Loading...')
+  const ticketFromStop = ref<Stop | null>(null)
+  const ticketToStop = ref<Stop | null>(null)
+  const isTicketTitle = ref(false)
 
   const formatTime = (date?: string) => (date ? new Date(date).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' }) : '')
 
@@ -362,10 +370,17 @@ export function useTransportViewModel(titleId?: string) {
     const localId = id ?? titleId
     if (!localId) return
 
+    ticketFromStop.value = null
+    ticketToStop.value = null
+    isTicketTitle.value = false
+
     const ticketsResponse = await catchitApi.getUserTickets(currentUser.value.id)
     const ticket = ticketsResponse.data?.find((t) => t.id === localId)
     if (ticket) {
       titleLabel.value = `🎟️ Ticket: ${ticket.stopFrom?.name ?? '?'} → ${ticket.stopTo?.name ?? '?'}`
+      ticketFromStop.value = ticket.stopFrom ?? null
+      ticketToStop.value = ticket.stopTo ?? null
+      isTicketTitle.value = true
       return
     }
 
@@ -434,6 +449,9 @@ export function useTransportViewModel(titleId?: string) {
     errorMessage,
     checkOutMessage,
     titleLabel,
+    ticketFromStop,
+    ticketToStop,
+    isTicketTitle,
     loadTitleInfo,
     loadActiveTrips,
     handleCheckIn,
@@ -596,36 +614,41 @@ export function useCheckoutViewModel() {
     }
   }
 
-  const confirmCheckout = async (paymentMethodId: string) => {
-    if (!currentUser.value) return null
-    if (!cartItems.value.length) {
-      error.value = 'Cart is empty'
-      return null
-    }
-
-    isLoading.value = true
-    error.value = ''
-    try {
-      const sessionId = await createCheckoutSession()
-      if (!sessionId) {
-        error.value = 'Unable to create checkout session'
-        return null
-      }
-
-      const response = await catchitApi.confirmCheckout({
-        sessionId,
-        paymentMethodId,
-      })
-      if (response.success && response.data) {
-        await fetchCart()
-        return response.data
-      }
-      error.value = response.error || 'Checkout failed'
-      return null
-    } finally {
-      isLoading.value = false
-    }
+  // Altera a assinatura para aceitar dois parâmetros: paymentMethodId e sessionId
+  const confirmCheckout = async (paymentMethodId: string, sessionId: string) => {
+  if (!currentUser.value) {
+    error.value = 'No authenticated user found'
+    return null
   }
+
+  isLoading.value = true
+  error.value = ''
+
+  try {
+    // Faz o POST para o teu CheckoutController do Backend
+    const response = await requestJson<{ orderId: string }>('/api/checkout/confirm', {
+      method: 'POST',
+      body: JSON.stringify({
+        paymentMethodId: paymentMethodId,
+        sessionId: sessionId, // <-- PASSAMOS AGORA O SESSÃO ID DO REDIS DAQUI
+      }),
+    })
+
+    if (response.success && response.data) {
+      // Limpa o carrinho local se o pagamento correu bem
+      cartItems.value = []
+      return response.data
+    }
+
+    error.value = response.error || 'Payment confirmation failed'
+    return null
+  } catch (err: any) {
+    error.value = err.message || 'An unexpected error occurred during confirmation'
+    return null
+  } finally {
+    isLoading.value = false
+  }
+}
 
   return {
     cartItems,

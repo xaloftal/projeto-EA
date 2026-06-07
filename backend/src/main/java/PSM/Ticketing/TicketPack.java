@@ -1,46 +1,37 @@
 package PSM.Ticketing;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
-import jakarta.persistence.*;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.Id;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "ticketpack", schema = "catchit")
 public class TicketPack {
-	@Id
-	@GeneratedValue(strategy= GenerationType.UUID)
-	private UUID id;
 
-	public BigDecimal discount;
+    @Id
+    private UUID id;
 
-	@OneToMany
-	@JoinColumn(name = "ticketpack_id")
-	public ArrayList<Ticket> pack = new ArrayList<Ticket>();
+    @Column(name = "discount", precision = 38, scale = 2)
+    private BigDecimal discount;
 
+    @OneToMany(mappedBy = "ticketPack", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<Title> titles;
 
-	public UUID getId() {
-		return this.id;
-	}
+    // Getters e Setters
+    public UUID getId() { return id; }
+    public void setId(UUID id) { this.id = id; }
 
-	private void setId(UUID _id) {
-		this.id = _id;
-	}
+    public BigDecimal getDiscount() { return discount; }
+    public void setDiscount(BigDecimal discount) { this.discount = discount; }
 
-	public BigDecimal getDiscount() {
-		return this.discount;
-	}
-
-	public void setDiscount(BigDecimal _discount) {
-		this.discount = _discount;
-	}
-
-	public ArrayList<Ticket> getPack() {
-		return this.pack;
-	}
-
-	public void setPack(ArrayList<Ticket> _pack) {
-		this.pack = _pack;
-	}
+    public List<Title> getTitles() { return titles; }
+    public void setTitles(List<Title> titles) { this.titles = titles; }
 }

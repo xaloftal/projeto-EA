@@ -1,7 +1,6 @@
 package PSM.UserManagement.notification;
 
 import java.time.Duration;
-import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -33,21 +32,23 @@ public class NotificationCacheService {
 		this.ttl = Duration.ofMinutes(Math.max(1, ttlMinutes));
 	}
 
-	public Optional<List<UserNotification>> get(UUID userId) {
+	public Optional<Set<UserNotification>> get(UUID userId) {
 		try {
 			String cached = redisTemplate.opsForValue().get(getKey(userId));
 			if (cached == null) {
 				return Optional.empty();
 			}
 
-			List<UserNotification> notifications = objectMapper.readValue(cached, new TypeReference<List<UserNotification>>() {});
+			Set<UserNotification> notifications = objectMapper.readValue(cached,
+					new TypeReference<Set<UserNotification>>() {
+					});
 			return Optional.of(notifications);
 		} catch (Exception e) {
 			return Optional.empty();
 		}
 	}
 
-	public void put(UUID userId, List<UserNotification> notifications) {
+	public void put(UUID userId, Set<UserNotification> notifications) {
 		try {
 			String payload = objectMapper.writeValueAsString(notifications);
 			redisTemplate.opsForValue().set(getKey(userId), payload, ttl);

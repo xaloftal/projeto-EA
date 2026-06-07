@@ -2,16 +2,22 @@
   <div class="profile-container app-screen">
     <!-- Header -->
     <header class="app-header">
-      <router-link to="/home" class="back-btn" aria-label="Back"><ArrowLeft class="icon-md" /></router-link>
+      <router-link to="/home" class="back-btn" aria-label="Back">
+        <ArrowLeft class="icon-md" />
+      </router-link>
       <h1>Profile</h1>
-      <router-link to="/profile/edit" class="edit-btn" aria-label="Edit Profile"><Pencil class="icon-md" /></router-link>
+      <router-link to="/profile/edit" class="edit-btn" aria-label="Edit Profile">
+        <Pencil class="icon-md" />
+      </router-link>
     </header>
 
     <div class="profile-content">
       <!-- Profile Card -->
       <div class="profile-card">
         <div class="profile-picture">
-          <div class="avatar"><User class="avatar-icon" /></div>
+          <div class="avatar">
+            <User class="avatar-icon" />
+          </div>
         </div>
         <h2>{{ ((profileViewModel.currentUser as any)?.value?.name) || 'User' }}</h2>
       </div>
@@ -19,19 +25,31 @@
       <!-- Menu Items -->
       <nav class="profile-menu">
         <a href="#" class="menu-item">
-          <span class="menu-icon"><Settings class="icon-md" /></span>
+          <span class="menu-icon">
+            <Settings class="icon-md" />
+          </span>
           <span>Account Setting</span>
-          <span class="chevron"><ChevronRight class="icon-sm" /></span>
+          <span class="chevron">
+            <ChevronRight class="icon-sm" />
+          </span>
         </a>
         <a href="#" class="menu-item">
-          <span class="menu-icon"><CircleHelp class="icon-md" /></span>
+          <span class="menu-icon">
+            <CircleHelp class="icon-md" />
+          </span>
           <span>Support</span>
-          <span class="chevron"><ChevronRight class="icon-sm" /></span>
+          <span class="chevron">
+            <ChevronRight class="icon-sm" />
+          </span>
         </a>
         <a href="#" class="menu-item" @click.prevent="togglePOIMenu">
-          <span class="menu-icon"><Star class="icon-md" /></span>
+          <span class="menu-icon">
+            <Star class="icon-md" />
+          </span>
           <span>Favorite Stops</span>
-          <span class="chevron" :style="{ transform: showPOIMenu ? 'rotate(90deg)' : 'rotate(0deg)' }"><ChevronRight class="icon-sm" /></span>
+          <span class="chevron" :style="{ transform: showPOIMenu ? 'rotate(90deg)' : 'rotate(0deg)' }">
+            <ChevronRight class="icon-sm" />
+          </span>
         </a>
         <div v-if="showPOIMenu" class="poi-submenu">
           <div v-if="poiList.length === 0" class="no-poi">
@@ -42,41 +60,57 @@
               <p class="poi-name">{{ stop.name }}</p>
               <small class="poi-type">{{ stop.stopType || 'STOP' }}</small>
             </div>
-            <button
-              class="poi-remove-btn"
-              @click.prevent="removeStopFromPOI(stop.id)"
-              :disabled="isLoadingRemove"
-              title="Remove from favorites"
-            >
+            <button class="poi-remove-btn" @click.prevent="removeStopFromPOI(stop.id)" :disabled="isLoadingRemove"
+              title="Remove from favorites">
               <X :size="18" />
             </button>
           </div>
         </div>
-        <a href="#" class="menu-item">
-          <span class="menu-icon"><Bus class="icon-md" /></span>
+        <router-link to="/history" class="menu-item">
+          <span class="menu-icon">
+            <Bus class="icon-md" />
+          </span>
           <span>Travel History</span>
-          <span class="chevron"><ChevronRight class="icon-sm" /></span>
-        </a>
+          <span class="chevron">
+            <ChevronRight class="icon-sm" />
+          </span>
+        </router-link>
         <router-link to="/schedule" class="menu-item">
-          <span class="menu-icon"><CalendarDays class="icon-md" /></span>
+          <span class="menu-icon">
+            <CalendarDays class="icon-md" />
+          </span>
           <span>Routes & Schedule</span>
-          <span class="chevron"><ChevronRight class="icon-sm" /></span>
+          <span class="chevron">
+            <ChevronRight class="icon-sm" />
+          </span>
         </router-link>
         <a href="#" class="menu-item">
-          <span class="menu-icon"><LogOut class="icon-md" /></span>
+          <span class="menu-icon">
+            <LogOut class="icon-md" />
+          </span>
           <span @click.prevent="handleLogout" class="logout-link">Logout</span>
-          <span class="chevron"><ChevronRight class="icon-sm" /></span>
+          <span class="chevron">
+            <ChevronRight class="icon-sm" />
+          </span>
         </a>
       </nav>
     </div>
 
     <!-- Bottom Navigation -->
     <nav class="bottom-nav">
-      <router-link to="/home" class="nav-item"><House class="nav-icon" /></router-link>
+      <router-link to="/home" class="nav-item">
+        <House class="nav-icon" />
+      </router-link>
       <router-link to="/map" class="nav-item"><Map class="nav-icon" /></router-link>
-      <router-link to="/cart" class="nav-item"><ShoppingCart class="nav-icon" /></router-link>
-      <router-link to="/cards" class="nav-item"><Ticket class="nav-icon" /></router-link>
-      <router-link to="/profile" class="nav-item active"><User class="nav-icon" /></router-link>
+      <router-link to="/cart" class="nav-item">
+        <ShoppingCart class="nav-icon" />
+      </router-link>
+      <router-link to="/cards" class="nav-item">
+        <Ticket class="nav-icon" />
+      </router-link>
+      <router-link to="/profile" class="nav-item active">
+        <User class="nav-icon" />
+      </router-link>
     </nav>
   </div>
 </template>

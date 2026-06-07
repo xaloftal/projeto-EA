@@ -17,7 +17,7 @@ import jakarta.persistence.*;
 @Table(name = "trip", schema = "catchit")
 public class Trip {
 	@Id
-	@GeneratedValue(strategy= GenerationType.UUID)
+	@GeneratedValue(strategy = GenerationType.UUID)
 	private UUID id;
 	private LocalDateTime startTime;
 	private LocalDateTime endTime;
@@ -31,10 +31,8 @@ public class Trip {
 	@ManyToOne
 	public Vehicle vehicle;
 
-	@ManyToOne(fetch = FetchType.EAGER)
+	@ManyToOne(fetch = FetchType.LAZY)
 	public Route route;
-
-
 
 	public void start() {
 		throw new UnsupportedOperationException();
@@ -51,10 +49,10 @@ public class Trip {
 	public Stop getCurrentStop() {
 		LocalDateTime now = LocalDateTime.now();
 		return route.schedules.stream()
-			.filter(schedule -> schedule.getDepartureTime().isBefore(now))
-			.max(Comparator.comparingInt(StopSchedule::getSequence))
-			.map(schedule -> schedule.stop)
-			.orElse(null);
+				.filter(schedule -> schedule.getDepartureTime().isBefore(now))
+				.max(Comparator.comparingInt(StopSchedule::getSequence))
+				.map(schedule -> schedule.stop)
+				.orElse(null);
 	}
 
 	public UUID getId() {

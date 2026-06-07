@@ -48,6 +48,13 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
 
+    {
+      path: '/itinerary',
+      name: 'itinerary',
+      component: () => import('../views/ItineraryView.vue'),
+      meta: { requiresAuth: true },
+    },
+
     // ========== CARD ROUTES ==========
     {
       path: '/cards',
@@ -105,6 +112,15 @@ const router = createRouter({
       path: '/:pathMatch(.*)*',
       redirect: '/',
     },
+
+    {
+      path: '/history',
+      name: 'history',
+      component: () => import('../views/HistoryView.vue'),
+      meta: { requiresAuth: true },
+
+    }
+    
   ],
 })
 
@@ -120,5 +136,8 @@ router.beforeEach((to, from, next) => {
     next()
   }
 })
+
+
+
 
 export default router

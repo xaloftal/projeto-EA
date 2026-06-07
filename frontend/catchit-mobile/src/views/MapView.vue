@@ -17,8 +17,9 @@
           />
         </div>
 
-        <button class="chip-btn">Filter</button>
-        <button class="chip-btn">Sort</button>
+        <button class="chip-btn" :class="{ 'active-filter': isFilterActive }" @click="openFilterModal">
+          Filter
+        </button>
         <p class="results-count">{{ resultCount }} results</p>
       </div>
 
@@ -36,6 +37,42 @@
         </li>
       </ul>
     </header>
+
+    <div v-if="showFilterModal" class="filter-backdrop" @click.self="closeFilterModal">
+      <div class="filter-modal">
+        <div class="filter-modal-header">
+          <h3>Filter Map</h3>
+          <button class="close-modal-btn" @click="closeFilterModal"><X :size="20" /></button>
+        </div>
+
+        <div class="filter-modal-body">
+          <div class="filter-group">
+            <label>Vehicle ID</label>
+            <select v-model="filterVehicleSelection" class="filter-select">
+              <option value="">All Vehicles (Show All)</option>
+              <option v-for="id in uniqueVehicleIds" :key="id" :value="id">
+                {{ id }}
+              </option>
+            </select>
+          </div>
+
+          <div class="filter-group">
+            <label>Route / Line</label>
+            <select v-model="filterRouteSelection" class="filter-select">
+              <option value="">All Routes (Show All)</option>
+              <option v-for="route in uniqueRoutesList" :key="route.id" :value="route.id">
+                {{ route.label }}
+              </option>
+            </select>
+          </div>
+        </div>
+
+        <div class="filter-modal-footer">
+          <button class="modal-btn-secondary" @click="clearFilters">Clear</button>
+          <button class="modal-btn-primary" @click="applyFilters">Apply Filter</button>
+        </div>
+      </div>
+    </div>
 
     <section
       v-if="stops.length > 0"
@@ -136,7 +173,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onActivated, onMounted, onUnmounted, ref, watch } from 'vue'
-import { House, Map as MapIcon, Search, ShoppingCart, User, Ticket, Star, MapPin } from 'lucide-vue-next'
+import { House, Map as MapIcon, Search, ShoppingCart, User, Ticket, Star, MapPin, X } from 'lucide-vue-next'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { catchitApi, type BackendVehicleSimulationSnapshot } from '../services/api/catchitApi'
@@ -209,6 +246,13 @@ const stopRouteArrivals = ref<BackendStopRouteArrival[]>([])
 const { currentUser } = useAuthViewModel()
 const routeStops = ref<Array<{ stopId: string; stopName: string; sequence: number; arrivalTime: string }>>([])
 
+// ESTADOS DO FILTRO
+const showFilterModal = ref(false)
+const filterVehicleSelection = ref('')
+const filterRouteSelection = ref('')
+const activeVehicleFilter = ref('')
+const activeRouteFilter = ref('')
+
 let map: L.Map | null = null
 let stopMarkersLayer: L.LayerGroup | null = null
 let busMarkersLayer: L.LayerGroup | null = null
@@ -218,7 +262,7 @@ let selectedBusDashAnimationId: number | null = null
 let selectedBusDashOffset = 0
 let tickIntervalId: number | null = null
 let clockIntervalId: number | null = null
-const stopMarkers = new Map<string, L.Marker>()
+const stopMarkers = new Map<string, L.CircleMarker>()
 const busMarkers = new Map<string, L.CircleMarker>()
 const portoCenter: [number, number] = [41.1579, -8.6291]
 const portugalNorthBounds = L.latLngBounds([40.5, -9.0], [42.0, -7.5])
@@ -232,16 +276,45 @@ const formatCountdown = (milliseconds: number) => {
   const hours = Math.floor(totalSeconds / 3600)
   const minutes = Math.floor((totalSeconds % 3600) / 60)
 
-  if (hours > 0) {
-    return `in ${hours}h ${minutes.toString().padStart(2, '0')}m`
-  }
-
-  if (minutes > 0) {
-    return `in ${minutes}m`
-  }
-
+  if (hours > 0) return `in ${hours}h ${minutes.toString().padStart(2, '0')}m`
+  if (minutes > 0) return `in ${minutes}m`
   return 'due now'
 }
+
+// Opções estáveis do dropdown de veículos
+const uniqueVehicleIds = computed(() => {
+  return Array.from(new Set(simulationBuses.value.map(b => b.busId))).sort()
+})
+
+// Opções estáveis do dropdown de rotas
+const uniqueRoutesList = computed(() => {
+  const routesMap = new Map<string, string>()
+  simulationBuses.value.forEach(b => {
+    routesMap.set(b.routeId, b.lineLabel)
+  })
+  return Array.from(routesMap.entries())
+    .map(([id, label]) => ({ id, label }))
+    .sort((a, b) => a.label.localeCompare(b.label))
+})
+
+const isFilterActive = computed(() => !!activeVehicleFilter.value || !!activeRouteFilter.value)
+
+const stopsToShow = computed(() => stops.value)
+
+// DETERMINA OS AUTOCARROS EXIBIDOS COM BASE NOS FILTROS
+const activeBuses = computed(() => {
+  let list = simulationBuses.value
+
+  if (activeRouteFilter.value) {
+    list = list.filter(b => b.routeId === activeRouteFilter.value)
+  }
+
+  if (activeVehicleFilter.value) {
+    list = list.filter(b => b.busId === activeVehicleFilter.value)
+  }
+
+  return list
+})
 
 const filteredStops = computed(() => {
   const query = stopQuery.value.trim().toLowerCase()
@@ -260,22 +333,14 @@ const isStopPOI = computed(() =>
 )
 
 const stopRouteInfo = computed(() => {
-  if (!selectedStop.value) {
-    return [] as StopRouteInfo[]
-  }
-
+  if (!selectedStop.value) return [] as StopRouteInfo[]
   const now = new Date(nowTick.value)
 
   return stopRouteArrivals.value
     .map((arrival) => {
       const nextArrivalAt = new Date(arrival.nextArrivalAt)
-      if (Number.isNaN(nextArrivalAt.getTime())) {
-        return null
-      }
-
-      if (nextArrivalAt.getTime() <= now.getTime()) {
-        return null
-      }
+      if (Number.isNaN(nextArrivalAt.getTime())) return null
+      if (nextArrivalAt.getTime() <= now.getTime()) return null
 
       return {
         routeId: arrival.routeId,
@@ -291,17 +356,12 @@ const stopRouteInfo = computed(() => {
 
 const nextArrivalLabel = computed(() => {
   const nextArrival = stopRouteInfo.value[0]
-  if (!nextArrival) {
-    return 'No upcoming arrivals'
-  }
-
+  if (!nextArrival) return 'No upcoming arrivals'
   return `${nextArrival.nextTime} (${nextArrival.etaLabel})`
 })
 
-const activeBuses = computed(() => simulationBuses.value)
-
 const selectedBus = computed(() =>
-  activeBuses.value.find((bus) => bus.busId === selectedBusId.value) ?? null
+  simulationBuses.value.find((bus) => bus.busId === selectedBusId.value) ?? null
 )
 
 const stopById = computed(() => {
@@ -313,7 +373,7 @@ const stopById = computed(() => {
 })
 
 const resultCount = computed(() =>
-  stopQuery.value.trim() ? filteredStops.value.length : stops.value.length
+  stopQuery.value.trim() ? filteredStops.value.length : stopsToShow.value.length
 )
 
 const visibleSuggestions = computed(() =>
@@ -323,17 +383,9 @@ const visibleSuggestions = computed(() =>
 const collapsedPeek = 88
 const minimumAnimatedSheetHeight = 300
 
-const effectiveSheetHeight = computed(() =>
-  Math.max(sheetHeight.value, minimumAnimatedSheetHeight)
-)
-
-const collapsedOffset = computed(() =>
-  Math.max(0, effectiveSheetHeight.value - collapsedPeek)
-)
-
-const settledOffset = computed(() =>
-  isSheetExpanded.value ? 0 : collapsedOffset.value
-)
+const effectiveSheetHeight = computed(() => Math.max(sheetHeight.value, minimumAnimatedSheetHeight))
+const collapsedOffset = computed(() => Math.max(0, effectiveSheetHeight.value - collapsedPeek))
+const settledOffset = computed(() => isSheetExpanded.value ? 0 : collapsedOffset.value)
 
 const bottomSheetOffset = computed(() => {
   if (!isDragging.value) return settledOffset.value
@@ -344,22 +396,10 @@ const bottomSheetStyle = computed(() => ({
   transform: `translateY(${bottomSheetOffset.value}px)`,
 }))
 
-const visibleSheetHeight = computed(() =>
-  Math.max(0, sheetHeight.value - bottomSheetOffset.value)
-)
-
-const leafletControlsBottom = computed(() =>
-  Math.max(68, 68 + visibleSheetHeight.value - 12)
-)
-
-const containerStyle = computed(() => ({
-  '--leaflet-controls-bottom': `${leafletControlsBottom.value}px`,
-}))
-
-const mapStyle = computed(() => ({
-  top: `${topOverlayHeight.value}px`,
-  bottom: '68px',
-}))
+const visibleSheetHeight = computed(() => Math.max(0, sheetHeight.value - bottomSheetOffset.value))
+const leafletControlsBottom = computed(() => Math.max(68, 68 + visibleSheetHeight.value - 12))
+const containerStyle = computed(() => ({ '--leaflet-controls-bottom': `${leafletControlsBottom.value}px` }))
+const mapStyle = computed(() => ({ top: `${topOverlayHeight.value}px`, bottom: '68px' }))
 
 const measureSheetHeight = () => {
   if (!bottomSheetRef.value) return
@@ -390,7 +430,6 @@ const stopDragging = () => {
   }
 
   isDragging.value = false
-
   window.removeEventListener('pointermove', onSheetPointerMove)
   window.removeEventListener('pointerup', stopDragging)
   window.removeEventListener('pointercancel', stopDragging)
@@ -398,7 +437,6 @@ const stopDragging = () => {
 
 const onSheetPointerDown = (event: PointerEvent) => {
   if (event.button !== 0) return
-
   isDragging.value = true
   dragStartY.value = event.clientY
   dragStartOffset.value = settledOffset.value
@@ -413,8 +451,6 @@ const openSheetWithAnimation = async () => {
   isSheetExpanded.value = false
   await nextTick()
   measureSheetHeight()
-
-  // Force one collapsed frame first, then expand on the next frame for a reliable slide-up transition.
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
       isSheetExpanded.value = true
@@ -422,30 +458,47 @@ const openSheetWithAnimation = async () => {
   })
 }
 
+const openFilterModal = () => {
+  filterVehicleSelection.value = activeVehicleFilter.value
+  filterRouteSelection.value = activeRouteFilter.value
+  showFilterModal.value = true
+}
 
+const closeFilterModal = () => {
+  showFilterModal.value = false
+}
+
+const applyFilters = () => {
+  activeVehicleFilter.value = filterVehicleSelection.value
+  activeRouteFilter.value = filterRouteSelection.value
+  void loadBackendStops() 
+  
+  closeFilterModal()
+}
+
+const clearFilters = () => {
+  filterVehicleSelection.value = ''
+  filterRouteSelection.value = ''
+  activeVehicleFilter.value = ''
+  activeRouteFilter.value = ''
+  void loadBackendStops()
+  
+  closeFilterModal()
+}
 
 const getBrandColor = () => {
   const fallbackColor = '#4f46e5'
   if (typeof window === 'undefined') return fallbackColor
-
-  const cssBrandColor = getComputedStyle(document.documentElement)
-    .getPropertyValue('--color-brand')
-    .trim()
-
-  return cssBrandColor || fallbackColor
+  return getComputedStyle(document.documentElement).getPropertyValue('--color-brand').trim() || fallbackColor
 }
 
 const getTransportTypeColor = (stopType?: string) => {
   const type = stopType?.toUpperCase()
   switch (type) {
-    case 'BUS':
-      return { color: '#0ea5e9', fillColor: '#0ea5e9', label: 'Bus' } // Azul
-    case 'TRAIN':
-      return { color: '#f97316', fillColor: '#f97316', label: 'Train' } // Laranja
-    case 'METRO':
-      return { color: '#ec4899', fillColor: '#ec4899', label: 'Metro' } // Rosa
-    default:
-      return { color: '#64748b', fillColor: '#64748b', label: 'Stop' } // Cinzento
+    case 'BUS': return { color: '#0ea5e9', fillColor: '#0ea5e9', label: 'Bus' }
+    case 'TRAIN': return { color: '#f97316', fillColor: '#f97316', label: 'Train' }
+    case 'METRO': return { color: '#ec4899', fillColor: '#ec4899', label: 'Metro' }
+    default: return { color: '#64748b', fillColor: '#64748b', label: 'Stop' }
   }
 }
 
@@ -462,23 +515,21 @@ const animateSelectedBusArrow = () => {
     stopSelectedBusArrowAnimation()
     return
   }
-
   selectedBusDashOffset = (selectedBusDashOffset + 0.30) % 100
   selectedBusDashLine.setStyle({ dashOffset: `${-selectedBusDashOffset}` })
   selectedBusDashAnimationId = requestAnimationFrame(animateSelectedBusArrow)
 }
 
 const startSelectedBusArrowAnimation = () => {
-  if (!selectedBusDashLine) return
-  if (selectedBusDashAnimationId !== null) return
-
+  if (!selectedBusDashLine || selectedBusDashAnimationId !== null) return
   selectedBusDashOffset = 0
   selectedBusDashAnimationId = requestAnimationFrame(animateSelectedBusArrow)
 }
 
 const updateSelectedBusArrow = () => {
-  if (!selectedBusArrowLayer) return
-
+  
+  if (!map || !selectedBusArrowLayer) return
+  
   selectedBusArrowLayer.clearLayers()
   selectedBusDashLine = null
 
@@ -498,30 +549,15 @@ const updateSelectedBusArrow = () => {
   const brandColor = getBrandColor()
 
   const glowLine = L.polyline([busPoint, stopPoint], {
-    color: brandColor,
-    weight: 10,
-    opacity: 0.2,
-    lineCap: 'round',
-    interactive: false,
+    color: brandColor, weight: 10, opacity: 0.2, lineCap: 'round', interactive: false,
   })
 
   const mainLine = L.polyline([busPoint, stopPoint], {
-    color: brandColor,
-    weight: 4,
-    opacity: 0.98,
-    dashArray: '10 9',
-    dashOffset: '0',
-    lineCap: 'round',
-    interactive: false,
+    color: brandColor, weight: 4, opacity: 0.98, dashArray: '10 9', dashOffset: '0', lineCap: 'round', interactive: false,
   })
 
   const destinationRing = L.circleMarker(stopPoint, {
-    radius: 8,
-    color: brandColor,
-    weight: 2,
-    fillColor: '#ffffff',
-    fillOpacity: 1,
-    interactive: false,
+    radius: 8, color: brandColor, weight: 2, fillColor: '#ffffff', fillOpacity: 1, interactive: false,
   })
 
   selectedBusArrowLayer.addLayer(glowLine)
@@ -533,41 +569,43 @@ const updateSelectedBusArrow = () => {
 }
 
 const drawStopMarkers = () => {
-  if (!map || !stopMarkersLayer || !rawGeoJson.value) return
-
-  stopMarkersLayer.clearLayers();
+  if (!map || !stopMarkersLayer) return
+  
+  stopMarkersLayer.clearLayers()
   stopMarkers.clear()
 
-  L.geoJSON(rawGeoJson.value, {
-    pointToLayer: (feature, latlng) => {
-      const isActive = feature.properties.id === selectedStopId.value
-      const typeColors = getTransportTypeColor(feature.properties.stopType)
-      const radius = isActive ? 6 : 4
-      const color = isActive ? '#111827' : typeColors.color
-      const fillColor = isActive ? '#111827' : typeColors.fillColor
-      
-      return L.circleMarker(latlng, {
-        radius: radius,
-        color: color,
-        weight: 1.5,
-        fillColor: fillColor,
-        fillOpacity: 0.8,
-      });
-    },
-    onEachFeature: (feature, layer) => {
-      layer.on('click', async () => {
-        sheetMode.value = 'stop'
-        selectedStopId.value = feature.properties.id
-        selectedBusId.value = ''
-        await openSheetWithAnimation()
-      });
-    }
-  }).addTo(stopMarkersLayer);
-};
+  const layerGroup = stopMarkersLayer
+
+  stopsToShow.value.forEach((stop) => {
+    const isActive = stop.id === selectedStopId.value
+    const typeColors = getTransportTypeColor(stop.stopType)
+    
+    // Isto cria um L.CircleMarker
+    const marker = L.circleMarker([stop.latitude, stop.longitude], {
+      radius: isActive ? 6 : 4,
+      color: isActive ? '#111827' : typeColors.color,
+      weight: 1.5,
+      fillColor: isActive ? '#111827' : typeColors.fillColor,
+      fillOpacity: 0.8,
+    })
+
+    marker.on('click', async () => {
+      sheetMode.value = 'stop'
+      selectedStopId.value = stop.id
+      selectedBusId.value = ''
+      await openSheetWithAnimation()
+    })
+
+    marker.addTo(layerGroup)
+    
+    stopMarkers.set(stop.id, marker) 
+  })
+}
 
 const drawBusMarkers = () => {
-  if (!map || !busMarkersLayer) return
 
+  if (!map || !busMarkersLayer) return
+  
   busMarkersLayer.clearLayers()
   busMarkers.clear()
 
@@ -577,20 +615,11 @@ const drawBusMarkers = () => {
     const haloColor = isActive ? '#111827' : '#38bdf8'
 
     L.circleMarker([bus.latitude, bus.longitude], {
-      radius: isActive ? 15 : 12,
-      weight: 2,
-      fillColor: haloColor,
-      fillOpacity: isActive ? 0.18 : 0.14,
-      interactive: false,
+      radius: isActive ? 15 : 12, weight: 2, fillColor: haloColor, fillOpacity: isActive ? 0.18 : 0.14, interactive: false,
     }).addTo(busMarkersLayer)
     
     const marker = L.circleMarker([bus.latitude, bus.longitude], {
-      radius: isActive ? 8.5 : 7,
-      color: color,
-      weight: 3,
-      fillColor: color,
-      fillOpacity: 1,
-      opacity: 1,
+      radius: isActive ? 8.5 : 7, color: color, weight: 3, fillColor: color, fillOpacity: 1, opacity: 1,
     })
       .on('click', async () => {
         sheetMode.value = 'bus'
@@ -598,12 +627,11 @@ const drawBusMarkers = () => {
         selectedStopId.value = bus.nextStopId
         await openSheetWithAnimation()
       })
-      .addTo(busMarkersLayer)
+      .addTo(busMarkersLayer) // TypeScript agora aceita sem reclamar
 
     marker.bringToFront()
     busMarkers.set(bus.busId, marker)
   }
-
   updateSelectedBusArrow()
 }
 
@@ -627,19 +655,16 @@ const focusFirstMatch = async () => {
 }
 
 const onSearchFocus = () => {
-  if (stopQuery.value.trim()) {
-    showSuggestions.value = true
-  }
+  if (stopQuery.value.trim()) showSuggestions.value = true
 }
 
-const onSearchInput = () => {
-  showSuggestions.value = true
-}
+const onSearchInput = () => { showSuggestions.value = true }
 
 const loadBackendStops = async () => {
   apiError.value = ''
 
-  const geoJsonResponse = await catchitApi.getStopsGeoJson()
+  // Chamamos a API passando o UUID da rota ativa
+  const geoJsonResponse = await catchitApi.getStopsGeoJson(activeRouteFilter.value)
 
   if (!geoJsonResponse.success || !geoJsonResponse.data) {
     apiError.value = geoJsonResponse.error || 'Failed to load stops'
@@ -648,6 +673,7 @@ const loadBackendStops = async () => {
 
   rawGeoJson.value = geoJsonResponse.data
 
+  // Mapeamos os dados vindos do servidor
   stops.value = geoJsonResponse.data.features.map((f: any) => ({
     id: f.properties.id,
     name: f.properties.name,
@@ -660,26 +686,25 @@ const loadBackendStops = async () => {
   selectedStopId.value = ''
   selectedBusId.value = ''
   stopRouteArrivals.value = []
+
+  // Força o desenho das novas paragens no Leaflet
   drawStopMarkers()
   drawBusMarkers()
 }
 
+
 const loadStopRouteArrivals = async (stopId: string) => {
   const routesResponse = await catchitApi.getStopRouteArrivals(stopId)
-
   if (!routesResponse.success || !routesResponse.data) {
-    console.warn(routesResponse.error || 'Unable to load stop route arrivals')
     stopRouteArrivals.value = []
     return
   }
-
   stopRouteArrivals.value = routesResponse.data
 }
 
 const mapSimulationSnapshotToBus = (snapshot: BackendVehicleSimulationSnapshot): ActiveBus => {
   const progress = Math.max(0, Math.min(1, snapshot.progress ?? 0))
   const lineLabel = snapshot.routeName?.trim() || snapshot.routeId.slice(0, 8)
-
   return {
     busId: snapshot.vehicleId,
     lineLabel,
@@ -690,117 +715,67 @@ const mapSimulationSnapshotToBus = (snapshot: BackendVehicleSimulationSnapshot):
     previousStopName: snapshot.previousStopName,
     nextStopId: snapshot.nextStopId,
     nextStopName: snapshot.nextStopName,
-    progress,
-    etaLabel: `${Math.round(progress * 100)}% route`,
+    etaLabel: formatCountdown((1 - progress) * 60000),
     updatedAt: snapshot.updatedAt,
-    vehicleType: snapshot.vehicleType
+    vehicleType: snapshot.vehicleType,
+    progress: progress
   }
 }
 
 const loadVehicleSimulation = async () => {
   const simulationResponse = await catchitApi.getVehicleSimulation()
-
   if (!simulationResponse.success || !simulationResponse.data) {
-    console.warn(simulationResponse.error || 'Unable to load vehicle simulation')
     simulationBuses.value = []
     return
   }
-
   simulationBuses.value = simulationResponse.data.map(mapSimulationSnapshotToBus)
-
   if (selectedBusId.value && !simulationBuses.value.some((bus) => bus.busId === selectedBusId.value)) {
     selectedBusId.value = ''
   }
 }
 
-const reloadMapData = async () => {
-  await loadBackendStops()
-}
+const reloadMapData = async () => { await loadBackendStops() }
 
 const toggleStopPOI = async () => {
-  if (!selectedStop.value) {
-    console.warn('No stop selected')
-    return
-  }
-
-  if (!currentUser.value) {
-    console.warn('User not authenticated')
-    apiError.value = 'Please log in to add favorites'
-    return
-  }
-
-  if (isLoadingPOI.value) return
-
+  if (!selectedStop.value || !currentUser.value || isLoadingPOI.value) return
   isLoadingPOI.value = true
   try {
     if (isStopPOI.value) {
-      // Remove from POI
       const response = await catchitApi.removePOI(currentUser.value.id, selectedStop.value.id)
-      if (response.success) {
-        poiStops.value.delete(selectedStop.value.id)
-        console.log('Removed from POI:', selectedStop.value.name)
-      } else {
-        console.error('Error removing POI:', response.error)
-        apiError.value = response.error || 'Error removing favorite'
-      }
+      if (response.success) poiStops.value.delete(selectedStop.value.id)
     } else {
-      // Add to POI
       const response = await catchitApi.addPOI(currentUser.value.id, selectedStop.value.id)
-      if (response.success) {
-        poiStops.value.add(selectedStop.value.id)
-        console.log('Added to POI:', selectedStop.value.name)
-      } else {
-        console.error('Error adding POI:', response.error)
-        apiError.value = response.error || 'Error adding favorite'
-      }
+      if (response.success) poiStops.value.add(selectedStop.value.id)
     }
   } catch (error) {
-    console.error('Error toggling POI:', error)
-    apiError.value = 'Error updating favorite'
+    console.error(error)
   } finally {
     isLoadingPOI.value = false
   }
 }
 
 const loadUserPOIs = async () => {
-  if (!currentUser.value) {
-    console.warn('User not authenticated, skipping POI load')
-    return
-  }
-
+  if (!currentUser.value) return
   try {
     const response = await catchitApi.getUserPOI(currentUser.value.id)
     if (response.success && response.data) {
       poiStops.value.clear()
-      response.data.forEach((stop) => {
-        poiStops.value.add(stop.id)
-      })
-      console.log('Loaded POIs:', poiStops.value.size)
-    } else {
-      console.warn('Error loading POIs:', response.error)
+      response.data.forEach((stop) => { poiStops.value.add(stop.id) })
     }
   } catch (error) {
-    console.error('Error loading user POIs:', error)
+    console.error(error)
   }
 }
 
+// WATCHERS ATUALIZADOS E SEGUROS
 watch(selectedStopId, () => {
-  drawStopMarkers()
   updateSelectedBusArrow()
-  if (selectedStopId.value) {
-    void loadStopRouteArrivals(selectedStopId.value)
-  } else {
-    stopRouteArrivals.value = []
-  }
+  if (selectedStopId.value) void loadStopRouteArrivals(selectedStopId.value)
+  else stopRouteArrivals.value = []
 })
 
-watch(
-  activeBuses,
-  () => {
-    drawBusMarkers()
-  },
-  { deep: true }
-)
+// Redesenha as paragens quando a lista filtrada de paragens muda
+watch(stopsToShow, () => { drawStopMarkers() }, { deep: true })
 
 watch(selectedBusId, async () => {
   drawBusMarkers()
@@ -815,27 +790,19 @@ watch(selectedBusId, async () => {
     routeStops.value = []
   }
 })
+// Redesenha os autocarros quando a lista filtrada de autocarros muda
+watch(activeBuses, () => { drawBusMarkers() }, { deep: true })
 
-watch(selectedStop, async () => {
-  await nextTick()
-  measureSheetHeight()
-})
-
-watch(visibleSuggestions, async () => {
-  await nextTick()
-  measureTopOverlayHeight()
-})
+watch(selectedBusId, () => { drawBusMarkers(); updateSelectedBusArrow() })
+watch(selectedStop, async () => { await nextTick(); measureSheetHeight() })
+watch(visibleSuggestions, async () => { await nextTick(); measureTopOverlayHeight() })
 
 onMounted(async () => {
   await nextTick()
   if (!mapContainer.value) return
 
   map = L.map(mapContainer.value, {
-    zoomControl: false,
-    minZoom: 10,
-    maxZoom: 18,
-    maxBounds: portugalNorthBounds,
-    maxBoundsViscosity: 1.0,
+    zoomControl: false, minZoom: 10, maxZoom: 18, maxBounds: portugalNorthBounds, maxBoundsViscosity: 1.0,
   }).setView(portoCenter, 13)
 
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -848,10 +815,7 @@ onMounted(async () => {
   busMarkersLayer = L.layerGroup().addTo(map)
   selectedBusArrowLayer = L.layerGroup().addTo(map)
   
-  // Load user POIs before loading stops
   await loadUserPOIs()
-  
-
   void loadBackendStops()
   void loadVehicleSimulation()
 
@@ -860,9 +824,7 @@ onMounted(async () => {
     void loadVehicleSimulation()
   }, simulationPollMs)
 
-  clockIntervalId = window.setInterval(() => {
-    nowTick.value = Date.now()
-  }, clockTickMs)
+  clockIntervalId = window.setInterval(() => { nowTick.value = Date.now() }, clockTickMs)
 
   measureTopOverlayHeight()
   measureSheetHeight()
@@ -870,26 +832,15 @@ onMounted(async () => {
   window.addEventListener('resize', measureTopOverlayHeight)
 })
 
-onActivated(() => {
-  map?.invalidateSize()
-})
+onActivated(() => { map?.invalidateSize() })
 
 onUnmounted(() => {
   stopDragging()
   stopSelectedBusArrowAnimation()
   window.removeEventListener('resize', measureSheetHeight)
   window.removeEventListener('resize', measureTopOverlayHeight)
-
-  if (tickIntervalId) {
-    window.clearInterval(tickIntervalId)
-    tickIntervalId = null
-  }
-
-  if (clockIntervalId) {
-    window.clearInterval(clockIntervalId)
-    clockIntervalId = null
-  }
-
+  if (tickIntervalId) { window.clearInterval(tickIntervalId); tickIntervalId = null }
+  if (clockIntervalId) { window.clearInterval(clockIntervalId); clockIntervalId = null }
   map?.remove()
   map = null
   stopMarkersLayer = null
@@ -957,13 +908,8 @@ onUnmounted(() => {
   color: #f8fafc;
 }
 
-.search-input:focus {
-  outline: none;
-}
-
-.search-input::placeholder {
-  color: rgba(248, 250, 252, 0.82);
-}
+.search-input:focus { outline: none; }
+.search-input::placeholder { color: rgba(248, 250, 252, 0.82); }
 
 .suggestions-list {
   list-style: none;
@@ -980,9 +926,7 @@ onUnmounted(() => {
   overflow: hidden;
 }
 
-.suggestion-item + .suggestion-item {
-  border-top: 1px solid #f3f4f6;
-}
+.suggestion-item + .suggestion-item { border-top: 1px solid #f3f4f6; }
 
 .suggestion-btn {
   width: 100%;
@@ -997,14 +941,8 @@ onUnmounted(() => {
   color: #111827;
 }
 
-.suggestion-btn small {
-  color: #6b7280;
-  font-size: 0.76rem;
-}
-
-.suggestion-btn:active {
-  background: #f3f4f6;
-}
+.suggestion-btn small { color: #6b7280; font-size: 0.76rem; }
+.suggestion-btn:active { background: #f3f4f6; }
 
 .chip-btn {
   border: 1px solid rgba(255, 255, 255, 0.34);
@@ -1013,6 +951,12 @@ onUnmounted(() => {
   padding: 0.5rem 0.68rem;
   font-size: 0.84rem;
   color: #f8fafc;
+  cursor: pointer;
+}
+
+.chip-btn.active-filter {
+  background: var(--color-brand, #4f46e5);
+  border-color: var(--color-brand, #4f46e5);
 }
 
 .results-count {
@@ -1020,6 +964,119 @@ onUnmounted(() => {
   font-size: 0.88rem;
   color: rgba(248, 250, 252, 0.9);
   white-space: nowrap;
+}
+
+.filter-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 23, 42, 0.4);
+  backdrop-filter: blur(4px);
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.filter-modal {
+  background: white;
+  width: 100%;
+  max-width: 360px;
+  border-radius: 16px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.filter-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.filter-modal-header h3 {
+  margin: 0;
+  font-size: 1.15rem;
+  color: #0f172a;
+}
+
+.close-modal-btn {
+  border: none;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  padding: 0.25rem;
+}
+
+.filter-modal-body {
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.filter-group label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.filter-select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  color: #0f172a;
+  background-color: #fff;
+  cursor: pointer;
+}
+
+.filter-select:focus {
+  outline: none;
+  border-color: #4f46e5;
+}
+
+.filter-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  background: #f8fafc;
+  border-top: 1px solid #f1f5f9;
+}
+
+.modal-btn-primary {
+  background: #4f46e5;
+  color: white;
+  border: none;
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.modal-btn-secondary {
+  background: white;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
 }
 
 .bottom-sheet {
@@ -1037,37 +1094,11 @@ onUnmounted(() => {
   overflow-y: auto;
 }
 
-.bottom-sheet.is-dragging {
-  transition: none;
-}
-
-.drag-area {
-  padding: 0.5rem 0;
-  margin-top: -0.5rem;
-  touch-action: none;
-  cursor: grab;
-}
-
-.drag-handle {
-  width: 42px;
-  height: 4px;
-  border-radius: 999px;
-  background: #d1d5db;
-  margin: 0 auto;
-}
-
-.sheet-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.8rem;
-}
-
-.sheet-header-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-}
+.bottom-sheet.is-dragging { transition: none; }
+.drag-area { padding: 0.5rem 0; margin-top: -0.5rem; touch-action: none; cursor: grab; }
+.drag-handle { width: 42px; height: 4px; border-radius: 999px; background: #d1d5db; margin: 0 auto; }
+.sheet-header { display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; }
+.sheet-header-actions { display: flex; align-items: center; gap: 0.6rem; }
 
 .poi-btn {
   display: inline-flex;
@@ -1082,14 +1113,23 @@ onUnmounted(() => {
   transition: color 0.2s ease;
   padding: 0;
 }
+.poi-btn:hover { color: #fbbf24; }
+.poi-btn.is-added { color: #fbbf24; }
+.poi-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-.poi-btn:hover {
-  color: #fbbf24;
-}
+.sheet-header h2 { margin: 0; font-size: 1.4rem; font-weight: 700; color: #111827; line-height: 1.1; }
+.provider-badge { border-radius: 999px; padding: 0.35rem 0.9rem; font-size: 0.9rem; font-weight: 700; background: #e5e7eb; color: #4b5563; }
+.line-name, .next-stop { margin: 0.4rem 0; color: #6b7280; }
+.ids-line { margin: 0.2rem 0 0.35rem; color: #374151; font-weight: 600; font-size: 0.9rem; }
+.route-title { margin: 0.85rem 0 0.5rem; font-size: 1.1rem; color: #111827; }
+.route-item { display: flex; justify-content: space-between; align-items: center; padding: 0.45rem 0; color: #111827; }
+.route-time { display: inline-flex; flex-direction: column; align-items: flex-end; line-height: 1.1; }
+.route-eta { margin-top: 0.2rem; color: #6b7280; font-size: 0.72rem; font-weight: 600; }
 
-.poi-btn.is-added {
-  color: #fbbf24;
-}
+.bottom-nav { position: absolute; left: 0; right: 0; bottom: 0; z-index: 800; }
+.nav-item { padding: 0.75rem; }
+.nav-item.active { color: var(--color-brand); }
+.icon-sm { width: 1rem; height: 1rem; }
 
 .poi-btn:disabled {
   opacity: 0.5;

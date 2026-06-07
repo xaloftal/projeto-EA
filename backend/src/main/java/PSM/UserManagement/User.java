@@ -1,7 +1,8 @@
 package PSM.UserManagement;
 
-import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -25,7 +26,7 @@ import jakarta.persistence.Table;
 @Table(name = "users", schema = "catchit")
 public class User implements Observer {
 	@Id
-	@GeneratedValue(strategy= GenerationType.UUID)
+	@GeneratedValue(strategy = GenerationType.UUID)
 	private UUID id;
 
 	private String name;
@@ -37,22 +38,20 @@ public class User implements Observer {
 
 	@ManyToMany
 	@JsonIgnore
-	private List<Trip> trips = new ArrayList<Trip>();
+	private Set<Trip> trips = new HashSet<Trip>();
 
 	@OneToOne(optional = true)
 	private Card card;
 
 	@OneToMany(mappedBy = "user")
-	private List<Ticket> tickets = new ArrayList<Ticket>();
+	private Set<Ticket> tickets = new HashSet<Ticket>();
 
 	@ManyToMany
 	@JsonIgnore
-	private List<Stop> poi = new ArrayList<Stop>();
+	private Set<Stop> poi = new HashSet<Stop>();
 
-	@OneToMany(mappedBy = "user", cascade = {CascadeType.PERSIST, CascadeType.MERGE}, orphanRemoval = true)
-	private List<UserNotification> notifications = new ArrayList<UserNotification>();
-
-
+	@OneToMany(mappedBy = "user", cascade = { CascadeType.PERSIST, CascadeType.MERGE }, orphanRemoval = true)
+	private Set<UserNotification> notifications = new HashSet<UserNotification>();
 
 	public void purchaseTicket() {
 		throw new UnsupportedOperationException();
@@ -68,25 +67,25 @@ public class User implements Observer {
 	}
 
 	@Override
-    public void notifyUser(Subject _stop) {
-        if (!(_stop instanceof Stop stop)) {
-            return;
-        }
+	public void notifyUser(Subject _stop) {
+		if (!(_stop instanceof Stop stop)) {
+			return;
+		}
 
-        if (!this.hasPOI(stop)) {
-            return;
-        }
+		if (!this.hasPOI(stop)) {
+			return;
+		}
 
-        UUID vehicleId = stop.getCurrentVehicleId();
-        UUID routeId = stop.getCurrentRouteId();
-        String routeName = stop.getCurrentRouteName();
+		UUID vehicleId = stop.getCurrentVehicleId();
+		UUID routeId = stop.getCurrentRouteId();
+		String routeName = stop.getCurrentRouteName();
 
-        String message = String.format("O autocarro da linha %s chegou à paragem %s.", 
-                (routeName != null ? routeName : "parceira"), stop.getName());
+		String message = String.format("O autocarro da linha %s chegou à paragem %s.",
+				(routeName != null ? routeName : "parceira"), stop.getName());
 
-        UserNotification notification = new UserNotification(stop, vehicleId, routeId, routeName, null, message);
-        this.addNotification(notification);
-    }
+		UserNotification notification = new UserNotification(stop, vehicleId, routeId, routeName, null, message);
+		this.addNotification(notification);
+	}
 
 	public UUID getId() {
 		return this.id;
@@ -128,11 +127,11 @@ public class User implements Observer {
 		this.balance = _balance;
 	}
 
-	public List<Trip> getTrips() {
+	public Set<Trip> getTrips() {
 		return this.trips;
 	}
 
-	public void setTrips(List<Trip> _trips) {
+	public void setTrips(Set<Trip> _trips) {
 		this.trips = _trips;
 	}
 
@@ -144,11 +143,11 @@ public class User implements Observer {
 		this.card = _card;
 	}
 
-	public List<Ticket> getTickets() {
+	public Set<Ticket> getTickets() {
 		return this.tickets;
 	}
 
-	public void setCard(List<Ticket> _tickets) {
+	public void setTickets(Set<Ticket> _tickets) {
 		this.tickets = _tickets;
 	}
 
@@ -160,19 +159,19 @@ public class User implements Observer {
 		ticket.setUser(this);
 	}
 
-	public List<Stop> getPOI() {
+	public Set<Stop> getPOI() {
 		return this.poi;
 	}
 
-	public void setPOI(List<Stop> _poi) {
+	public void setPOI(Set<Stop> _poi) {
 		this.poi = _poi;
 	}
 
-	public List<UserNotification> getNotifications() {
+	public Set<UserNotification> getNotifications() {
 		return this.notifications;
 	}
 
-	public void setNotifications(List<UserNotification> _notifications) {
+	public void setNotifications(Set<UserNotification> _notifications) {
 		this.notifications = _notifications;
 	}
 
@@ -189,7 +188,8 @@ public class User implements Observer {
 			return;
 		}
 
-		this.poi.removeIf(existingStop -> existingStop != null && existingStop.getId() != null && existingStop.getId().equals(stop.getId()));
+		this.poi.removeIf(existingStop -> existingStop != null && existingStop.getId() != null
+				&& existingStop.getId().equals(stop.getId()));
 	}
 
 	public boolean hasPOI(Stop stop) {
@@ -197,7 +197,8 @@ public class User implements Observer {
 			return false;
 		}
 
-		return this.poi.stream().anyMatch(existingStop -> existingStop != null && existingStop.getId() != null && existingStop.getId().equals(stop.getId()));
+		return this.poi.stream().anyMatch(existingStop -> existingStop != null && existingStop.getId() != null
+				&& existingStop.getId().equals(stop.getId()));
 	}
 
 	public void addNotification(UserNotification notification) {
