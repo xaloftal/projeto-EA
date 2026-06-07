@@ -36,5 +36,7 @@ spec:
           value: "catchitsecret"
         - name: JWT_EXPIRATION
           value: "1800000"
+        - name: SCRIPT_MOCK_DATA_DIR
+          value: "/script_mock_data/data"
         ports:
         - containerPort: 8080
