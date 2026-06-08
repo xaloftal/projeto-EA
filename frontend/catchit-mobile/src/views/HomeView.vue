@@ -625,6 +625,11 @@ const getItineraryLink = (ticket: UserTicket) => {
   font-weight: 600;
 }
 
+.status-badge.purchased_but_not_valid {
+  background: #f3e8ff;
+  color: #7e22ce;
+}
+
 .status-badge.valid {
   background: #c8e6c9;
   color: #2e7d32;
