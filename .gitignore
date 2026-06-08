@@ -14,6 +14,8 @@ tmp
 .vs_code
 
 abd2025-474614-0f6559dd27d0.json
+gtfs-metro
+gtfs-stcp
 *.zip
 *.osm.pbf
 

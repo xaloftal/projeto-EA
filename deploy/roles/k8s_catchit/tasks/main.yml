@@ -2,6 +2,11 @@
 # ==============================================================================
 # 1. DEPLOYS (Criação dos Pods)
 # ==============================================================================
+- name: Create CatchIt OTP Deployment
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'otp-deployment.yml') | from_yaml }}"
+
 - name: Create CatchIt Backend Deployment
   kubernetes.core.k8s:
     state: present
@@ -20,6 +25,11 @@
 # ==============================================================================
 # 2. SERVICES (Rede interna e externa)
 # ==============================================================================
+- name: Create CatchIt OTP Service
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'otp-service.yml') | from_yaml }}"
+
 - name: Create CatchIt Backend Service
   kubernetes.core.k8s:
     state: present

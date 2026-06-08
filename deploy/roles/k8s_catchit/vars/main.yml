@@ -2,6 +2,7 @@
 catchit_backend_image: "rodrigues17/catchit-backend:latest"
 catchit_payment_image: "rodrigues17/catchit-payment:latest"
 catchit_frontend_image: "rodrigues17/catchit-frontend:latest"
+catchit_otp_image : "rodrigues17/catchit-otp:latest"
 
 db_name: "catchitdb"
 db_username: "postgres"
