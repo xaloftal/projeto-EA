@@ -87,33 +87,58 @@
               </div>
 
               <div v-else>
-                <div v-for="ticket in paginatedTickets" :key="ticket.id" class="ticket-item">
-                  <div class="ticket-header">
-                    <h3>Ticket</h3>
-                    <span class="status-badge" :class="ticket.status.toLowerCase()">
-                      {{ formatStatus(ticket.status) }}
-                    </span>
-                    <div class="ticket-actions">
-                      <router-link :to="`/checkin/${ticket.id}`" class="btn-checkin-small">Check In</router-link>
+                <div v-if="activeTickets.length > 0" class="tickets-section">
+                  <div v-for="ticket in activeTickets" :key="ticket.id" class="ticket-item">
+                    <div class="ticket-header">
+                      <h3>Ticket</h3>
+                      <span class="status-badge" :class="ticket.status.toLowerCase()">
+                        {{ formatStatus(ticket.status) }}
+                      </span>
+                      <div class="ticket-actions">
+                        <router-link :to="`/checkin/${ticket.id}`" class="btn-checkin-small">Check In</router-link>
+                      </div>
+                    </div>
+                    <p class="expiry">Expires on {{ formatDate(ticket.validUntil) }}</p>
+                    <div class="ticket-stops">
+                      <div class="ticket-stop-row">
+                        <span class="ticket-stop-label">From</span>
+                        <p><MapPin class="icon-sm" /> {{ getTicketFromStop(ticket) }}</p>
+                      </div>
+                      <div class="ticket-stop-row">
+                        <span class="ticket-stop-label">To</span>
+                        <p><MapPin class="icon-sm" /> {{ getTicketToStop(ticket) }}</p>
+                      </div>
+                    </div>
+                    <router-link
+                      :to="getItineraryLink(ticket)"
+                      class="btn-itinerary"
+                    >
+                      See suggested itinerary
+                    </router-link>
+                  </div>
+                </div>
+
+                <div v-if="usedTickets.length > 0" class="tickets-section">
+                  <h2 class="section-title">Past Tickets</h2>
+                  <div v-for="ticket in usedTickets" :key="ticket.id" class="ticket-item ticket-used">
+                    <div class="ticket-header">
+                      <h3>Ticket</h3>
+                      <span class="status-badge" :class="ticket.status.toLowerCase()">
+                        {{ formatStatus(ticket.status) }}
+                      </span>
+                    </div>
+                    <p class="expiry">Expired/Used on {{ formatDate(ticket.validUntil) }}</p>
+                    <div class="ticket-stops">
+                      <div class="ticket-stop-row">
+                        <span class="ticket-stop-label">From</span>
+                        <p><MapPin class="icon-sm" /> {{ getTicketFromStop(ticket) }}</p>
+                      </div>
+                      <div class="ticket-stop-row">
+                        <span class="ticket-stop-label">To</span>
+                        <p><MapPin class="icon-sm" /> {{ getTicketToStop(ticket) }}</p>
+                      </div>
                     </div>
                   </div>
-                  <p class="expiry">Expires on {{ formatDate(ticket.validUntil) }}</p>
-                  <div class="ticket-stops">
-                    <div class="ticket-stop-row">
-                      <span class="ticket-stop-label">From</span>
-                      <p><MapPin class="icon-sm" /> {{ getTicketFromStop(ticket) }}</p>
-                    </div>
-                    <div class="ticket-stop-row">
-                      <span class="ticket-stop-label">To</span>
-                      <p><MapPin class="icon-sm" /> {{ getTicketToStop(ticket) }}</p>
-                    </div>
-                  </div>
-                  <router-link
-                    :to="getItineraryLink(ticket)"
-                    class="btn-itinerary"
-                  >
-                    See suggested itinerary
-                  </router-link>
                 </div>
 
                 <div v-if="hasMoreTickets" class="loading-more-indicator">
@@ -188,6 +213,14 @@ watch(() => ticketViewModel.tickets.value, (newTickets) => {
 // Mapeia apenas o bloco atual de bilhetes permitidos para renderização (Lendo da lista leve congelada)
 const paginatedTickets = computed(() => {
   return frozenTicketsList.value.slice(0, visibleCount.value)
+})
+
+const activeTickets = computed(() => {
+  return paginatedTickets.value.filter(t => t.status !== 'USED' && t.status !== 'EXPIRED')
+})
+
+const usedTickets = computed(() => {
+  return paginatedTickets.value.filter(t => t.status === 'USED' || t.status === 'EXPIRED')
 })
 
 // Verifica se ainda existem mais bilhetes escondidos por carregar
@@ -309,7 +342,7 @@ const formatDate = (date: Date) => {
 
 const formatStatus = (status: string) => {
   const statusMap: Record<string, string> = {
-    PURCHASED_BUT_NOT_VALID: 'Pending',
+    PURCHASED_BUT_NOT_VALID: 'Available',
     VALID: 'Active',
     EXPIRED: 'Expired',
     USED: 'Used',
@@ -555,6 +588,23 @@ const getItineraryLink = (ticket: UserTicket) => {
   padding: 1rem;
   margin-bottom: 1rem;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.tickets-section {
+  margin-bottom: 1.5rem;
+}
+
+.section-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #374151;
+  margin-bottom: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.ticket-used {
+  opacity: 0.7;
+  background: #f9fafb;
 }
 
 .ticket-header {

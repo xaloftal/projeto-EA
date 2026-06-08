@@ -18,13 +18,13 @@ public interface TicketRepository extends JpaRepository<Ticket, UUID> {
     @EntityGraph(attributePaths = {"fromStop", "toStop"})
     Optional<Ticket> findById(UUID id);
 
-    // Nova query que busca os bilhetes do utilizador sem carregar o QR Code binário
     @Query("SELECT new PSM.Ticketing.api.ticket.TicketDTO(" +
            "t.id, t.createdAt, t.validFrom, t.validUntil, t.price, t.stateName, " +
            "f.id, f.name, o.id, o.name) " +
            "FROM Ticket t " +
            "JOIN t.fromStop f " +
            "JOIN t.toStop o " +
-           "WHERE t.user.id = :userId")
+           "WHERE t.user.id = :userId " +
+           "ORDER BY CASE WHEN t.stateName IN ('USED', 'EXPIRED') THEN 1 ELSE 0 END, t.createdAt DESC")
     List<TicketDTO> findTicketsSummaryByUserId(@Param("userId") UUID userId);
 }
