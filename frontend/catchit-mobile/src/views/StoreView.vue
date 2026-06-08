@@ -96,12 +96,13 @@
                       <li
                         v-for="stop in filteredFromStops"
                         :key="`from-${stop.id}`"
-                        class="stop-dropdown-item"
+                        class="stop-dropdown-item stop-dropdown-item--type"
                         @mousedown.prevent="selectFromStop(stop)"
                       >
-                        {{ stop.name }}
+                        <span class="stop-dropdown-name">({{ stop.code || 'N/A' }}) - {{ stop.name }}</span>
+                        <span v-if="getStopTypeLetter(stop.stopType)" :class="['stop-type-badge', `stop-type-${getStopTypeLetter(stop.stopType)}`]">{{ getStopTypeLetter(stop.stopType) }}</span>
                       </li>
-                      <li v-if="!filteredFromStops.length" class="stop-dropdown-empty">No stops found with that name.</li>
+                      <li v-if="!filteredFromStops.length" class="stop-dropdown-empty">No stops found with that name or code.</li>
                     </ul>
                   </div>
                 </label>
@@ -122,12 +123,13 @@
                       <li
                         v-for="stop in filteredToStops"
                         :key="`to-${stop.id}`"
-                        class="stop-dropdown-item"
+                        class="stop-dropdown-item stop-dropdown-item--type"
                         @mousedown.prevent="selectToStop(stop)"
                       >
-                        {{ stop.name }}
+                        <span class="stop-dropdown-name">({{ stop.code || 'N/A' }}) - {{ stop.name }}</span>
+                        <span v-if="getStopTypeLetter(stop.stopType)" :class="['stop-type-badge', `stop-type-${getStopTypeLetter(stop.stopType)}`]">{{ getStopTypeLetter(stop.stopType) }}</span>
                       </li>
-                      <li v-if="!filteredToStops.length" class="stop-dropdown-empty">No stops found with that name.</li>
+                      <li v-if="!filteredToStops.length" class="stop-dropdown-empty">No stops found with that name or code.</li>
                     </ul>
                   </div>
                 </label>
@@ -182,7 +184,7 @@
 
     <nav class="bottom-nav">
       <router-link to="/home" class="nav-item"><House class="nav-icon" /></router-link>
-      <router-link to="/map" class="nav-item"><Map class="nav-icon" /></router-link>
+      <router-link to="/map" class="nav-item"><MapIcon class="nav-icon" /></router-link>
       <router-link to="/cart" class="nav-item "><ShoppingCart class="nav-icon" /></router-link>
       <router-link to="/cards" class="nav-item active"><Ticket class="nav-icon" /></router-link>
       <router-link to="/profile" class="nav-item"><User class="nav-icon" /></router-link>
@@ -192,7 +194,7 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { ArrowLeft, House, LoaderCircle, Map, MapPin, Search, ShoppingCart, Ticket, User } from 'lucide-vue-next'
+import { ArrowLeft, House, LoaderCircle, Map as MapIcon, MapPin, Search, ShoppingCart, Ticket, User } from 'lucide-vue-next'
 import { useRoute } from 'vue-router'
 import { RouteSearchResult, useCardViewModel, useCheckoutViewModel, useTravelViewModel } from '../viewmodels'
 import { catchitApi } from '../services/api/catchitApi'
@@ -256,8 +258,33 @@ const normalizeStopName = (value: string) =>
 
 const filterStopsByName = (search: string) => {
   const searchTerm = normalizeStopName(search)
-  if (!searchTerm) return availableStops.value
-  return availableStops.value.filter((stop) => normalizeStopName(stop.name).includes(searchTerm))
+
+  const distinctStopsMap = new Map<string, Stop>()
+  for (const stop of availableStops.value) {
+    if (stop.code && !distinctStopsMap.has(stop.code)) {
+      distinctStopsMap.set(stop.code, stop)
+    } else if (!stop.code) {
+      distinctStopsMap.set(stop.id, stop)
+    }
+  }
+  const distinctStops = Array.from(distinctStopsMap.values())
+
+  if (!searchTerm) return distinctStops
+
+  return distinctStops.filter((stop: Stop) => {
+    const nameMatch = normalizeStopName(stop.name).includes(searchTerm)
+    const codeMatch = stop.code ? stop.code.toLowerCase().includes(searchTerm.toLowerCase()) : false
+    return nameMatch || codeMatch
+  })
+}
+
+const getStopTypeLetter = (type?: string) => {
+  if (!type) return ''
+  const t = type.toLowerCase()
+  if (t.includes('bus')) return 'B'
+  if (t.includes('metro')) return 'M'
+  if (t.includes('train')) return 'T'
+  return t.charAt(0).toUpperCase()
 }
 
 const filteredFromStops = computed(() => filterStopsByName(fromStopSearch.value))
@@ -325,7 +352,10 @@ const resolveStopIdByName = (search: string) => {
   const normalizedSearch = normalizeStopName(search)
   if (!normalizedSearch) return ''
 
-  return availableStops.value.find((stop) => normalizeStopName(stop.name) === normalizedSearch)?.id ?? ''
+  return availableStops.value.find((stop) => {
+    const formatted = normalizeStopName(`(${stop.code || 'N/A'}) - ${stop.name}`)
+    return normalizeStopName(stop.name) === normalizedSearch || formatted === normalizedSearch || (stop.code && stop.code.toLowerCase() === search.toLowerCase().trim())
+  })?.id ?? ''
 }
 
 watch(fromStopSearch, (search) => {
@@ -337,13 +367,13 @@ watch(toStopSearch, (search) => {
 })
 
 const selectFromStop = (stop: Stop) => {
-  fromStopSearch.value = stop.name
+  fromStopSearch.value = `(${stop.code || 'N/A'}) - ${stop.name}`
   fromStopId.value = stop.id
   isFromDropdownOpen.value = false
 }
 
 const selectToStop = (stop: Stop) => {
-  toStopSearch.value = stop.name
+  toStopSearch.value = `(${stop.code || 'N/A'}) - ${stop.name}`
   toStopId.value = stop.id
   isToDropdownOpen.value = false
 }
@@ -416,30 +446,31 @@ const searchTickets = async () => {
 const purchaseZone = async (zone: { id: string; name: string }) => {
   const zoneCard = cardViewModel.availableCards.value.find(c => c.id === zone.id)
   if (!zoneCard) return
-    await checkoutViewModel.addCardToCart(zoneCard)
-    $q.notify({
-      message: `${zone.name} card added to cart successfully`,
-      color: 'positive',
-      position: 'top',
-      timeout: 3000,
-    })
-  }
+  
+  await checkoutViewModel.addCardToCart(zoneCard)
+  $q.notify({
+    message: `${zone.name} card added to cart successfully`,
+    color: 'positive',
+    position: 'top',
+    timeout: 3000,
+  })
+}
 
-  const addTicketToCart = (result: RouteSearchResult) => {
-    void checkoutViewModel.addTicketToCart(result)
-    $q.notify({
-      message: 'Ticket added to cart successfully',
-      color: 'positive',
-      position: 'top',
-      timeout: 3000,
-    })
-  }
+const addTicketToCart = (result: RouteSearchResult) => {
+  void checkoutViewModel.addTicketToCart(result)
+  $q.notify({
+    message: 'Ticket added to cart successfully',
+    color: 'positive',
+    position: 'top',
+    timeout: 3000,
+  })
+}
 
-  const applyTabFromRoute = () => {
-    if (route.query.tab === 'tickets') {
-      activeTab.value = 'tickets'
-      currentDragX.value = 0
-    }
+const applyTabFromRoute = () => {
+  if (route.query.tab === 'tickets') {
+    activeTab.value = 'tickets'
+    currentDragX.value = 0
+  }
 }
 
 onMounted(async () => {
@@ -764,6 +795,36 @@ onBeforeUnmount(() => {
 .stop-dropdown-empty {
   color: #64748b;
 }
+
+.stop-dropdown-item--type {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.stop-dropdown-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stop-type-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: white;
+  flex-shrink: 0;
+}
+
+.stop-type-B { background: #3b82f6; }
+.stop-type-M { background: #ef4444; }
+.stop-type-T { background: #10b981; }
 
 .ticket-btn {
   display: inline-flex;
