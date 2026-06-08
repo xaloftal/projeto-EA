@@ -561,6 +561,25 @@ export function useCheckoutViewModel() {
     error.value = response.error || 'Unable to add ticket to cart'
   }
 
+  const updateItemQuantity = async (itemId: string, quantity: number) => {
+    if (!currentUser.value) return
+    const existing = cartItems.value.find(i => i.id === itemId)
+    if (!existing) return
+
+    const payload: CartEntry = {
+      ...existing,
+      quantity,
+      totalPrice: existing.unitPrice * quantity
+    }
+
+    const response = await catchitApi.upsertCartItem(payload)
+    if (response.success && response.data) {
+      applyBackendCart(response.data)
+      return
+    }
+    error.value = response.error || 'Unable to update quantity'
+  }
+
   const removeFromCart = async (itemId: string) => {
     if (!currentUser.value) return
 
@@ -660,6 +679,7 @@ export function useCheckoutViewModel() {
     error,
     addCardToCart,
     addTicketToCart,
+    updateItemQuantity,
     removeFromCart,
     clearCart,
     fetchCart,

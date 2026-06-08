@@ -21,8 +21,16 @@
           <article v-for="item in cartItems" :key="item.id" class="cart-item">
             <div class="cart-item-main">
               <p class="cart-item-title">{{ item.title }}</p>
-              <p class="cart-item-description">{{ item.description }}</p>
-              <p class="cart-item-quantity">Qty {{ item.quantity }}</p>
+              <div v-if="item.kind === 'ticket'" class="quantity-selector">
+                <button class="quantity-btn" @click="handleUpdateQuantity(item, -1)">
+                  <ChevronLeft class="icon-sm" />
+                </button>
+                <span class="quantity-display">{{ item.quantity }}</span>
+                <button class="quantity-btn" @click="handleUpdateQuantity(item, 1)">
+                  <ChevronRight class="icon-sm" />
+                </button>
+              </div>
+              <p v-else class="quantity-display">{{ item.quantity }}</p>
             </div>
             <div class="cart-item-price">
               <span>€{{ item.totalPrice.toFixed(2) }}</span>
@@ -83,7 +91,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { ArrowLeft, ShoppingCart, House, Map, Ticket, User } from 'lucide-vue-next'
+import { ArrowLeft, ShoppingCart, House, Map, Ticket, User, ChevronLeft, ChevronRight } from 'lucide-vue-next'
 import { useRouter } from 'vue-router'
 import { useCheckoutViewModel } from '../viewmodels'
 import { requestJson } from '../services/api/http'
@@ -91,7 +99,7 @@ import { requestJson } from '../services/api/http'
 const router = useRouter()
 const checkoutViewModel = useCheckoutViewModel()
 
-const { cartItems, removeFromCart } = checkoutViewModel
+const { cartItems, removeFromCart, updateItemQuantity } = checkoutViewModel
 
 const serverSummary = ref<{ subtotal: number; taxes: number; discount: number; total: number } | null>(null)
 const syncPricesWithBackend = async () => {
@@ -127,6 +135,13 @@ onMounted(async () => {
 
 const handleRemoveItem = async (itemId: string) => {
   await removeFromCart(itemId)
+  await syncPricesWithBackend()
+}
+
+const handleUpdateQuantity = async (item: any, delta: number) => {
+  const newQty = item.quantity + delta
+  if (newQty < 1) return
+  await updateItemQuantity(item.id, newQty)
   await syncPricesWithBackend()
 }
 
@@ -220,6 +235,46 @@ const goToCheckout = () => {
   margin: 0.35rem 0 0;
   color: var(--color-text-muted);
   font-size: 0.9rem;
+}
+
+.quantity-selector {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(15, 23, 42, 0.04);
+  padding: 0.2rem;
+  border-radius: 8px;
+  margin-top: 0.5rem;
+}
+
+.quantity-btn {
+  background: transparent;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--color-text-strong);
+  transition: background 0.2s;
+}
+
+.quantity-btn:active {
+  background: rgba(15, 23, 42, 0.1);
+}
+
+.quantity-display {
+  font-weight: 600;
+  font-size: 0.9rem;
+  min-width: 1rem;
+  text-align: center;
+}
+
+.icon-sm {
+  width: 1rem;
+  height: 1rem;
 }
 
 .cart-item-price {

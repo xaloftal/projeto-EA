@@ -162,20 +162,20 @@
                     </router-link>
                   </div>
                   <div class="route-actions">
-                    <p class="route-price">€{{ result.price.toFixed(2) }}</p>
+                    <p class="route-price">€{{ (result.price * getTicketQuantity(result.routeId)).toFixed(2) }}</p>
+                    <div class="quantity-selector">
+                      <button class="quantity-btn" @click="adjustTicketQuantity(result.routeId, -1)">
+                        <ChevronLeft class="icon-sm" />
+                      </button>
+                      <span class="quantity-display">{{ getTicketQuantity(result.routeId) }}</span>
+                      <button class="quantity-btn" @click="adjustTicketQuantity(result.routeId, 1)">
+                        <ChevronRight class="icon-sm" />
+                      </button>
+                    </div>
                     <button class="ticket-buy-btn" @click="addTicketToCart(result)">Add to cart</button>
                   </div>
                 </article>
               </div>
-            </article>
-
-            <article class="ticket-option ticket-option-muted">
-              <div class="ticket-head">
-                <MapPin class="ticket-icon" />
-                <h2>Map Search</h2>
-              </div>
-              <p>Prefer visual stop search? Use the map screen for stop-based route exploration.</p>
-              <router-link to="/map" class="ticket-btn">Open Map</router-link>
             </article>
           </div>
         </div>
@@ -194,7 +194,7 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { ArrowLeft, House, LoaderCircle, Map as MapIcon, MapPin, Search, ShoppingCart, Ticket, User } from 'lucide-vue-next'
+import { ArrowLeft, House, LoaderCircle, Map as MapIcon, Search, ShoppingCart, Ticket, User, ChevronLeft, ChevronRight } from 'lucide-vue-next'
 import { useRoute } from 'vue-router'
 import { RouteSearchResult, useCardViewModel, useCheckoutViewModel, useTravelViewModel } from '../viewmodels'
 import { catchitApi } from '../services/api/catchitApi'
@@ -456,10 +456,23 @@ const purchaseZone = async (zone: { id: string; name: string }) => {
   })
 }
 
+const ticketQuantities = ref<Record<string, number>>({})
+
+const getTicketQuantity = (routeId: string) => ticketQuantities.value[routeId] || 1
+
+const adjustTicketQuantity = (routeId: string, delta: number) => {
+  const current = getTicketQuantity(routeId)
+  if (current + delta >= 1) {
+    ticketQuantities.value[routeId] = current + delta
+  }
+}
+
 const addTicketToCart = (result: RouteSearchResult) => {
-  void checkoutViewModel.addTicketToCart(result)
+  const qty = getTicketQuantity(result.routeId)
+  void checkoutViewModel.addTicketToCart(result, qty)
+  ticketQuantities.value[result.routeId] = 1 // Reset after adding
   $q.notify({
-    message: 'Ticket added to cart successfully',
+    message: `${qty} ticket(s) added to cart successfully`,
     color: 'positive',
     position: 'top',
     timeout: 3000,
@@ -904,6 +917,40 @@ onBeforeUnmount(() => {
   margin: 0;
   color: #111827;
   font-weight: 700;
+}
+
+.quantity-selector {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(15, 23, 42, 0.04);
+  padding: 0.2rem;
+  border-radius: 8px;
+}
+
+.quantity-btn {
+  background: transparent;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.8rem;
+  height: 1.8rem;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--color-text-strong);
+  transition: background 0.2s;
+}
+
+.quantity-btn:active {
+  background: rgba(15, 23, 42, 0.1);
+}
+
+.quantity-display {
+  font-weight: 600;
+  font-size: 0.95rem;
+  min-width: 1rem;
+  text-align: center;
 }
 
 .ticket-buy-btn {
