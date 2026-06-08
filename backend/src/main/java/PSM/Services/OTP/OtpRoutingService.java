@@ -11,8 +11,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import java.time.Duration;
-// import java.time.LocalDateTime;
-// import java.time.format.DateTimeFormatter;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.time.LocalTime;
 import java.util.Map;
 
 /**
@@ -92,7 +93,7 @@ public class OtpRoutingService {
         // We now have 2026 GTFS data, so we can use the actual current date and time!
         // The Metro GTFS you downloaded starts on 2026-04-06 and ends on 2026-07-19!
         String date = "2026-06-08";
-        String time = java.time.LocalTime.now().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss"));
+        String time = LocalTime.now(ZoneId.of("Europe/Lisbon")).format(DateTimeFormatter.ofPattern("HH:mm:ss"));
         // String time = "14:00:00";
 
         Map<String, Object> variables = Map.of(
