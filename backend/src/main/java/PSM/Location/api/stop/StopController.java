@@ -32,17 +32,17 @@ public class StopController {
         return service.findAll();
     }
 
-    /**
-     * Returns all stops as a GeoJSON FeatureCollection (Redis-cached).
-     * This endpoint optimizes frontend performance by serving pre-cached GeoJSON from Redis.
-     * The cache is generated on application startup and can be refreshed via /geojson/refresh.
-     * GeoJSON format is ideal for map rendering with Leaflet and reduces mobile resource usage.
+/**
+     * Returns stops as a GeoJSON FeatureCollection.
+     * If routeId is provided, returns only the stops belonging to that route (Bypasses Redis cache).
+     * If no routeId is provided, returns the pre-cached global GeoJSON from Redis.
      *
-     * @return Cached GeoJSON FeatureCollection containing all stops with location data
+     * @param routeId Optional UUID of the route to filter stops by
+     * @return GeoJSON FeatureCollection
      */
     @GetMapping("/geojson")
-    public Map<String, Object> getStopsAsGeoJson() {
-        return geoJsonGeneratorService.getStopsGeoJson();
+    public Map<String, Object> getStopsAsGeoJson(@org.springframework.web.bind.annotation.RequestParam(required = false) UUID routeId) {
+        return geoJsonGeneratorService.getStopsGeoJson(routeId);
     }
 
     /**
@@ -75,6 +75,12 @@ public class StopController {
     @GetMapping("/{id}")
     public Stop getById(@PathVariable UUID id) {
         return service.findById(id);
+    }
+
+    @GetMapping("/{id}/zone")
+    public String getZoneName(@PathVariable UUID id) {
+        Stop stop = service.findById(id);
+        return stop.getZone() != null ? stop.getZone().getName() : null;
     }
 
     @PostMapping

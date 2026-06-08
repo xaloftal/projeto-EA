@@ -10,6 +10,7 @@ import type {
   User,
   Vehicle,
 } from '../../models'
+import type { RoutingPlanRequest, RoutingPlanResponse } from '../../types/routing'
 import { TicketStatus } from '../../models'
 import { requestJson, type ApiResponse } from './http'
 
@@ -129,6 +130,8 @@ type BackendStopRouteArrival = {
   routeId: string
   routeName?: string | null
   nextArrivalAt: string
+  firstStopName?: string | null
+  lastStopName?: string | null
 }
 
 export type BackendVehicleSimulationSnapshot = {
@@ -143,6 +146,8 @@ export type BackendVehicleSimulationSnapshot = {
   nextStopName: string
   progress: number
   updatedAt: string
+  vehicleType: string
+  tripId?: string | null
 }
 
 type BackendRouteSearchResult = {
@@ -282,8 +287,8 @@ const mapStop = (stop: BackendStop): Stop => ({
   stopType: stop.stopType,
 })
 
-const mapTicketStatus = (status?: string): TicketStatus => {
-  const normalized = (status ?? '').toUpperCase()
+const mapTicketStatus = (status?: any): TicketStatus => {
+  const normalized = String(status ?? '').toUpperCase()
   if (normalized.includes('VALID')) return TicketStatus.Valid
   if (normalized.includes('EXPIRED')) return TicketStatus.Expired
   if (normalized.includes('USED')) return TicketStatus.Used
@@ -458,7 +463,7 @@ export class CatchItApiClient {
   }
 
 
-  
+
 
   async logout(): Promise<ApiResponse<void>> {
     return requestJson<void>('/api/auth/logout', { method: 'POST' })
@@ -488,6 +493,12 @@ export class CatchItApiClient {
     })
   }
 
+  public async getUserHistory(userId: string): Promise<ApiResponse<any[]>> {
+    return await requestJson<any[]>(`/api/exitrecords/user/${userId}`, {
+      method: 'GET'
+    });
+  }
+
   async updateUserProfile(userId: string, updates: Partial<User>): Promise<ApiResponse<User>> {
     const response = await requestJson<BackendUser>(`/api/users/${userId}`, {
       method: 'PUT',
@@ -504,14 +515,36 @@ export class CatchItApiClient {
 
   async getUserTickets(userId: string): Promise<ApiResponse<Ticket[]>> {
     try {
-      const response = await this.getUserProfile(userId)
-      if (response.success && response.data) {
-        return { success: true, data: response.data.tickets }
+      const response = await requestJson<any[]>(`/api/tickets/user/${userId}`)
+      if (!response.success || !response.data) {
+        return { success: false, error: response.error || 'Failed to get tickets' }
       }
-      return { success: false, error: response.error || 'Failed to get tickets' }
+
+      const mappedTickets: Ticket[] = response.data.map((dto) => ({
+        id: dto.id,
+        userID: userId,
+        createdAt: dto.createdAt ? new Date(dto.createdAt) : new Date(),
+        validFrom: dto.validFrom ? new Date(dto.validFrom) : new Date(),
+        validUntil: dto.validUntil ? new Date(dto.validUntil) : new Date(),
+        price: Number(dto.price ?? 0),
+        qrCode: '', // Vazio na listagem por motivos de performance!
+        status: mapTicketStatus(dto.status),
+        stopFrom: { id: dto.fromStopId, name: dto.fromStopName, latitude: 0, longitude: 0 },
+        stopTo: { id: dto.toStopId, name: dto.toStopName, latitude: 0, longitude: 0 },
+      }))
+
+      return { success: true, data: mappedTickets }
     } catch (e) {
       return { success: false, error: (e as Error).message }
     }
+  }
+
+  async getTicketQrCode(ticketId: string): Promise<string> {
+    const viteEnv = (import.meta as any).env ?? {}
+    const apiBaseUrl = (viteEnv.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
+
+    // Retorna diretamente o URL do endpoint que cospe a imagem PNG do QR Code
+    return `${apiBaseUrl}/api/tickets/${ticketId}/qrcode`
   }
 
   async purchaseTickets(data: {
@@ -677,10 +710,17 @@ export class CatchItApiClient {
   }
 
   /**
-   * Fetches stops as a GeoJSON FeatureCollection.
-   * This is the optimized endpoint for map rendering, reducing frontend processing.
-   */
-  async getStopsGeoJson(forceRefresh = false): Promise<ApiResponse<GeoJSONFeatureCollection>> {
+     * Fetches stops as a GeoJSON FeatureCollection.
+     * This is the optimized endpoint for map rendering, reducing frontend processing.
+     * If routeId is provided, fetches only the stops for that specific route and bypasses local cache.
+     */
+  async getStopsGeoJson(routeId?: string, forceRefresh = false): Promise<ApiResponse<GeoJSONFeatureCollection>> {
+    console.log("[DEBUG API TS] getStopsGeoJson chamado com routeId =", routeId);
+
+    if (routeId && routeId.trim() !== '') {
+      return requestJson<GeoJSONFeatureCollection>(`/api/stops/geojson?routeId=${encodeURIComponent(routeId)}`);
+    }
+
     if (!forceRefresh && cachedStopsGeoJson) {
       return { success: true, data: cachedStopsGeoJson }
     }
@@ -693,7 +733,6 @@ export class CatchItApiClient {
       if (response.success && response.data) {
         cachedStopsGeoJson = response.data
       }
-
       return response
     })
 
@@ -728,6 +767,10 @@ export class CatchItApiClient {
     const response = await requestJson<BackendStopRouteArrival[]>(`/api/routes/stop-arrivals?stopId=${encodeURIComponent(stopId)}`)
     if (!response.success || !response.data) return { success: false, error: response.error }
     return { success: true, data: response.data }
+  }
+
+  async getRouteStops(routeId: string): Promise<ApiResponse<Array<{ stopId: string; stopName: string; sequence: number; arrivalTime: string }>>> {
+    return requestJson(`/api/routes/${routeId}/stops`)
   }
 
   async getVehicleSimulation(): Promise<ApiResponse<BackendVehicleSimulationSnapshot[]>> {
@@ -930,6 +973,28 @@ export class CatchItApiClient {
     const response = await requestJson<BackendStop[]>(`/api/users/${userId}/poi`)
     if (!response.success || !response.data) return { success: false, error: response.error }
     return { success: true, data: response.data.map(mapStop) }
+  }
+
+  async planRoute(request: RoutingPlanRequest): Promise<ApiResponse<RoutingPlanResponse>> {
+    const params = new URLSearchParams({
+      fromLat: String(request.fromLat),
+      fromLon: String(request.fromLon),
+      toLat: String(request.toLat),
+      toLon: String(request.toLon),
+    })
+    return requestJson<RoutingPlanResponse>(`/api/routing/plan?${params.toString()}`)
+  }
+
+  async getTripStops(tripId: string, currentStopId: string): Promise<ApiResponse<Array<{ stopId: string; stopName: string; sequence: number; arrivalTime: string }>>> {
+    return requestJson(`/api/trips/${tripId}/stops?currentStopId=${currentStopId}`)
+  }
+
+  async getStop(stopId: string): Promise<ApiResponse<{ id: string; name: string; zone?: { name: string } }>> {
+    return requestJson(`/api/stops/${stopId}`)
+  }
+
+  async getStopZone(stopId: string): Promise<ApiResponse<string>> {
+    return requestJson(`/api/stops/${stopId}/zone`)
   }
 }
 

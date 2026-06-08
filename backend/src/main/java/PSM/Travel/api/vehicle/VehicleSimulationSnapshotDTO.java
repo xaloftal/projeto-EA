@@ -13,5 +13,7 @@ public record VehicleSimulationSnapshotDTO(
         UUID nextStopId,
         String nextStopName,
         double progress,
-        String updatedAt) {
-}
+        String updatedAt,
+        String vehicleType,
+        UUID tripId
+) {}

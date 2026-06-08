@@ -3,6 +3,8 @@ package PSM.Ticketing.api.ticket;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -17,6 +19,7 @@ import PSM.Ticketing.Ticket;
 @RestController
 @RequestMapping("/api/tickets")
 public class TicketController {
+
     private final TicketService service;
 
     public TicketController(TicketService service) {
@@ -46,5 +49,22 @@ public class TicketController {
     @DeleteMapping("/{id}")
     public void delete(@PathVariable UUID id) {
         service.delete(id);
+    }
+
+    @GetMapping("/user/{userId}")
+    public List<TicketDTO> getTicketsByUserId(@PathVariable UUID userId) {
+        return service.findTicketsByUserId(userId);
+    }
+
+    @GetMapping("/{id}/qrcode")
+    public org.springframework.http.ResponseEntity<byte[]> getTicketQrCode(@PathVariable UUID id) {
+        byte[] qr = service.getQrCode(id);
+        if (qr == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        return org.springframework.http.ResponseEntity.ok()
+                .contentType(MediaType.IMAGE_PNG)
+                .body(qr);
     }
 }
