@@ -37,7 +37,7 @@ spec:
         - name: SCRIPT_MOCK_DATA_DIR
           value: "/script_mock_data/data"     
         - name: PAYMENT_SERVICE_BASE_URL
-          value: "http://catchit-payment:8081"
+          value: "http://payment-service:8081"
         - name: OTP_BASE_URL
           value: "http://catchit-otp-service:8080"       
         ports:

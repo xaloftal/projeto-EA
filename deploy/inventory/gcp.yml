@@ -15,7 +15,7 @@ all:
 
 
     # App variables
-    app_ip: 35.239.222.38
+    app_ip: 35.193.62.154
     app_port: 80
 
     # Additional variables
