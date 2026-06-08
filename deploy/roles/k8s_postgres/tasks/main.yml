@@ -84,9 +84,11 @@
   retries: 10
   delay: 5
 
-- name: Criar o Schema 'catchit' dentro da base de dados catchitdb
+  
+- name: Criar os Schemas 'catchit' e 'payment' dentro da base de dados catchitdb
   ansible.builtin.shell: |
     kubectl exec -n default deployment/postgres -- psql -U {{ db_username | default('postgres') }} -d catchitdb -c "CREATE SCHEMA IF NOT EXISTS catchit;"
+    kubectl exec -n default deployment/postgres -- psql -U {{ db_username | default('postgres') }} -d catchitdb -c "CREATE SCHEMA IF NOT EXISTS payment;"
 
     
 - name: Create Redis Deployment (Runs in RAM)
