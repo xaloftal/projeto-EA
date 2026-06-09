@@ -1,0 +1,62 @@
+---
+# roles/k8s_catchit_api_test/tasks/main.yml
+
+- name: Task 0 - Verificar se a Gateway/Frontend do CatchIt está online na GCP
+  ansible.builtin.uri:
+    url: "http://{{ app_ip }}:{{ app_port }}/"
+    method: GET
+    status_code: 200
+  register: frontend_check
+  until: frontend_check.status == 200
+  retries: 12
+  delay: 5
+
+- name: Task 1 - Garantir registo do utilizador de teste (Spring Boot Endpoint)
+  ansible.builtin.uri:
+    url: "http://{{ app_ip }}:{{ app_port }}/api/auth/register"
+    method: POST
+    headers:
+      Content-Type: "application/json"
+      Origin: "http://{{ app_ip }}:{{ app_port }}"
+    body:
+      email: "{{ test_user_email }}"
+      password: "{{ test_user_password }}"
+      name: "{{ test_user_name }}"
+    body_format: json
+    status_code: [200, 400,500] 
+    return_content: true
+  register: register_response
+
+- name: Task 2 - Autenticar na API do CatchIt e extrair Token JWT
+  ansible.builtin.uri:
+    url: "http://{{ app_ip }}:{{ app_port }}/api/auth/login"
+    method: POST
+    headers:
+      Accept: "application/json"
+      Content-Type: "application/json"
+      Origin: "http://{{ app_ip }}:{{ app_port }}"
+    body:
+      email: "{{ test_user_email }}"
+      password: "{{ test_user_password }}"
+    body_format: json
+    status_code: 200
+    return_content: true
+  register: login_response
+
+- name: Extrair a propriedade do Token JWT gerado pelo Spring Security
+  ansible.builtin.set_fact:
+    jwt_token: "{{ login_response.json.token }}"
+
+- name: Imprimir Token JWT para validação visual na consola do Ansible
+  ansible.builtin.debug:
+    var: jwt_token
+
+- name: Persistir o token extraído dinamicamente no teu inventário gcp.yml
+  ansible.builtin.lineinfile:
+    path: inventory/gcp.yml
+    regexp: '^(\s*)catchit_jwt_token:.*$'
+    line: '\1catchit_jwt_token: "{{ jwt_token }}"'
+    backrefs: true
+
+- name: Recarregar o inventário para propagar o token globalmente
+  ansible.builtin.meta: refresh_inventory

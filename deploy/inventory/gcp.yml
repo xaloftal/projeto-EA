@@ -15,8 +15,8 @@ all:
 
 
     # App variables
-    app_ip: 104.198.246.71
-    app_port: 80
+    app_ip: 104.197.170.181
+    app_port: 9000
 
     # Additional variables
     # ...

@@ -1,0 +1,33 @@
+---
+- name: "CatchIt Integration Test & Performance Benchmark Pipeline"
+  hosts: localhost
+  connection: local
+  gather_facts: yes
+  
+  vars:
+
+    
+    test_user_email: "teste@uminho.pt"
+    test_user_password: "testeSegura123"
+    test_user_name: "Teste Avaliador"
+    
+    benchmark_scenarios:
+      # 1. FRONTEND (Páginas Estáticas / Nginx)
+      - { name: "frontend_home", loops: "10", threads: "20", rampup: "2", path: "/" }
+      
+      # 2. BACKEND (Dados Geográficos e Simulação - Requer Autenticação)
+      - { name: "backend_simulation_stress", loops: "5", threads: "10", rampup: "2", path: "/api/vehicles/simulation", token: "Bearer {{ jwt_token }}" }
+      - { name: "backend_geojson_stress", loops: "5", threads: "10", rampup: "2", path: "/api/stops/geojson", token: "Bearer {{ jwt_token }}" }
+      
+      # 3. OTP (OpenTripPlanner / Motor de Rotas - Requer Autenticação)
+      - { name: "otp_routing_stress", loops: "5", threads: "5", rampup: "1", path: "/api/routes/search", token: "Bearer {{ jwt_token }}" }
+      
+      # 4. PAYMENT (Microsserviço de Pagamentos - Requer Autenticação)
+      - { name: "payment_checkout_stress", loops: "5", threads: "5", rampup: "1", path: "/api/checkout/session", token: "Bearer {{ jwt_token }}" }
+
+  roles:
+    - role: k8s_catchit_api_test
+      tags: ["api-test"]
+
+    - role: k8s_catchit_benchmark
+      tags: ["jmeter", "load-test"]

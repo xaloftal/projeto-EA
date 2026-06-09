@@ -1,0 +1,18 @@
+---
+# roles/k8s_catchit_benchmark/tasks/run_scenario.yml
+
+- name: " [Template] Gerar guião JMX dinâmico para: {{ item.name }}"
+  ansible.builtin.template:
+    src: dynamic_test.jmx.j2
+    dest: "/tmp/{{ item.name }}.jmx"
+
+- name: " [JMeter] A disparar contra o cenário gerado: {{ item.name }}"
+  ansible.builtin.command: >
+    jmeter -n -t /tmp/{{ item.name }}.jmx 
+    -l ./benchmark_results/{{ item.name }}.jtl 
+    -e -o ./benchmark_results/report_{{ item.name }}
+  register: jmeter_output
+
+- name: " [Status] Resultados do cenário {{ item.name }} processados"
+  ansible.builtin.debug:
+    msg: "Cenário {{ item.name }} terminado com sucesso. Dashboard HTML gerado em: ./benchmark_results/report_{{ item.name }}/index.html"

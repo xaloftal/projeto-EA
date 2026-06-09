@@ -26,3 +26,4 @@ target/
 .github/
 .ini
 *.ini
+benchmark_results/
