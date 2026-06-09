@@ -18,7 +18,7 @@ Create a DTO to represent a lightweight route containing its ID, name, and a dis
 [MODIFY] PSM.Location.api.route.RouteRepository.java
 Add @Query for findByIdWithSchedules(UUID routeId) to load eager schedules for a single route.
 [MODIFY] PSM.Location.api.route.RouteService.java
-Add getRouteSummaries(): Fetches all routes and their stops without trip times.
+Add getRouteSummaries(): Fetches all routes and their stops. Optimized to use `findAllWithRouteStops()` and a `LEFT JOIN FETCH` on `routeStops` and `stop` to completely avoid loading the massive schedules table into memory.
 Add findRouteScheduleOptimized(UUID routeId): Returns the full timetable for a single route.
 Add findStopScheduleOptimized(UUID stopId): Returns the timetable for a single stop (times of all routes passing through).
 [MODIFY] PSM.Location.api.route.RouteController.java
@@ -33,6 +33,7 @@ Add getRouteSchedule(routeId) and getStopSchedule(stopId).
 Refactor state to hold lightweight RouteSummary and StopSummary lists.
 Update filteredRoutes and filteredStops search logic to sort exact matches (like "801") to the top of the list before applying the .slice(0, 12) limit.
 Add reactive async logic loadRouteTimetable(routeId) and loadStopTimetable(stopId) when a user selects an item.
+Fix `initialRouteId` bug where opening the schedule with a predefined route wouldn't load its timetable because it was prematurely marked as selected.
 [MODIFY] ScheduleView.vue
 Update UI to show a loading state specifically for the timetable grid.
 Integrate the new selection logic to trigger the backend calls.
