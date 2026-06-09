@@ -250,23 +250,23 @@ public class RouteService {
     }
 
     public List<RouteSummaryDTO> getRouteSummaries() {
-        List<Route> routes = repository.findAllWithSchedules();
+        List<Route> routes = repository.findAllWithRouteStops();
         List<RouteSummaryDTO> summaries = new ArrayList<>();
 
         for (Route route : routes) {
             List<RouteSummaryDTO.StopSummaryDTO> stops = new ArrayList<>();
             java.util.Set<UUID> seenStops = new java.util.HashSet<>();
             
-            if (route.schedules != null) {
-                route.schedules.stream()
-                    .sorted(Comparator.comparingInt(s -> s.getSequence()))
-                    .forEach(schedule -> {
-                        if (schedule.stop != null && seenStops.add(schedule.stop.getId())) {
+            if (route.getRouteStops() != null) {
+                route.getRouteStops().stream()
+                    .sorted(Comparator.comparingInt(rs -> rs.getSequence() != null ? rs.getSequence() : 0))
+                    .forEach(rs -> {
+                        if (rs.getStop() != null && seenStops.add(rs.getStop().getId())) {
                             stops.add(new RouteSummaryDTO.StopSummaryDTO(
-                                schedule.stop.getId(),
-                                schedule.stop.getName(),
-                                schedule.stop.getStopCode(),
-                                schedule.stop.getStopType() != null ? schedule.stop.getStopType().name() : null
+                                rs.getStop().getId(),
+                                rs.getStop().getName(),
+                                rs.getStop().getStopCode(),
+                                rs.getStop().getStopType() != null ? rs.getStop().getStopType().name() : null
                             ));
                         }
                     });

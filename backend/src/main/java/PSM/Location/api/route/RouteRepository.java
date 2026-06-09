@@ -31,6 +31,7 @@ public interface RouteRepository extends JpaRepository<Route, UUID> {
 
 	@Query("SELECT DISTINCT r FROM Route r " +
            "LEFT JOIN FETCH r.routeStops rs " +
+           "LEFT JOIN FETCH rs.stop st " +
            "ORDER BY r.name ASC, rs.sequence ASC")
     List<Route> findAllWithRouteStops();
 }
