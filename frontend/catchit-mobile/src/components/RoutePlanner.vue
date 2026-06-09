@@ -32,7 +32,7 @@
       <template #avatar>
         <q-icon name="warning" />
       </template>
-      No route found between the selected stops, at this given time. Try different stops or departure time.
+      No route found between the selected stops, at this given time. Try again later.
     </q-banner>
 
     <div class="route-planner__content">
