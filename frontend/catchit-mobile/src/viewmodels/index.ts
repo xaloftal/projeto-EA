@@ -409,9 +409,7 @@ export function useTransportViewModel(titleId?: string) {
           const rName = t.routeName ?? 'Unknown route'
           const tTime = new Date(t.startTime || '').getTime()
 
-          // Ensure the trip is in the future or exactly now
-          if (isNaN(tTime) || tTime < now) continue
-          const diff = tTime - now
+          const diff = isNaN(tTime) ? Number.MAX_VALUE : Math.abs(tTime - now)
 
           if (!routeBestTrip.has(rName)) {
             routeBestTrip.set(rName, { trip: t, diff })
