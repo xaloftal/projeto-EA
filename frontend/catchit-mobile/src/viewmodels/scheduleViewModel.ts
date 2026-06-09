@@ -111,7 +111,7 @@ export function useScheduleViewModel(initialRouteId = '') {
   
   const searchQuery = ref('')
   const selectedTransportType = ref('ALL')
-  const selectedRouteId = ref(initialRouteId)
+  const selectedRouteId = ref('')
   const selectedStopId = ref('')
   
   const selectedTimetable = ref<SelectedTimetable>(null)
