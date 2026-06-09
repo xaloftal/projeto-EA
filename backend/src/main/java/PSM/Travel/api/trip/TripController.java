@@ -38,25 +38,33 @@ public class TripController {
     @GetMapping("/active")
     public List<ActiveTripDTO> getActiveTrips() {
         return service.findActiveTrips().stream()
-            .map(t -> {
-                String routeName = t.route != null ? t.route.getName() : "NULL_ROUTE";
-                System.out.println("Trip " + t.getId() + " route: " + routeName);
-                return new ActiveTripDTO(
-                    t.getId().toString(),
-                    t.getStartTime().toString(),
-                    routeName,
-                    t.getRoute().getSchedules().stream()
-                        .map(sch -> sch.getStop().getId().toString())
-                        .distinct()
-                        .toList(),
-                    t.getRoute().getSchedules().stream()
-                        .map(sch -> sch.getStop().getZone() != null ? sch.getStop().getZone().getName() : null)
-                        .filter(java.util.Objects::nonNull)
-                        .findFirst()
-                        .orElse(null)
-                );
-            })
+            .map(this::mapToActiveTripDTO)
             .toList();
+    }
+
+    @GetMapping("/active-for-title/{titleId}")
+    public List<ActiveTripDTO> getActiveTripsForTitle(@PathVariable UUID titleId) {
+        return service.findActiveTripsForTitle(titleId).stream()
+            .map(this::mapToActiveTripDTO)
+            .toList();
+    }
+
+    private ActiveTripDTO mapToActiveTripDTO(Trip t) {
+        String routeName = t.getRoute() != null ? t.getRoute().getName() : "NULL_ROUTE";
+        return new ActiveTripDTO(
+            t.getId().toString(),
+            t.getStartTime().toString(),
+            routeName,
+            t.getRoute() != null ? t.getRoute().getSchedules().stream()
+                .map(sch -> sch.getStop().getId().toString())
+                .distinct()
+                .toList() : java.util.List.of(),
+            t.getRoute() != null ? t.getRoute().getSchedules().stream()
+                .map(sch -> sch.getStop().getZone() != null ? sch.getStop().getZone().getName() : null)
+                .filter(java.util.Objects::nonNull)
+                .findFirst()
+                .orElse(null) : null
+        );
     }
 
    @GetMapping("/{id}/stops")

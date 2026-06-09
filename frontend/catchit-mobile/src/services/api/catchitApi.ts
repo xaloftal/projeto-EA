@@ -858,6 +858,19 @@ export class CatchItApiClient {
     return { success: true, data: trips }
   }
 
+  async getActiveTripsForTitle(titleId: string): Promise<ApiResponse<Array<{ id: string; startTime?: string; routeName?: string; zoneName?: string; stopIds?: string[] }>>> {
+    const response = await requestJson<Array<{ id: string; startTime?: string; routeName?: string; zoneName?: string; stopIds?: string[] }>>(`/api/trips/active-for-title/${titleId}`)
+    if (!response.success || !response.data) return { success: false, error: response.error }
+    const trips = response.data.map((trip) => ({
+      id: trip.id,
+      startTime: trip.startTime,
+      routeName: trip.routeName,
+      zoneName: trip.zoneName,
+      stopIds: trip.stopIds,
+    }))
+    return { success: true, data: trips }
+  }
+
   async checkIn(data: { titleId: string; tripId: string }): Promise<ApiResponse<{ success: boolean; message: string }>> {
     return requestJson<{ success: boolean; message: string }>('/api/checkin', {
       method: 'POST',
