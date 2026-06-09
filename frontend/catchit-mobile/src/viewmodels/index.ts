@@ -550,13 +550,14 @@ export function useCheckoutViewModel() {
     if (!currentUser.value) return
 
     await fetchCart()
+    const ticketId = `ticket_${route.routeId}_${route.fromStop.id}_${route.toStop.id}`
     const existing = cartItems.value.find(
-      (entry) => entry.kind === 'ticket' && entry.source.routeId === route.routeId
+      (entry) => entry.kind === 'ticket' && entry.id === ticketId
     )
     const resolvedQuantity = existing && existing.kind === 'ticket' ? existing.quantity + quantity : quantity
 
     const payload: CartEntry = {
-      id: `ticket_${route.routeId}`,
+      id: ticketId,
       kind: 'ticket',
       title: `${route.fromStop.name} → ${route.toStop.name}`,
       description: `${route.departureTime} - ${route.arrivalTime}`,
