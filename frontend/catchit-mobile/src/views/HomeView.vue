@@ -62,8 +62,13 @@
                 </div>
 
                 <div class="card-bottom">
-                  <router-link to="/cards" class="btn-primary card-action-btn">
-                    {{ currentCard ? 'Renew' : 'Buy Card' }}
+                  <template v-if="currentCard">
+                    <button v-if="canRenewCard" @click="handleRenewCard" class="btn-primary card-action-btn">
+                      Renew
+                    </button>
+                  </template>
+                  <router-link v-else to="/cards" class="btn-primary card-action-btn">
+                    Buy Card
                   </router-link>
                   <router-link v-if="currentCard" :to="`/checkin/${currentCard.id}`" class="btn-secondary card-action-btn">
                     Check In
@@ -170,7 +175,8 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { Bell, House, MapPin, Map, ShoppingCart, Ticket, User, LoaderCircle, ChevronUp, ChevronDown, Search } from 'lucide-vue-next'
 import ZoneCard from '../components/ZoneCard.vue'
-import { useTicketViewModel, useCardViewModel, currentUser } from '../viewmodels'
+import { useRouter } from 'vue-router'
+import { useTicketViewModel, useCardViewModel, useCheckoutViewModel, currentUser } from '../viewmodels'
 import type { Ticket as UserTicket } from '../models'
 
 const activeTab = ref<'cards' | 'tickets'>('cards')
@@ -180,24 +186,40 @@ const touchStartX = ref(0)
 const currentDragX = ref(0)
 const isDragging = ref(false)
 
-const ticketViewModel = useTicketViewModel()
-const cardViewModel = useCardViewModel()
+const cardVM = useCardViewModel()
+const ticketVM = useTicketViewModel()
+const cartVM = useCheckoutViewModel()
+const router = useRouter()
 
 const frozenTicketsList = ref<readonly UserTicket[]>([])
 
-const userCards = computed(() => cardViewModel.userCards.value)
+const userCards = computed(() => cardVM.userCards.value)
 const currentCard = computed(() => userCards.value[0] ?? null)
 const currentUserName = computed(() => currentUser.value?.name ?? '')
 
+const canRenewCard = computed(() => {
+  if (!currentCard.value?.validUntil) return false
+  const validUntilMs = new Date(currentCard.value.validUntil).getTime()
+  const diff = validUntilMs - Date.now()
+  return diff <= 7 * 24 * 60 * 60 * 1000 // 7 days in milliseconds
+})
+
 const isInitialLoad = ref(true)
-const isCardsLoading = computed(() => isInitialLoad.value || cardViewModel.isLoading.value)
-const isTicketsLoading = computed(() => isInitialLoad.value || ticketViewModel.isLoading.value)
+const isCardsLoading = computed(() => isInitialLoad.value || cardVM.isLoading.value)
+const isTicketsLoading = computed(() => isInitialLoad.value || ticketVM.isLoading.value)
+
+const handleRenewCard = async () => {
+  if (currentCard.value) {
+    await cartVM.addCardToCart(currentCard.value)
+    router.push('/checkout')
+  }
+}
 
 // --- ESTADOS DA PAGINAÇÃO ---
 const itemsPerPage = 10
 const visibleCount = ref(10)
 
-watch(() => ticketViewModel.tickets.value, (newTickets) => {
+watch(() => ticketVM.tickets.value, (newTickets) => {
   if (newTickets) {
     frozenTicketsList.value = Object.freeze([...newTickets])
     visibleCount.value = itemsPerPage
@@ -353,8 +375,8 @@ onMounted(async () => {
   
   // Executa os fetches assíncronos. O ticketViewModel usará o novo endpoint DTO leve
   await Promise.all([
-    ticketViewModel.fetchUserTickets(),
-    cardViewModel.fetchUserCards(),
+    ticketVM.fetchUserTickets(),
+    cardVM.fetchUserCards(),
   ])
   isInitialLoad.value = false
 })
