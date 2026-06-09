@@ -23,6 +23,9 @@ public interface RouteRepository extends JpaRepository<Route, UUID> {
 	@Query("SELECT r FROM Route r LEFT JOIN FETCH r.schedules s LEFT JOIN FETCH s.stop st LEFT JOIN FETCH st.location ORDER BY r.id")
 	List<Route> findAllWithSchedules();
 
+	@Query("SELECT r FROM Route r LEFT JOIN FETCH r.schedules s LEFT JOIN FETCH s.stop st LEFT JOIN FETCH st.location WHERE r.id = :routeId ORDER BY r.id")
+	Optional<Route> findByIdWithSchedules(UUID routeId);
+
 	@Query("SELECT DISTINCT r FROM Route r JOIN FETCH r.schedules s JOIN FETCH s.stop st LEFT JOIN FETCH st.location WHERE st.id = :stopId ORDER BY r.id")
 	List<Route> findAllWithSchedulesByStopId(UUID stopId);
 

@@ -86,8 +86,13 @@
         <p>Loading route schedules...</p>
       </div>
 
-      <div v-else-if="filteredRoutes.length === 0" class="empty-state">
+      <div v-else-if="routeOptions.length === 0 && stopOptions.length === 0" class="empty-state">
         <p>No routes match the current filters.</p>
+      </div>
+
+      <div v-else-if="isTimetableLoading" class="loading-state timetable-loading">
+        <LoaderCircle class="spinner-icon" />
+        <p>Loading timetable...</p>
       </div>
 
       <!-- Table only shows up when a route or stop is actively selected -->
@@ -163,27 +168,27 @@ const initialRouteId = typeof route.query.routeId === 'string' ? route.query.rou
 const scheduleViewModel = useScheduleViewModel(initialRouteId)
 
 const {
+  isLoading,
+  isTimetableLoading,
+  error,
   searchQuery,
   selectedTransportType,
-  selectedRoute,
-  selectedStop,
-  selectedTimetable,
-  filteredRoutes,
   transportTypeOptions,
   routeOptions,
   stopOptions,
+  selectedRoute,
+  selectedStop,
+  selectedTimetable,
   selectRoute,
   selectStop,
-  loadRoutes,
-  clearFilters,
   clearSelection,
+  clearFilters,
   transportTypeLabel,
-  isLoading,
-  error,
+  loadData,
 } = scheduleViewModel
 
 onMounted(() => {
-  void loadRoutes()
+  loadData()
 })
 </script>
 
@@ -388,6 +393,10 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   gap: 0.6rem;
+}
+
+.timetable-loading {
+  margin-top: 0;
 }
 
 .msg-error {

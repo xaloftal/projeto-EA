@@ -1,30 +1,18 @@
 import { computed, ref } from 'vue'
-import { catchitApi, type RouteScheduleDTO } from '../services/api/catchitApi'
-
-export type ScheduleStopEntry = {
-  stopId: string
-  stopName: string
-  stopCode?: string | null
-  stopType?: string | null
-  latitude: number
-  longitude: number
-  arrivalTime?: string
-  departureTime?: string
-  sequence?: number
-}
-
-export type ScheduleRoute = {
-  id: string
-  name: string
-  schedules: ScheduleStopEntry[]
-  distinctStopCount: number
-}
+import { catchitApi, type RouteScheduleDTO, type RouteSummaryDTO } from '../services/api/catchitApi'
 
 export type ScheduleStopOption = {
   stopId: string
   stopName: string
   stopCode?: string | null
   stopType?: string | null
+}
+
+export type ScheduleRoute = {
+  id: string
+  name: string
+  stops: ScheduleStopOption[]
+  distinctStopCount: number
 }
 
 export type RouteTimetableRow = {
@@ -63,102 +51,16 @@ const normalizeText = (value: string) =>
 
 const parseTimeValue = (value?: string) => {
   if (!value) return ''
-
   const normalized = value.includes('T') ? value.split('T')[1] : value
   return normalized.slice(0, 5) || ''
 }
 
-const formatTime = (value?: string) => parseTimeValue(value) || '--:--'
+const getScheduleTime = (schedule: any) => schedule.departureTime ?? schedule.arrivalTime ?? ''
 
-const formatTransportType = (value?: string | null) => {
-  if (!value) return 'Unknown'
-  return value
-    .toLowerCase()
-    .split(/[_\s-]+/)
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ')
-}
-
-const toScheduleEntry = (schedule: NonNullable<RouteScheduleDTO['schedules']>[number]): ScheduleStopEntry => ({
-  stopId: schedule.stopId,
-  stopName: schedule.stopName,
-  stopCode: schedule.stopCode ?? null,
-  stopType: schedule.stopType ?? null,
-  latitude: schedule.latitude,
-  longitude: schedule.longitude,
-  arrivalTime: schedule.arrivalTime,
-  departureTime: schedule.departureTime,
-  sequence: schedule.sequence,
-})
-
-const getScheduleTime = (schedule: ScheduleStopEntry) => schedule.departureTime ?? schedule.arrivalTime ?? ''
-
-const collectDistinctStops = (routes: ScheduleRoute[]) => {
-  const stops: ScheduleStopOption[] = []
-  const seenStops = new Set<string>()
-
-  for (const route of routes) {
-    for (const schedule of route.schedules) {
-      if (seenStops.has(schedule.stopId)) {
-        continue
-      }
-
-      seenStops.add(schedule.stopId)
-      stops.push({
-        stopId: schedule.stopId,
-        stopName: schedule.stopName,
-        stopCode: schedule.stopCode ?? null,
-        stopType: schedule.stopType ?? null,
-      })
-    }
-  }
-
-  return stops
-}
-
-const toRouteSchedules = (routes: RouteScheduleDTO[]): ScheduleRoute[] =>
-  routes
-    .map((route) => {
-      const schedules = (route.schedules ?? [])
-        .map(toScheduleEntry)
-        .sort((left, right) => {
-          const sequenceDelta = (left.sequence ?? 0) - (right.sequence ?? 0)
-          if (sequenceDelta !== 0) return sequenceDelta
-
-          return parseTimeValue(getScheduleTime(left)).localeCompare(parseTimeValue(getScheduleTime(right)))
-        })
-
-      return {
-        id: route.id,
-        name: route.name?.trim() || 'Unnamed route',
-        schedules,
-        distinctStopCount: new Set(schedules.map((schedule) => schedule.stopId)).size,
-      }
-    })
-    .filter((route) => route.schedules.length > 0)
-    .sort((left, right) => left.name.localeCompare(right.name))
-
-const collectUniqueTimes = (schedules: ScheduleStopEntry[]) => {
-  const times = new Set<string>()
-
-  for (const schedule of schedules) {
-    const time = getScheduleTime(schedule)
-    if (time) {
-      times.add(parseTimeValue(time))
-    }
-  }
-
-  return Array.from(times)
-    .filter(Boolean)
-    .sort((left, right) => left.localeCompare(right))
-}
-
-const buildRouteTimetable = (route: ScheduleRoute): SelectedTimetable => {
-  // Sort schedules by sequence first
-  const sortedSchedules = [...route.schedules].sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0));
-
+const buildRouteTimetableFromDTO = (dto: RouteScheduleDTO): SelectedTimetable => {
+  const sortedSchedules = [...(dto.schedules || [])].sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0));
   const stopMap = new Map<string, { stopName: string; stopCode?: string | null; times: string[] }>();
+  
   sortedSchedules.forEach(s => {
     if (!stopMap.has(s.stopId)) {
       stopMap.set(s.stopId, { stopName: s.stopName, stopCode: s.stopCode ?? null, times: [] });
@@ -169,49 +71,50 @@ const buildRouteTimetable = (route: ScheduleRoute): SelectedTimetable => {
 
   return {
     kind: 'route',
-    code: route.name,
-    label: route.name,
-    distinctCount: route.distinctStopCount,
+    code: dto.name || 'Unknown Route',
+    label: dto.name || 'Unknown Route',
+    distinctCount: stopMap.size,
     rows: Array.from(stopMap.values()).map((stopInfo) => ({
       code: stopInfo.stopCode ? `${stopInfo.stopCode}` : stopInfo.stopName,
-      times: stopInfo.times.sort() // ASC Sort
+      times: stopInfo.times.sort()
     })),
   };
 }
 
-const buildStopTimetable = (stop: ScheduleStopOption, routes: ScheduleRoute[]): SelectedTimetable => {
-  const rows = routes
-    .map(route => {
-      const times = route.schedules
-        .filter(s => s.stopId === stop.stopId)
-        .map(s => parseTimeValue(getScheduleTime(s)))
-        .sort(); // ASC Sort
+const buildStopTimetableFromDTO = (stopId: string, stopName: string, stopCode: string | null | undefined, dtos: RouteScheduleDTO[]): SelectedTimetable => {
+  const rows = dtos.map(dto => {
+    const times = (dto.schedules || [])
+      .filter(s => s.stopId === stopId)
+      .map(s => parseTimeValue(getScheduleTime(s)))
+      .sort();
 
-      return times.length ? { code: route.name, times } : null;
-    })
-    .filter(Boolean);
+    return times.length ? { code: dto.name || 'Unknown Route', times } : null;
+  }).filter(Boolean) as StopTimetableRow[];
 
-  const displayLabel = stop.stopCode ? `${stop.stopCode} - ${stop.stopName}` : stop.stopName;
+  const displayLabel = stopCode ? `${stopCode} - ${stopName}` : stopName;
 
   return {
     kind: 'stop',
     code: displayLabel,
     label: displayLabel,
     distinctCount: rows.length,
-    rows: rows as any
+    rows
   };
 }
 
 export function useScheduleViewModel(initialRouteId = '') {
   const routes = ref<ScheduleRoute[]>([])
+  const allStops = ref<ScheduleStopOption[]>([])
   const isLoading = ref(false)
+  const isTimetableLoading = ref(false)
   const error = ref('')
+  
   const searchQuery = ref('')
   const selectedTransportType = ref('ALL')
   const selectedRouteId = ref(initialRouteId)
   const selectedStopId = ref('')
-
-  const allStops = computed(() => collectDistinctStops(routes.value))
+  
+  const selectedTimetable = ref<SelectedTimetable>(null)
 
   const filteredRoutes = computed(() => {
     const query = normalizeText(searchQuery.value)
@@ -219,28 +122,20 @@ export function useScheduleViewModel(initialRouteId = '') {
 
     return routes.value.filter((route) => {
       if (selectedType !== 'ALL') {
-        const hasType = route.schedules.some(
-          (schedule) => (schedule.stopType ?? '').toUpperCase() === selectedType,
-        )
-
-        if (!hasType) {
-          return false
-        }
+        const hasType = route.stops.some(stop => (stop.stopType ?? '').toUpperCase() === selectedType)
+        if (!hasType) return false
       }
 
-      if (!query) {
-        return true
-      }
+      if (!query) return true
 
       return (
         normalizeText(route.id).includes(query) ||
         normalizeText(route.name).includes(query) ||
-        route.schedules.some(
-          (schedule) =>
-            normalizeText(schedule.stopId).includes(query) ||
-            normalizeText(schedule.stopName).includes(query) ||
-            normalizeText(schedule.stopCode ?? '').includes(query) ||
-            normalizeText(schedule.stopType ?? '').includes(query),
+        route.stops.some(stop =>
+          normalizeText(stop.stopId).includes(query) ||
+          normalizeText(stop.stopName).includes(query) ||
+          normalizeText(stop.stopCode ?? '').includes(query) ||
+          normalizeText(stop.stopType ?? '').includes(query)
         )
       )
     })
@@ -255,9 +150,7 @@ export function useScheduleViewModel(initialRouteId = '') {
         return false
       }
 
-      if (!query) {
-        return true
-      }
+      if (!query) return true
 
       return (
         normalizeText(stop.stopId).includes(query) ||
@@ -268,101 +161,180 @@ export function useScheduleViewModel(initialRouteId = '') {
     })
   })
 
-  const routeOptions = computed(() => filteredRoutes.value.slice(0, 12))
-  const stopOptions = computed(() => filteredStops.value.slice(0, 12))
+  const routeOptions = computed(() => {
+    const query = normalizeText(searchQuery.value)
+    let list = [...filteredRoutes.value]
+    if (query) {
+      list.sort((a, b) => {
+        const aExact = normalizeText(a.name) === query ? -1 : 0
+        const bExact = normalizeText(b.name) === query ? -1 : 0
+        if (aExact !== bExact) return aExact - bExact
+        
+        const aStart = normalizeText(a.name).startsWith(query) ? -1 : 0
+        const bStart = normalizeText(b.name).startsWith(query) ? -1 : 0
+        if (aStart !== bStart) return aStart - bStart
+
+        return a.name.localeCompare(b.name)
+      })
+    }
+    return list.slice(0, 12)
+  })
+
+  const stopOptions = computed(() => {
+    const query = normalizeText(searchQuery.value)
+    let list = [...filteredStops.value]
+    if (query) {
+      list.sort((a, b) => {
+        const aExactCode = normalizeText(a.stopCode || '') === query ? -1 : 0
+        const bExactCode = normalizeText(b.stopCode || '') === query ? -1 : 0
+        if (aExactCode !== bExactCode) return aExactCode - bExactCode
+
+        const aExactName = normalizeText(a.stopName) === query ? -1 : 0
+        const bExactName = normalizeText(b.stopName) === query ? -1 : 0
+        if (aExactName !== bExactName) return aExactName - bExactName
+
+        return a.stopName.localeCompare(b.stopName)
+      })
+    }
+    return list.slice(0, 12)
+  })
 
   const transportTypeOptions = computed(() => {
     const types = new Set<string>()
-
-    for (const route of routes.value) {
-      for (const schedule of route.schedules) {
-        if (schedule.stopType) {
-          types.add(schedule.stopType.toUpperCase())
-        }
-      }
+    for (const stop of allStops.value) {
+      if (stop.stopType) types.add(stop.stopType.toUpperCase())
     }
-
     return ['ALL', ...Array.from(types).sort()]
   })
 
   const selectedRoute = computed(() => routes.value.find((route) => route.id === selectedRouteId.value) ?? null)
   const selectedStop = computed(() => allStops.value.find((stop) => stop.stopId === selectedStopId.value) ?? null)
 
-  const selectedTimetable = computed(() => {
-    if (selectedRoute.value) {
-      return buildRouteTimetable(selectedRoute.value)
-    }
-
-    if (selectedStop.value) {
-      return buildStopTimetable(selectedStop.value, routes.value)
-    }
-
-    return null
-  })
-
-  const loadRoutes = async () => {
-    isLoading.value = true
+  const loadRouteTimetable = async (routeId: string) => {
+    if (!routeId) return
+    isTimetableLoading.value = true
     error.value = ''
-
+    selectedTimetable.value = null
     try {
-      const response = await catchitApi.getRouteSchedules()
+      const response = await catchitApi.getRouteSchedule(routeId)
       if (response.success && response.data) {
-        routes.value = toRouteSchedules(response.data)
-        return
+        selectedTimetable.value = buildRouteTimetableFromDTO(response.data)
+      } else {
+        error.value = response.error || 'Failed to load route schedule'
       }
-
-      routes.value = []
-      error.value = response.error || 'Unable to load route schedules'
+    } catch (err) {
+      error.value = 'Failed to load route schedule'
     } finally {
-      isLoading.value = false
+      isTimetableLoading.value = false
     }
   }
 
-  const selectRoute = (routeId: string) => {
-    selectedRouteId.value = routeId
-    selectedStopId.value = ''
+  const loadStopTimetable = async (stopId: string) => {
+    if (!stopId) return
+    const stop = allStops.value.find(s => s.stopId === stopId)
+    if (!stop) return
+    
+    isTimetableLoading.value = true
+    error.value = ''
+    selectedTimetable.value = null
+    try {
+      const response = await catchitApi.getStopSchedule(stopId)
+      if (response.success && response.data) {
+        selectedTimetable.value = buildStopTimetableFromDTO(stopId, stop.stopName, stop.stopCode, response.data)
+      } else {
+        error.value = response.error || 'Failed to load stop schedule'
+      }
+    } catch (err) {
+      error.value = 'Failed to load stop schedule'
+    } finally {
+      isTimetableLoading.value = false
+    }
   }
 
-  const selectStop = (stopId: string) => {
-    selectedStopId.value = stopId
+  const selectRoute = (id: string) => {
+    if (selectedRouteId.value === id) return
+    selectedRouteId.value = id
+    selectedStopId.value = ''
+    loadRouteTimetable(id)
+  }
+
+  const selectStop = (id: string) => {
+    if (selectedStopId.value === id) return
+    selectedStopId.value = id
     selectedRouteId.value = ''
+    loadStopTimetable(id)
   }
 
   const clearSelection = () => {
     selectedRouteId.value = ''
     selectedStopId.value = ''
+    selectedTimetable.value = null
   }
 
   const clearFilters = () => {
     searchQuery.value = ''
     selectedTransportType.value = 'ALL'
-    clearSelection()
   }
 
-  const transportTypeLabel = (value: string) => (value === 'ALL' ? 'All' : formatTransportType(value))
+  const transportTypeLabel = (option: string) => {
+    if (option === 'ALL') return 'All Transports'
+    return option.charAt(0) + option.slice(1).toLowerCase()
+  }
+
+  const loadData = async () => {
+    isLoading.value = true
+    error.value = ''
+
+    try {
+      const response = await catchitApi.getRouteSummaries()
+      if (response.success && response.data) {
+        routes.value = response.data.map(route => ({
+          id: route.id,
+          name: route.name?.trim() || 'Unnamed route',
+          stops: route.stops,
+          distinctStopCount: route.stops.length
+        })).sort((a, b) => a.name.localeCompare(b.name))
+        
+        const stopMap = new Map<string, ScheduleStopOption>()
+        for (const route of routes.value) {
+          for (const stop of route.stops) {
+            if (!stopMap.has(stop.stopId)) {
+              stopMap.set(stop.stopId, stop)
+            }
+          }
+        }
+        allStops.value = Array.from(stopMap.values())
+
+        if (initialRouteId) {
+          selectRoute(initialRouteId)
+        }
+      } else {
+        error.value = response.error || 'Failed to load routes'
+      }
+    } catch (err: any) {
+      error.value = err.message || 'An error occurred'
+    } finally {
+      isLoading.value = false
+    }
+  }
 
   return {
-    routes,
     isLoading,
+    isTimetableLoading,
     error,
     searchQuery,
     selectedTransportType,
-    selectedRouteId,
-    selectedStopId,
-    selectedRoute,
-    selectedStop,
-    selectedTimetable,
     transportTypeOptions,
     routeOptions,
     stopOptions,
-    filteredRoutes,
-    loadRoutes,
+    selectedRoute,
+    selectedStop,
+    selectedTimetable,
     selectRoute,
     selectStop,
     clearSelection,
     clearFilters,
-    formatTime,
     transportTypeLabel,
+    loadData,
   }
 }
-

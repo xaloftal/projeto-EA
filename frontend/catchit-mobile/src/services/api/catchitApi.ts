@@ -110,6 +110,17 @@ export type BackendRoute = {
   schedules?: BackendRouteSchedule[]
 }
 
+export type RouteSummaryDTO = {
+  id: string
+  name: string
+  stops: {
+    stopId: string
+    stopName: string
+    stopCode?: string | null
+    stopType?: string | null
+  }[]
+}
+
 export type RouteScheduleDTO = {
   id: string
   name?: string
@@ -759,9 +770,23 @@ export class CatchItApiClient {
   }
 
   async getRouteSchedules(): Promise<ApiResponse<RouteScheduleDTO[]>> {
-    const response = await requestJson<RouteScheduleDTO[]>('/api/routes/schedules')
-    if (!response.success || !response.data) return { success: false, error: response.error }
-    return { success: true, data: response.data }
+    return await requestJson<RouteScheduleDTO[]>('/api/routes/schedules')
+  }
+
+  async getRouteSummaries(): Promise<ApiResponse<RouteSummaryDTO[]>> {
+    return await requestJson<RouteSummaryDTO[]>('/api/routes/summary')
+  }
+
+  async getRouteSchedule(routeId: string): Promise<ApiResponse<RouteScheduleDTO>> {
+    return await requestJson<RouteScheduleDTO>(`/api/routes/${routeId}/schedule`)
+  }
+
+  async getStopSchedule(stopId: string): Promise<ApiResponse<RouteScheduleDTO[]>> {
+    return await requestJson<RouteScheduleDTO[]>(`/api/routes/stop-schedules/${stopId}`)
+  }
+
+  async getRoutePath(id: string): Promise<ApiResponse<Stop[]>> {
+    return await requestJson<Stop[]>(`/api/routes/${id}/path`)
   }
 
   async getStopRouteArrivals(stopId: string): Promise<ApiResponse<BackendStopRouteArrival[]>> {
