@@ -87,8 +87,8 @@
       <router-link to="/cart" class="nav-item active">
         <ShoppingCart class="nav-icon" />
       </router-link>
-      <router-link to="/notifications" class="nav-item">
-        <Bell class="nav-icon" />
+      <router-link to="/cards" class="nav-item">
+        <Ticket class="nav-icon" />
       </router-link>
       <router-link to="/profile" class="nav-item">
         <User class="nav-icon" />
@@ -99,7 +99,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { ArrowLeft, Bell, CreditCard, House, Map, ShoppingCart, User } from 'lucide-vue-next'
+import { ArrowLeft, Ticket, CreditCard, House, Map, ShoppingCart, User } from 'lucide-vue-next'
 import { useRouter } from 'vue-router'
 import { useCheckoutViewModel, useCardViewModel } from '../viewmodels'
 import { requestJson } from '../services/api/http'
