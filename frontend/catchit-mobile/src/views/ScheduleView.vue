@@ -9,33 +9,29 @@
     </header>
 
     <div class="content">
-      <section class="filters-card">
-        <div class="filter-field">
-          <label for="schedule-search">Search routes or stops</label>
-          <div class="input-shell">
-            <Search class="input-icon" />
-            <input
-              id="schedule-search"
-              v-model="searchQuery"
-              type="text"
-              placeholder="Search by route name or stop"
-            />
-          </div>
+      <section class="single-line-filter">
+        <div class="search-input-wrapper">
+          <Search class="icon-search" />
+          <input
+            id="schedule-search"
+            v-model="searchQuery"
+            type="text"
+            placeholder="Search routes or stops..."
+          />
         </div>
 
-        <div class="filter-field">
-          <label for="transport-type">Transport type</label>
-          <div class="select-shell">
-            <SlidersHorizontal class="input-icon" />
-            <select id="transport-type" v-model="selectedTransportType">
-              <option v-for="option in transportTypeOptions" :key="option" :value="option">
-                {{ transportTypeLabel(option) }}
-              </option>
-            </select>
-          </div>
+        <div class="transport-type-wrapper">
+          <SlidersHorizontal class="icon-filter" />
+          <select id="transport-type" v-model="selectedTransportType">
+            <option v-for="option in transportTypeOptions" :key="option" :value="option">
+              {{ transportTypeLabel(option) }}
+            </option>
+          </select>
         </div>
 
-        <button class="clear-btn" @click="clearFilters">Clear filters</button>
+        <button v-if="searchQuery || selectedTransportType !== 'ALL'" class="clear-icon-btn" @click="clearFilters" title="Clear Filters">
+          <X class="icon-clear" />
+        </button>
       </section>
 
       <!-- Suggestions list when searching -->
@@ -68,15 +64,20 @@
         </div>
       </section>
 
-      <section v-if="selectedRoute" class="selected-route-card">
-        <div class="selected-route-header">
-          <div>
-            <p class="selected-route-kicker">Focused route</p>
-            <h3>{{ selectedRoute.name }}</h3>
-          </div>
-          <span class="selected-route-count">{{ selectedRoute.distinctStopCount }} stops</span>
+      <div v-if="selectedRoute || selectedStop" class="subtle-focus-container">
+        <div v-if="selectedRoute" class="subtle-focus-item">
+          <span class="focus-kicker">Route</span>
+          <span class="focus-value">{{ selectedRoute.name }}</span>
+          <span class="focus-meta">({{ selectedRoute.distinctStopCount }} stops)</span>
+          <button class="focus-clear" @click="clearSelection"><X class="icon-xs" /></button>
         </div>
-      </section>
+
+        <div v-else-if="selectedStop" class="subtle-focus-item">
+          <span class="focus-kicker">Stop</span>
+          <span class="focus-value">{{ selectedStop.stopCode ? `(${selectedStop.stopCode}) - ` : '' }}{{ selectedStop.stopName }}</span>
+          <button class="focus-clear" @click="clearSelection"><X class="icon-xs" /></button>
+        </div>
+      </div>
 
       <p v-if="error" class="msg-error">{{ error }}</p>
 
@@ -123,6 +124,11 @@
           </table>
         </div>
       </div>
+
+      <div v-else class="empty-state select-prompt">
+        <Search class="prompt-icon" />
+        <p>Search and select a route or stop above to view its schedule.</p>
+      </div>
     </div>
 
     <nav class="bottom-nav">
@@ -130,7 +136,7 @@
       <router-link to="/map" class="nav-item"><Map class="nav-icon" /></router-link>
       <router-link to="/cart" class="nav-item"><ShoppingCart class="nav-icon" /></router-link>
       <router-link to="/cards" class="nav-item"><Ticket class="nav-icon" /></router-link>
-      <router-link to="/profile" class="nav-item"><User class="nav-icon" /></router-link>
+      <router-link to="/profile" class="nav-item "><User class="nav-icon active" /></router-link>
     </nav>
   </div>
 </template>
@@ -147,6 +153,7 @@ import {
   SlidersHorizontal,
   Ticket,
   User,
+  X,
 } from 'lucide-vue-next'
 import { useRoute } from 'vue-router'
 import { useScheduleViewModel } from '../viewmodels'
@@ -159,6 +166,7 @@ const {
   searchQuery,
   selectedTransportType,
   selectedRoute,
+  selectedStop,
   selectedTimetable,
   filteredRoutes,
   transportTypeOptions,
@@ -168,6 +176,7 @@ const {
   selectStop,
   loadRoutes,
   clearFilters,
+  clearSelection,
   transportTypeLabel,
   isLoading,
   error,
@@ -198,8 +207,6 @@ onMounted(() => {
   gap: 0.9rem;
 }
 
-.filters-card,
-.selected-route-card,
 .route-card {
   background: var(--color-surface);
   border: 1px solid rgba(15, 23, 42, 0.08);
@@ -207,109 +214,173 @@ onMounted(() => {
   box-shadow: var(--shadow-card);
 }
 
-.filters-card {
-  padding: 1rem;
-  display: grid;
-  gap: 0.85rem;
-}
-
-.filter-field {
+.single-line-filter {
   display: flex;
-  flex-direction: column;
-  gap: 0.45rem;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--color-surface);
+  padding: 0.6rem;
+  border-radius: 99px;
+  box-shadow: var(--shadow-card);
 }
 
-.filter-field label {
-  font-size: 0.84rem;
-  font-weight: 700;
-  color: #374151;
-}
-
-.input-shell,
-.select-shell {
+.search-input-wrapper {
+  flex: 1;
   position: relative;
   display: flex;
   align-items: center;
 }
 
-.input-shell input,
-.select-shell select {
+.search-input-wrapper input {
   width: 100%;
-  min-height: 3rem;
-  border: 1px solid #d1d5db;
-  border-radius: 14px;
-  background: #ffffff;
-  color: #111827;
-  padding: 0.85rem 0.95rem 0.85rem 2.5rem;
-  font-size: 0.95rem;
-  outline: none;
-}
-
-.input-shell input:focus,
-.select-shell select:focus {
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.12);
-}
-
-.input-icon {
-  position: absolute;
-  left: 0.9rem;
-  width: 1rem;
-  height: 1rem;
-  color: #6b7280;
-  pointer-events: none;
-}
-
-.clear-btn {
   border: none;
-  border-radius: 12px;
-  background: #111827;
-  color: #ffffff;
-  font-weight: 700;
-  padding: 0.85rem 1rem;
+  background: transparent;
+  outline: none;
+  padding: 0.5rem 0.5rem 0.5rem 2.2rem;
+  font-size: 0.95rem;
+  color: #111827;
+}
+
+.icon-search {
+  position: absolute;
+  left: 0.6rem;
+  width: 1.1rem;
+  height: 1.1rem;
+  color: #6b7280;
+}
+
+.transport-type-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: #f1f5f9;
+  border-radius: 99px;
+  padding: 0 0.8rem;
+  height: 2.4rem;
+}
+
+.transport-type-wrapper select {
+  appearance: none;
+  border: none;
+  background: transparent;
+  outline: none;
+  padding-left: 1.5rem;
+  font-weight: 600;
+  color: #334155;
+  font-size: 0.85rem;
   cursor: pointer;
 }
 
-.selected-route-card {
-  padding: 1rem;
+.icon-filter {
+  position: absolute;
+  left: 0.6rem;
+  width: 1rem;
+  height: 1rem;
+  color: #475569;
+  pointer-events: none;
 }
 
-.selected-route-header {
+.clear-icon-btn {
+  background: transparent;
+  border: none;
+  padding: 0;
   display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  align-items: flex-start;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #94a3b8;
+  transition: color 0.2s;
+  padding-right: 0.4rem;
 }
 
-.selected-route-kicker {
-  margin: 0 0 0.25rem 0;
-  color: #667eea;
-  font-size: 0.78rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+.clear-icon-btn:hover {
+  color: #ef4444;
 }
 
-.selected-route-card h3 {
-  margin: 0;
-  color: #111827;
+.icon-clear {
+  width: 1.2rem;
+  height: 1.2rem;
 }
 
-.selected-route-count {
-  flex-shrink: 0;
-  border-radius: 999px;
-  background: rgba(102, 126, 234, 0.1);
-  color: #4f46e5;
-  font-size: 0.8rem;
+.subtle-focus-container {
+  display: flex;
+  justify-content: center;
+  margin-top: 0.2rem;
+}
+
+.subtle-focus-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: #e2e8f0;
+  padding: 0.4rem 0.8rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+
+.focus-kicker {
   font-weight: 700;
-  padding: 0.35rem 0.65rem;
+  color: #475569;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+}
+
+.focus-value {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.focus-meta {
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
+.focus-clear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.1);
+  border: none;
+  border-radius: 50%;
+  width: 1.2rem;
+  height: 1.2rem;
+  cursor: pointer;
+  color: #334155;
+  margin-left: 0.2rem;
+}
+
+.focus-clear:hover {
+  background: rgba(15, 23, 42, 0.2);
+}
+
+.icon-xs {
+  width: 0.8rem;
+  height: 0.8rem;
 }
 
 .loading-state,
 .empty-state {
-  padding: 1.5rem 1rem;
+  padding: 2.5rem 1rem;
   text-align: center;
   color: #6b7280;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.prompt-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  color: #9ca3af;
+  margin-bottom: 0.25rem;
+}
+
+.select-prompt p {
+  font-weight: 500;
+  color: #4b5563;
+  margin: 0;
 }
 
 .loading-state {
