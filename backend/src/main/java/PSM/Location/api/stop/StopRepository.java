@@ -18,4 +18,7 @@ public interface StopRepository extends JpaRepository<Stop, UUID> {
 
 	@EntityGraph(attributePaths = "location")
 	Optional<Stop> findById(UUID id);
+
+	@EntityGraph(attributePaths = "location")
+	Optional<Stop> findByStopCode(String stopCode);
 }

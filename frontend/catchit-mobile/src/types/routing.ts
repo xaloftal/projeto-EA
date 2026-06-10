@@ -45,4 +45,6 @@ export interface RoutingPlanRequest {
   fromLon: number
   toLat: number
   toLon: number
+  date?: string
+  time?: string
 }

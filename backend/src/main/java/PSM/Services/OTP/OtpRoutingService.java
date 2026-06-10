@@ -64,9 +64,9 @@ public class OtpRoutingService {
      * @return GeoJSON FeatureCollection (as JsonNode) with one Feature per leg
      */
     public JsonNode planFewestTransfers(double fromLat, double fromLon,
-            double toLat, double toLon) {
-        String cacheKey = String.format("route:%.6f,%.6f:%.6f,%.6f:fewest",
-                fromLat, fromLon, toLat, toLon);
+            double toLat, double toLon, String date, String time) {
+        String cacheKey = String.format("route:%.6f,%.6f:%.6f,%.6f:%s:%s:fewest",
+                fromLat, fromLon, toLat, toLon, date, time);
 
         String cached = redis.opsForValue().get(cacheKey);
         if (cached != null) {
@@ -76,7 +76,7 @@ public class OtpRoutingService {
                 /* fall through and recompute */ }
         }
 
-        JsonNode otpResponse = callOtp(fromLat, fromLon, toLat, toLon);
+        JsonNode otpResponse = callOtp(fromLat, fromLon, toLat, toLon, date, time);
         JsonNode geoJson = itineraryToGeoJson(otpResponse);
 
         try {
@@ -89,12 +89,13 @@ public class OtpRoutingService {
     }
 
     private JsonNode callOtp(double fromLat, double fromLon,
-            double toLat, double toLon) {
-        // We now have 2026 GTFS data, so we can use the actual current date and time!
-        // The Metro GTFS you downloaded starts on 2026-04-06 and ends on 2026-07-19!
-        String date = "2026-06-08";
-        String time = LocalTime.now(ZoneId.of("Europe/Lisbon")).format(DateTimeFormatter.ofPattern("HH:mm:ss"));
-        // String time = "14:00:00";
+            double toLat, double toLon, String date, String time) {
+        if (date == null || date.isEmpty()) {
+            date = "2026-06-08";
+        }
+        if (time == null || time.isEmpty()) {
+            time = LocalTime.now(ZoneId.of("Europe/Lisbon")).format(DateTimeFormatter.ofPattern("HH:mm:ss"));
+        }
 
         Map<String, Object> variables = Map.of(
                 "fromLat", fromLat,
@@ -138,8 +139,6 @@ public class OtpRoutingService {
         }
 
         JsonNode best = null;
-        int bestTransfers = Integer.MAX_VALUE;
-        long bestDuration = Long.MAX_VALUE;
         for (JsonNode it : itineraries) {
             int transitLegs = 0;
             for (JsonNode leg : it.path("legs")) {
@@ -154,13 +153,10 @@ public class OtpRoutingService {
                 continue;
             }
 
-            int t = Math.max(0, transitLegs - 1);
-            long d = it.path("duration").asLong(Long.MAX_VALUE);
-            if (t < bestTransfers || (t == bestTransfers && d < bestDuration)) {
-                best = it;
-                bestTransfers = t;
-                bestDuration = d;
-            }
+            // OTP already sorts itineraries by best overall score (duration, transfers, walk time).
+            // We just pick the first one that includes transit.
+            best = it;
+            break;
         }
 
         // If we filtered out all the pure walking itineraries and nothing is left:
@@ -171,6 +167,15 @@ public class OtpRoutingService {
         }
 
         ObjectNode summary = mapper.createObjectNode();
+        
+        int transitLegsCount = 0;
+        for (JsonNode leg : best.path("legs")) {
+            if (!"WALK".equalsIgnoreCase(leg.path("mode").asText())) {
+                transitLegsCount++;
+            }
+        }
+        int bestTransfers = Math.max(0, transitLegsCount - 1);
+
         summary.put("durationSeconds", best.path("duration").asLong());
         summary.put("transfers", bestTransfers);
         summary.put("walkDistanceMeters", best.path("walkDistance").asDouble());

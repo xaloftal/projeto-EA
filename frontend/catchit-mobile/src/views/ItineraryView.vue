@@ -23,6 +23,7 @@
         :to-label="toStop.name"
         hide-pickers
         auto-plan
+        hide-cart-button
       />
 
       <q-banner v-else class="bg-warning text-dark" rounded>

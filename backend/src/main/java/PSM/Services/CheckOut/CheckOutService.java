@@ -291,7 +291,7 @@ public CheckoutSessionResponseDTO createSession(UUID userId) {
 		try {
 			return stopRepository.findById(UUID.fromString(stopId)).orElse(null);
 		} catch (IllegalArgumentException e) {
-			return null;
+			return stopRepository.findByStopCode(stopId).orElse(null);
 		}
 	}
 

@@ -1,7 +1,7 @@
 <template>
   <div class="itinerary-panel">
     <header v-if="plan?.summary" class="itinerary-panel__header">
-      <div>
+      <div class="itinerary-panel__header-info">
         <p class="itinerary-panel__route">{{ fromLabel }} → {{ toLabel }}</p>
         <p class="itinerary-panel__meta">
           <span>{{ formatDuration(plan.summary.durationSeconds) }}</span>
@@ -9,6 +9,15 @@
           <span>{{ Math.round(plan.summary.walkDistanceMeters) }} m walking</span>
         </p>
       </div>
+      <q-btn
+        v-if="hasTransitLegs && !hideCartButton"
+        color="primary"
+        outline
+        icon="shopping_cart"
+        label="Add Trip"
+        size="sm"
+        @click="addAllToCart"
+      />
     </header>
 
     <q-timeline v-if="sortedLegs.length" color="primary" layout="comfortable" class="itinerary-panel__timeline">
@@ -50,13 +59,19 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useRouter } from 'vue-router'
+import { useCheckoutViewModel } from '../viewmodels'
 import type { RoutingLegFeature, RoutingLegProperties, RoutingPlanResponse, TransitMode } from '../types/routing'
 
 const props = defineProps<{
   plan: RoutingPlanResponse | null
   fromLabel?: string
   toLabel?: string
+  hideCartButton?: boolean
 }>()
+
+const router = useRouter()
+const { addTicketToCart } = useCheckoutViewModel()
 
 const sortedLegs = computed(() => {
   if (!props.plan?.features?.length) return []
@@ -64,6 +79,31 @@ const sortedLegs = computed(() => {
     (a, b) => a.properties.legIndex - b.properties.legIndex,
   ) as RoutingLegFeature[]
 })
+
+const hasTransitLegs = computed(() => {
+  return sortedLegs.value.some(leg => leg.properties.mode !== 'WALK')
+})
+
+const addAllToCart = async () => {
+  for (const leg of sortedLegs.value) {
+    const p = leg.properties
+    if (p.mode === 'WALK') continue
+    
+    const fakeRoute = {
+      routeId: p.routeShortName || p.routeLongName || p.mode,
+      routeName: p.routeLongName || p.routeShortName || p.mode,
+      fromStop: { id: p.fromStopCode || p.fromStop, name: p.fromStop, latitude: 0, longitude: 0, code: p.fromStopCode },
+      toStop: { id: p.toStopCode || p.toStop, name: p.toStop, latitude: 0, longitude: 0, code: p.toStopCode },
+      departureTime: formatLegTime(p.startTime),
+      arrivalTime: formatLegTime(p.endTime),
+      price: 1.20,
+      vehicle: { id: p.mode, name: p.mode, type: p.mode }
+    }
+    
+    await addTicketToCart(fakeRoute as any, 1)
+  }
+  router.push('/cart')
+}
 
 const formatDuration = (seconds: number): string => {
   const hours = Math.floor(seconds / 3600)
@@ -129,9 +169,17 @@ const modeIcon = (mode: TransitMode): string => {
 }
 
 .itinerary-panel__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 1rem;
   padding-bottom: 0.75rem;
   border-bottom: 1px solid #e5e7eb;
+}
+
+.itinerary-panel__header-info {
+  display: flex;
+  flex-direction: column;
 }
 
 .itinerary-panel__route {

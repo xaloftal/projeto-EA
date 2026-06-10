@@ -1021,6 +1021,8 @@ export class CatchItApiClient {
       toLat: String(request.toLat),
       toLon: String(request.toLon),
     })
+    if (request.date) params.append('date', request.date)
+    if (request.time) params.append('time', request.time)
     return requestJson<RoutingPlanResponse>(`/api/routing/plan?${params.toString()}`)
   }
 

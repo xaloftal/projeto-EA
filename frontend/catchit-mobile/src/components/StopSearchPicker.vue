@@ -18,8 +18,11 @@
           class="stop-dropdown-item"
           @mousedown.prevent="selectStop(stop)"
         >
-          {{ stop.name }}
-          <small v-if="stop.code">({{ stop.code }})</small>
+          <span class="stop-dropdown-name">
+            {{ stop.name }}
+            <small v-if="stop.code">({{ stop.code }})</small>
+          </span>
+          <span v-if="getStopTypeLetter(stop.stopType)" :class="['stop-type-badge', `stop-type-${getStopTypeLetter(stop.stopType)}`]">{{ getStopTypeLetter(stop.stopType) }}</span>
         </li>
         <li v-if="!filteredStops.length" class="stop-dropdown-empty">No stops found.</li>
       </ul>
@@ -56,6 +59,15 @@ const searchText = ref('')
 const isDropdownOpen = ref(false)
 
 const availableStops = computed(() => props.stops ?? loadedStops.value)
+
+const getStopTypeLetter = (type?: string) => {
+  if (!type) return ''
+  const t = type.toLowerCase()
+  if (t.includes('bus')) return 'B'
+  if (t.includes('metro')) return 'M'
+  if (t.includes('train')) return 'T'
+  return t.charAt(0).toUpperCase()
+}
 
 const normalizeStopName = (value: string) =>
   value
@@ -163,4 +175,33 @@ onMounted(async () => {
   color: #9ca3af;
   font-size: 0.85rem;
 }
+
+.stop-dropdown-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.stop-dropdown-name {
+  display: flex;
+  align-items: baseline;
+  gap: 0.25rem;
+}
+
+.stop-type-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: white;
+  flex-shrink: 0;
+}
+
+.stop-type-B { background: #0ea5e9; }
+.stop-type-M { background: #ec4899; }
+.stop-type-T { background: #f97316; }
 </style>

@@ -24,7 +24,9 @@
         <button class="chip-btn" :class="{ 'active-filter': isFilterActive }" @click="openFilterModal">
           Filter
         </button>
-        <p class="results-count">{{ resultCount }} results</p>
+        <router-link to="/plantrip" class="chip-btn plan-trip-btn">
+          Plan Trip
+        </router-link>
       </div>
 
       <div v-if="apiError" class="map-error-banner">
@@ -389,10 +391,6 @@ const stopById = computed(() => {
   }
   return map
 })
-
-const resultCount = computed(() =>
-  stopQuery.value.trim() ? filteredStops.value.length : stopsToShow.value.length
-)
 
 const visibleSuggestions = computed(() =>
   showSuggestions.value && stopQuery.value.trim().length > 0 && filteredStops.value.length > 0
@@ -1011,6 +1009,17 @@ onUnmounted(() => {
 
 .chip-btn.active-filter {
   background: var(--color-brand, #4f46e5);
+  border-color: var(--color-brand, #4f46e5);
+}
+
+.plan-trip-btn {
+  margin-left: auto;
+  text-decoration: none;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  background: var(--color-brand, #4f46e5);
+  color: white;
   border-color: var(--color-brand, #4f46e5);
 }
 

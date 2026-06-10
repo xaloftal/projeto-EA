@@ -11,6 +11,8 @@ function buildCacheKey(request: RoutingPlanRequest): string {
     request.fromLon.toFixed(6),
     request.toLat.toFixed(6),
     request.toLon.toFixed(6),
+    request.date ?? 'nodate',
+    request.time ?? 'notime',
   ].join(':')
 }
 
