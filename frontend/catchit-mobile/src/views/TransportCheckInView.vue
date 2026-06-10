@@ -58,7 +58,7 @@
               <input type="radio" :value="trip.id" v-model="selectedTripId" />
               <div class="option-info">
                 <p class="option-title"> {{ trip.routeName }}</p>
-                <p class="option-meta">Started at {{ trip.startTime }}</p>
+                <p class="option-meta">Next trip at {{ trip.startTime }}</p>
               </div>
             </label>
           </div>

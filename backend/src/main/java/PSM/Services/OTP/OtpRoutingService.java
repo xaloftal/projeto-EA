@@ -11,8 +11,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import java.time.Duration;
-import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.time.LocalTime;
 import java.util.Map;
 
 /**
@@ -63,14 +64,16 @@ public class OtpRoutingService {
      * @return GeoJSON FeatureCollection (as JsonNode) with one Feature per leg
      */
     public JsonNode planFewestTransfers(double fromLat, double fromLon,
-                                        double toLat, double toLon) {
+            double toLat, double toLon) {
         String cacheKey = String.format("route:%.6f,%.6f:%.6f,%.6f:fewest",
                 fromLat, fromLon, toLat, toLon);
 
         String cached = redis.opsForValue().get(cacheKey);
         if (cached != null) {
-            try { return mapper.readTree(cached); }
-            catch (Exception e) { /* fall through and recompute */ }
+            try {
+                return mapper.readTree(cached);
+            } catch (Exception e) {
+                /* fall through and recompute */ }
         }
 
         JsonNode otpResponse = callOtp(fromLat, fromLon, toLat, toLon);
@@ -79,16 +82,19 @@ public class OtpRoutingService {
         try {
             redis.opsForValue().set(cacheKey, mapper.writeValueAsString(geoJson),
                     Duration.ofSeconds(cacheTtlSeconds));
-        } catch (Exception ignored) { }
+        } catch (Exception ignored) {
+        }
 
         return geoJson;
     }
 
     private JsonNode callOtp(double fromLat, double fromLon,
-                             double toLat, double toLon) {
-        // GTFS data is from 2022-09-10 to 2022-12-31, so we hardcode the date to a valid weekday
-        String date = "2022-10-12"; // A valid Wednesday in the GTFS calendar
-        String time = LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"));
+            double toLat, double toLon) {
+        // We now have 2026 GTFS data, so we can use the actual current date and time!
+        // The Metro GTFS you downloaded starts on 2026-04-06 and ends on 2026-07-19!
+        String date = "2026-06-08";
+        String time = LocalTime.now(ZoneId.of("Europe/Lisbon")).format(DateTimeFormatter.ofPattern("HH:mm:ss"));
+        // String time = "14:00:00";
 
         Map<String, Object> variables = Map.of(
                 "fromLat", fromLat,
@@ -99,13 +105,11 @@ public class OtpRoutingService {
                 "time", time,
                 "transferPenalty", transferPenalty,
                 "walkReluctance", walkReluctance,
-                "maxWalkDistance", maxWalkDistance
-        );
+                "maxWalkDistance", maxWalkDistance);
 
         Map<String, Object> body = Map.of(
                 "query", PLAN_QUERY,
-                "variables", variables
-        );
+                "variables", variables);
 
         return webClient.post()
                 .uri("/otp/routers/{routerId}/index/graphql", routerId)
@@ -137,13 +141,33 @@ public class OtpRoutingService {
         int bestTransfers = Integer.MAX_VALUE;
         long bestDuration = Long.MAX_VALUE;
         for (JsonNode it : itineraries) {
-            int t = countTransfers(it.path("legs"));
+            int transitLegs = 0;
+            for (JsonNode leg : it.path("legs")) {
+                if (!"WALK".equalsIgnoreCase(leg.path("mode").asText())) {
+                    transitLegs++;
+                }
+            }
+
+            // If the itinerary has ZERO transit legs, it's a pure walk. We NEVER want to
+            // show this.
+            if (transitLegs == 0) {
+                continue;
+            }
+
+            int t = Math.max(0, transitLegs - 1);
             long d = it.path("duration").asLong(Long.MAX_VALUE);
             if (t < bestTransfers || (t == bestTransfers && d < bestDuration)) {
                 best = it;
                 bestTransfers = t;
                 bestDuration = d;
             }
+        }
+
+        // If we filtered out all the pure walking itineraries and nothing is left:
+        if (best == null) {
+            featureCollection.set("features", features);
+            featureCollection.put("error", "no_route_found");
+            return featureCollection;
         }
 
         ObjectNode summary = mapper.createObjectNode();
@@ -158,7 +182,10 @@ public class OtpRoutingService {
         for (JsonNode leg : best.path("legs")) {
             ArrayNode coords = decodePolyline(
                     leg.path("legGeometry").path("points").asText(""));
-            if (coords.isEmpty()) { legIndex++; continue; }
+            if (coords.isEmpty()) {
+                legIndex++;
+                continue;
+            }
 
             ObjectNode feature = mapper.createObjectNode();
             feature.put("type", "Feature");
@@ -197,7 +224,8 @@ public class OtpRoutingService {
      */
     private ArrayNode decodePolyline(String encoded) {
         ArrayNode result = mapper.createArrayNode();
-        if (encoded == null || encoded.isEmpty()) return result;
+        if (encoded == null || encoded.isEmpty())
+            return result;
 
         int index = 0, len = encoded.length();
         int lat = 0, lng = 0;
@@ -212,7 +240,8 @@ public class OtpRoutingService {
             int dlat = ((decoded & 1) != 0 ? ~(decoded >> 1) : (decoded >> 1));
             lat += dlat;
 
-            shift = 0; decoded = 0;
+            shift = 0;
+            decoded = 0;
             do {
                 b = encoded.charAt(index++) - 63;
                 decoded |= (b & 0x1f) << shift;
@@ -222,7 +251,7 @@ public class OtpRoutingService {
             lng += dlng;
 
             ArrayNode pair = mapper.createArrayNode();
-            pair.add(lng / 1e5);  // GeoJSON is [lon, lat]
+            pair.add(lng / 1e5); // GeoJSON is [lon, lat]
             pair.add(lat / 1e5);
             result.add(pair);
         }
@@ -230,57 +259,57 @@ public class OtpRoutingService {
     }
 
     private static final String PLAN_QUERY = """
-        query Plan(
-          $fromLat: Float!, $fromLon: Float!,
-          $toLat: Float!, $toLon: Float!,
-          $date: String!, $time: String!,
-          $transferPenalty: Int!, $walkReluctance: Float!,
-          $maxWalkDistance: Float!
-        ) {
-          plan(
-            from: { lat: $fromLat, lon: $fromLon }
-            to:   { lat: $toLat,   lon: $toLon }
-            date: $date
-            time: $time
-            numItineraries: 5
-            transferPenalty: $transferPenalty
-            walkReluctance: $walkReluctance
-            maxWalkDistance: $maxWalkDistance
-            transportModes: [
-              { mode: WALK },
-              { mode: BUS },
-              { mode: RAIL },
-              { mode: SUBWAY },
-              { mode: TRAM }
-            ]
-          ) {
-            itineraries {
-              duration
-              startTime
-              endTime
-              walkDistance
-              numberOfTransfers: legs { mode }  # placeholder, see note
-              legs {
-                mode
-                startTime
-                endTime
-                distance
-                from { name lat lon stop { code name } }
-                to   { name lat lon stop { code name } }
-                route { shortName longName color mode }
-                legGeometry { points length }
+            query Plan(
+              $fromLat: Float!, $fromLon: Float!,
+              $toLat: Float!, $toLon: Float!,
+              $date: String!, $time: String!,
+              $transferPenalty: Int!, $walkReluctance: Float!,
+              $maxWalkDistance: Float!
+            ) {
+              plan(
+                from: { lat: $fromLat, lon: $fromLon }
+                to:   { lat: $toLat,   lon: $toLon }
+                date: $date
+                time: $time
+                numItineraries: 5
+                transferPenalty: $transferPenalty
+                walkReluctance: $walkReluctance
+                maxWalkDistance: $maxWalkDistance
+                transportModes: [
+                  { mode: WALK },
+                  { mode: BUS },
+                  { mode: RAIL },
+                  { mode: SUBWAY },
+                  { mode: TRAM }
+                ]
+              ) {
+                itineraries {
+                  duration
+                  startTime
+                  endTime
+                  walkDistance
+                  numberOfTransfers: legs { mode }  # placeholder, see note
+                  legs {
+                    mode
+                    startTime
+                    endTime
+                    distance
+                    from { name lat lon stop { code name } }
+                    to   { name lat lon stop { code name } }
+                    route { shortName longName color mode }
+                    legGeometry { points length }
+                  }
+                }
               }
             }
-          }
-        }
-        """;
+            """;
 
-
-        private int countTransfers(JsonNode legs) {
-            int transit = 0;
-            for (JsonNode leg : legs) {
-                if (!"WALK".equalsIgnoreCase(leg.path("mode").asText())) transit++;
-            }
-            return Math.max(0, transit - 1);
-        }
+    // private int countTransfers(JsonNode legs) {
+    // int transit = 0;
+    // for (JsonNode leg : legs) {
+    // if (!"WALK".equalsIgnoreCase(leg.path("mode").asText()))
+    // transit++;
+    // }
+    // return Math.max(0, transit - 1);
+    // }
 }

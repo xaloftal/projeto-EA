@@ -110,6 +110,17 @@ export type BackendRoute = {
   schedules?: BackendRouteSchedule[]
 }
 
+export type RouteSummaryDTO = {
+  id: string
+  name: string
+  stops: {
+    stopId: string
+    stopName: string
+    stopCode?: string | null
+    stopType?: string | null
+  }[]
+}
+
 export type RouteScheduleDTO = {
   id: string
   name?: string
@@ -289,10 +300,11 @@ const mapStop = (stop: BackendStop): Stop => ({
 
 const mapTicketStatus = (status?: any): TicketStatus => {
   const normalized = String(status ?? '').toUpperCase()
-  if (normalized.includes('VALID')) return TicketStatus.Valid
-  if (normalized.includes('EXPIRED')) return TicketStatus.Expired
-  if (normalized.includes('USED')) return TicketStatus.Used
-  return TicketStatus.PurchasedButNotValid
+  if (normalized.includes('UNUSED')) return TicketStatus.PurchasedButNotValid
+  else if (normalized.includes('VALID')) return TicketStatus.Valid
+  else if (normalized.includes('EXPIRED')) return TicketStatus.Expired
+  else if (normalized.includes('USED')) return TicketStatus.Used
+  else return TicketStatus.PurchasedButNotValid
 }
 
 const mapTicket = (ticket: BackendTicket, userId = ''): Ticket => ({
@@ -758,9 +770,23 @@ export class CatchItApiClient {
   }
 
   async getRouteSchedules(): Promise<ApiResponse<RouteScheduleDTO[]>> {
-    const response = await requestJson<RouteScheduleDTO[]>('/api/routes/schedules')
-    if (!response.success || !response.data) return { success: false, error: response.error }
-    return { success: true, data: response.data }
+    return await requestJson<RouteScheduleDTO[]>('/api/routes/schedules')
+  }
+
+  async getRouteSummaries(): Promise<ApiResponse<RouteSummaryDTO[]>> {
+    return await requestJson<RouteSummaryDTO[]>('/api/routes/summary')
+  }
+
+  async getRouteSchedule(routeId: string): Promise<ApiResponse<RouteScheduleDTO>> {
+    return await requestJson<RouteScheduleDTO>(`/api/routes/${routeId}/schedule`)
+  }
+
+  async getStopSchedule(stopId: string): Promise<ApiResponse<RouteScheduleDTO[]>> {
+    return await requestJson<RouteScheduleDTO[]>(`/api/routes/stop-schedules/${stopId}`)
+  }
+
+  async getRoutePath(id: string): Promise<ApiResponse<Stop[]>> {
+    return await requestJson<Stop[]>(`/api/routes/${id}/path`)
   }
 
   async getStopRouteArrivals(stopId: string): Promise<ApiResponse<BackendStopRouteArrival[]>> {
@@ -847,6 +873,19 @@ export class CatchItApiClient {
     const response = await requestJson<Array<{ id: string; startTime?: string; routeName?: string; zoneName?: string; stopIds?: string[] }>>('/api/trips/active')
     if (!response.success || !response.data) return { success: false, error: response.error }
     // Ensure each trip includes zoneName and stopIds (may be undefined)
+    const trips = response.data.map((trip) => ({
+      id: trip.id,
+      startTime: trip.startTime,
+      routeName: trip.routeName,
+      zoneName: trip.zoneName,
+      stopIds: trip.stopIds,
+    }))
+    return { success: true, data: trips }
+  }
+
+  async getActiveTripsForTitle(titleId: string): Promise<ApiResponse<Array<{ id: string; startTime?: string; routeName?: string; zoneName?: string; stopIds?: string[] }>>> {
+    const response = await requestJson<Array<{ id: string; startTime?: string; routeName?: string; zoneName?: string; stopIds?: string[] }>>(`/api/trips/active-for-title/${titleId}`)
+    if (!response.success || !response.data) return { success: false, error: response.error }
     const trips = response.data.map((trip) => ({
       id: trip.id,
       startTime: trip.startTime,

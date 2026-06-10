@@ -13,7 +13,9 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import PSM.Location.Route;
 import PSM.Location.RouteStop;
@@ -244,6 +246,92 @@ public class RouteService {
             }
         }
 
+        return result;
+    }
+
+    public List<RouteSummaryDTO> getRouteSummaries() {
+        List<Route> routes = repository.findAllWithRouteStops();
+        List<RouteSummaryDTO> summaries = new ArrayList<>();
+
+        for (Route route : routes) {
+            List<RouteSummaryDTO.StopSummaryDTO> stops = new ArrayList<>();
+            java.util.Set<UUID> seenStops = new java.util.HashSet<>();
+            
+            if (route.getRouteStops() != null) {
+                route.getRouteStops().stream()
+                    .sorted(Comparator.comparingInt(rs -> rs.getSequence() != null ? rs.getSequence() : 0))
+                    .forEach(rs -> {
+                        if (rs.getStop() != null && seenStops.add(rs.getStop().getId())) {
+                            stops.add(new RouteSummaryDTO.StopSummaryDTO(
+                                rs.getStop().getId(),
+                                rs.getStop().getName(),
+                                rs.getStop().getStopCode(),
+                                rs.getStop().getStopType() != null ? rs.getStop().getStopType().name() : null
+                            ));
+                        }
+                    });
+            }
+            if (!stops.isEmpty()) {
+                summaries.add(new RouteSummaryDTO(route.getId(), route.getName(), stops));
+            }
+        }
+        return summaries;
+    }
+
+    public RouteWithSchedulesDTO findRouteScheduleOptimized(UUID routeId) {
+        Route route = repository.findByIdWithSchedules(routeId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Route not found"));
+            
+        RouteWithSchedulesDTO dto = new RouteWithSchedulesDTO(route.getId(), route.getName());
+        if (route.schedules != null) {
+            for (StopSchedule schedule : route.schedules) {
+                if (schedule.stop != null) {
+                    double lat = schedule.stop.getLocation() != null ? schedule.stop.getLocation().getLatitude() : 0;
+                    double lon = schedule.stop.getLocation() != null ? schedule.stop.getLocation().getLongitude() : 0;
+                    dto.schedules.add(new RouteWithSchedulesDTO.ScheduleDTO(
+                            schedule.stop.getId(),
+                            schedule.stop.getName(),
+                            schedule.stop.getStopCode(),
+                            schedule.stop.getStopType() != null ? schedule.stop.getStopType().name() : null,
+                            lat,
+                            lon,
+                            schedule.getArrivalTime(),
+                            schedule.getDepartureTime(),
+                            schedule.getSequence()));
+                }
+            }
+        }
+        return dto;
+    }
+
+    public List<RouteWithSchedulesDTO> findStopScheduleOptimized(UUID stopId) {
+        List<Route> routes = repository.findAllWithSchedulesByStopId(stopId);
+        List<RouteWithSchedulesDTO> result = new ArrayList<>();
+
+        for (Route route : routes) {
+            RouteWithSchedulesDTO dto = new RouteWithSchedulesDTO(route.getId(), route.getName());
+            if (route.schedules != null) {
+                for (StopSchedule schedule : route.schedules) {
+                    if (schedule.stop != null && schedule.stop.getId().equals(stopId)) {
+                        double lat = schedule.stop.getLocation() != null ? schedule.stop.getLocation().getLatitude() : 0;
+                        double lon = schedule.stop.getLocation() != null ? schedule.stop.getLocation().getLongitude() : 0;
+                        dto.schedules.add(new RouteWithSchedulesDTO.ScheduleDTO(
+                                schedule.stop.getId(),
+                                schedule.stop.getName(),
+                                schedule.stop.getStopCode(),
+                                schedule.stop.getStopType() != null ? schedule.stop.getStopType().name() : null,
+                                lat,
+                                lon,
+                                schedule.getArrivalTime(),
+                                schedule.getDepartureTime(),
+                                schedule.getSequence()));
+                    }
+                }
+            }
+            if (!dto.schedules.isEmpty()) {
+                result.add(dto);
+            }
+        }
         return result;
     }
 

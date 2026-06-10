@@ -15,14 +15,19 @@ import org.springframework.stereotype.Service;
 import PSM.Location.StopSchedule;
 import PSM.Location.api.route.RouteStopDTO;
 import PSM.Travel.Trip;
+import PSM.Ticketing.api.title.TitleRepository;
+import PSM.Ticketing.Title;
+import PSM.Ticketing.Ticket;
 
 @Service
 public class TripService {
     private final TripRepository repository;
+    private final TitleRepository titleRepository;
     private static final ZoneId APP_TIMEZONE = ZoneId.of("Europe/Lisbon");
 
-    public TripService(TripRepository repository) {
+    public TripService(TripRepository repository, TitleRepository titleRepository) {
         this.repository = repository;
+        this.titleRepository = titleRepository;
     }
 
     public List<Trip> findAll() {
@@ -49,6 +54,20 @@ public class TripService {
 
     public List<Trip> findActiveTrips() {
         return repository.findActiveTripsWithRoute();
+    }
+
+    public List<Trip> findActiveTripsForTitle(UUID titleId) {
+        Title title = titleRepository.findById(titleId)
+                .orElseThrow(() -> new RuntimeException("Title not found"));
+
+        List<Trip> trips;
+        if (title instanceof Ticket ticket) {
+            trips = repository.findActiveTripsForStops(ticket.getFrom().getId(), ticket.getTo().getId());
+        } else {
+            trips = repository.findActiveTripsWithRoute();
+        }
+
+        return trips;
     }
 
     public List<RouteStopDTO> findTripStops(UUID tripId, UUID currentStopId) {

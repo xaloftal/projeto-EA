@@ -1150,7 +1150,20 @@ onUnmounted(() => {
 }
 
 .bottom-sheet.is-dragging { transition: none; }
-.drag-area { padding: 0.5rem 0; margin-top: -0.5rem; touch-action: none; cursor: grab; }
+.drag-area {
+  padding: 0.8rem 0 0.5rem;
+  margin-top: -0.6rem;
+  margin-left: -1rem;
+  margin-right: -1rem;
+  margin-bottom: 0.5rem;
+  touch-action: none;
+  cursor: grab;
+  position: sticky;
+  top: -0.6rem;
+  z-index: 10;
+  background: rgba(255, 255, 255, 0.98);
+  border-radius: 16px 16px 0 0;
+}
 .drag-handle { width: 42px; height: 4px; border-radius: 999px; background: #d1d5db; margin: 0 auto; }
 .sheet-header { display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; }
 .sheet-header-actions { display: flex; align-items: center; gap: 0.6rem; }
