@@ -61,6 +61,7 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCheckoutViewModel } from '../viewmodels'
+import { useQuasar } from 'quasar'
 import type { RoutingLegFeature, RoutingLegProperties, RoutingPlanResponse, TransitMode } from '../types/routing'
 
 const props = defineProps<{
@@ -72,6 +73,7 @@ const props = defineProps<{
 
 const router = useRouter()
 const { addTicketToCart } = useCheckoutViewModel()
+const $q = useQuasar()
 
 const sortedLegs = computed(() => {
   if (!props.plan?.features?.length) return []
@@ -85,6 +87,7 @@ const hasTransitLegs = computed(() => {
 })
 
 const addAllToCart = async () => {
+  let addedCount = 0
   for (const leg of sortedLegs.value) {
     const p = leg.properties
     if (p.mode === 'WALK') continue
@@ -101,8 +104,21 @@ const addAllToCart = async () => {
     }
     
     await addTicketToCart(fakeRoute as any, 1)
+    addedCount++
   }
-  router.push('/cart')
+  
+  if (addedCount > 0) {
+    $q.notify({
+      message: `${addedCount} ticket(s) added to cart for this trip`,
+      color: 'positive',
+      icon: 'shopping_cart',
+      position: 'top',
+      timeout: 2500,
+      actions: [
+        { label: 'View Cart', color: 'white', handler: () => router.push('/cart') }
+      ]
+    })
+  }
 }
 
 const formatDuration = (seconds: number): string => {
