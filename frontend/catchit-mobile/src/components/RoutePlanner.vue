@@ -255,6 +255,8 @@ const renderItineraryLayer = (plan: RoutingPlanResponse) => {
 const planRoute = async () => {
   if (!fromStop.value || !toStop.value) return
 
+  isModalOpen.value = false
+
   await routingStore.fetchPlan({
     fromLat: fromStop.value.latitude,
     fromLon: fromStop.value.longitude,
@@ -268,7 +270,6 @@ const planRoute = async () => {
   await initMap()
   map?.invalidateSize()
   if (routingStore.currentPlan && !routingStore.currentPlan.error) {
-    isModalOpen.value = false
     renderItineraryLayer(routingStore.currentPlan)
   }
 }
