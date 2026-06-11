@@ -15,11 +15,12 @@ all:
 
 
     # App variables
-    app_ip: 104.197.170.181
+    app_ip: 34.57.191.6
     app_port: 9000
 
     # Additional variables
     # ...
+    catchit_jwt_token: "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiI4ZDRjNTg2Ny0yOTg2LTRkYjItYjg3MC1lY2FiNDM2NzE3NmIiLCJlbWFpbCI6InRlc3RlQHVtaW5oby5wdCIsImlhdCI6MTc4MTExMjkyNSwiZXhwIjoxNzgxMTE0NzI1fQ.B3J39ljHwOj6W89T3NJN9pGaHNl7TTn06TOXa9cUrQ4"
     db_name: catchitdb
     db_username: catchit_user
     db_password: catchit_secret
