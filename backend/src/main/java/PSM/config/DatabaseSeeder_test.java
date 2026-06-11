@@ -51,42 +51,42 @@ public class DatabaseSeeder_test implements CommandLineRunner {
     private static final Logger logger = LoggerFactory.getLogger(DatabaseSeeder.class);
 
     private static final Path DATA_DIR = resolveDataDir();
-    private static final Path ROUTE_STOPS_CSV    = DATA_DIR.resolve("stops_routes_zones.csv");
-    private static final Path STOP_SCHEDULES_CSV = DATA_DIR.resolve("schedule.csv");
-    private static final Path VEHICLES_CSV       = DATA_DIR.resolve("vehicles.csv");
-    private static final Path USERS_CSV          = DATA_DIR.resolve("users.csv");
-    private static final Path TRIPS_CSV          = DATA_DIR.resolve("trips.csv");
-    private static final Path TITLES_CSV         = DATA_DIR.resolve("titles.csv");
+    private static final Path ROUTE_STOPS_CSV = DATA_DIR.resolve("stops_routes_zones_gtfs.csv");
+    private static final Path STOP_SCHEDULES_CSV = DATA_DIR.resolve("schedule_gtfs.csv");
+    private static final Path VEHICLES_CSV = DATA_DIR.resolve("vehicles.csv");
+    private static final Path USERS_CSV = DATA_DIR.resolve("users.csv");
+    private static final Path TRIPS_CSV = DATA_DIR.resolve("trips.csv");
+    private static final Path TITLES_CSV = DATA_DIR.resolve("titles.csv");
 
-    private static final LocalDate          SEED_BASE_DATE = LocalDate.of(2000, 1, 1);
-    private static final DateTimeFormatter  DT_FORMATTER   = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private static final LocalDate SEED_BASE_DATE = LocalDate.of(2000, 1, 1);
+    private static final DateTimeFormatter DT_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
-    private static final int COL_ROUTE_CODE    = 0;
-    private static final int COL_STOP_CODE     = 1;
-    private static final int COL_STOP_NAME     = 2;
-    private static final int COL_LATITUDE      = 3;
-    private static final int COL_LONGITUDE     = 4;
-    private static final int COL_ZONE_CODE     = 5;
-    private static final int COL_SEQUENCE      = 6;
+    private static final int COL_ROUTE_CODE = 0;
+    private static final int COL_STOP_CODE = 1;
+    private static final int COL_STOP_NAME = 2;
+    private static final int COL_LATITUDE = 3;
+    private static final int COL_LONGITUDE = 4;
+    private static final int COL_ZONE_CODE = 5;
+    private static final int COL_SEQUENCE = 6;
     private static final int COL_TRANSPORT_TYPE = 7;
-    private static final int COL_HEX_COLOR     = 9;
+    private static final int COL_HEX_COLOR = 9;
 
-    private static final int COL_SCHEDULE_ARRIVAL   = 0;
+    private static final int COL_SCHEDULE_ARRIVAL = 0;
     private static final int COL_SCHEDULE_DEPARTURE = 1;
     private static final int COL_SCHEDULE_STOP_CODE = 2;
     private static final int COL_SCHEDULE_ROUTE_CODE = 3;
 
-    private final LocationRepository     locationRepository;
-    private final StopRepository         stopRepository;
-    private final RouteRepository        routeRepository;
-    private final RouteStopRepository    routeStopRepository;
+    private final LocationRepository locationRepository;
+    private final StopRepository stopRepository;
+    private final RouteRepository routeRepository;
+    private final RouteStopRepository routeStopRepository;
     private final StopScheduleRepository stopScheduleRepository;
-    private final ZoneRepository         zoneRepository;
-    private final VehicleRepository      vehicleRepository;
-    private final UserRepository         userRepository;
-    private final TripRepository         tripRepository;
-    private final CardRepository         cardRepository;
-    private final TicketRepository       ticketRepository;
+    private final ZoneRepository zoneRepository;
+    private final VehicleRepository vehicleRepository;
+    private final UserRepository userRepository;
+    private final TripRepository tripRepository;
+    private final CardRepository cardRepository;
+    private final TicketRepository ticketRepository;
 
     public DatabaseSeeder_test(
             LocationRepository locationRepository,
@@ -100,17 +100,17 @@ public class DatabaseSeeder_test implements CommandLineRunner {
             TripRepository tripRepository,
             CardRepository cardRepository,
             TicketRepository ticketRepository) {
-        this.locationRepository  = locationRepository;
-        this.stopRepository      = stopRepository;
-        this.routeRepository     = routeRepository;
+        this.locationRepository = locationRepository;
+        this.stopRepository = stopRepository;
+        this.routeRepository = routeRepository;
         this.routeStopRepository = routeStopRepository;
         this.stopScheduleRepository = stopScheduleRepository;
-        this.zoneRepository      = zoneRepository;
-        this.vehicleRepository   = vehicleRepository;
-        this.userRepository      = userRepository;
-        this.tripRepository      = tripRepository;
-        this.cardRepository      = cardRepository;
-        this.ticketRepository    = ticketRepository;
+        this.zoneRepository = zoneRepository;
+        this.vehicleRepository = vehicleRepository;
+        this.userRepository = userRepository;
+        this.tripRepository = tripRepository;
+        this.cardRepository = cardRepository;
+        this.ticketRepository = ticketRepository;
     }
 
     @Override
@@ -118,10 +118,10 @@ public class DatabaseSeeder_test implements CommandLineRunner {
     public void run(String... args) {
         logger.info("DatabaseSeeder.run() called");
 
-        long routeCount    = routeRepository.count();
+        long routeCount = routeRepository.count();
         long routeStopCount = routeStopRepository.count();
-        long zoneCount     = zoneRepository.count();
-        long stopCount     = stopRepository.count();
+        long zoneCount = zoneRepository.count();
+        long stopCount = stopRepository.count();
         long scheduleCount = stopScheduleRepository.count();
 
         logger.info("Database counts - routes: {}, routeStops: {}, zones: {}, stops: {}, schedules: {}",
@@ -152,7 +152,8 @@ public class DatabaseSeeder_test implements CommandLineRunner {
                     routeStopsData.routeStopsByRouteAndStop.values().stream().mapToInt(Map::size).sum());
 
             logger.info("Loading schedules from CSV...");
-            loadSchedules(routeStopsData.routesByCode, routeStopsData.stopsByCode, routeStopsData.routeStopSequenceByRouteAndStop);
+            loadSchedules(routeStopsData.routesByCode, routeStopsData.stopsByCode,
+                    routeStopsData.routeStopSequenceByRouteAndStop);
 
             logger.info("Saving zones...");
             zoneRepository.saveAll(routeStopsData.zonesToSave);
@@ -175,21 +176,25 @@ public class DatabaseSeeder_test implements CommandLineRunner {
 
     private void seedSecondaryData() {
         List<Vehicle> vehicles = vehicleRepository.count() == 0 ? seedVehicles() : vehicleRepository.findAll();
-        List<User>    users    = userRepository.count()    == 0 ? seedUsers()    : userRepository.findAll();
+        List<User> users = userRepository.count() == 0 ? seedUsers() : userRepository.findAll();
 
-        if (tripRepository.count() == 0) seedTrips(vehicles);
-        if (cardRepository.count() == 0 && ticketRepository.count() == 0) seedTitles(users);
+        if (tripRepository.count() == 0)
+            seedTrips(vehicles);
+        if (cardRepository.count() == 0 && ticketRepository.count() == 0)
+            seedTitles(users);
     }
 
     private List<Vehicle> seedVehicles() {
         logger.info("A popular tabela 'vehicle'...");
-        List<Route>   routes   = routeRepository.findAll();
+        List<Route> routes = routeRepository.findAll();
         List<Vehicle> vehicles = new ArrayList<>();
-        if (routes.isEmpty()) throw new IllegalStateException("No routes found — seed routes first");
+        if (routes.isEmpty())
+            throw new IllegalStateException("No routes found — seed routes first");
 
         int routeIdx = 0;
         for (String[] row : readCsv(VEHICLES_CSV)) {
-            if (row.length < 2) continue;
+            if (row.length < 2)
+                continue;
             Vehicle vehicle = new Vehicle();
             vehicle.setCapacity(Integer.parseInt(row[0].trim()));
             vehicle.setType(row[1].trim().toUpperCase());
@@ -197,7 +202,8 @@ public class DatabaseSeeder_test implements CommandLineRunner {
             routeIdx++;
             vehicles.add(vehicle);
         }
-        if (vehicles.isEmpty()) throw new IllegalStateException("vehicles.csv is empty");
+        if (vehicles.isEmpty())
+            throw new IllegalStateException("vehicles.csv is empty");
         List<Vehicle> saved = vehicleRepository.saveAll(vehicles);
         logger.info(" {} veículos inseridos", saved.size());
         return saved;
@@ -207,7 +213,8 @@ public class DatabaseSeeder_test implements CommandLineRunner {
         logger.info("A popular tabela 'users'...");
         List<User> users = new ArrayList<>();
         for (String[] row : readCsv(USERS_CSV)) {
-            if (row.length < 4) continue;
+            if (row.length < 4)
+                continue;
             User user = new User();
             user.setName(row[0].trim());
             user.setEmail(row[1].trim());
@@ -215,7 +222,8 @@ public class DatabaseSeeder_test implements CommandLineRunner {
             user.setBalance(Float.parseFloat(row[3].trim()));
             users.add(user);
         }
-        if (users.isEmpty()) throw new IllegalStateException("users.csv is empty");
+        if (users.isEmpty())
+            throw new IllegalStateException("users.csv is empty");
         List<User> saved = userRepository.saveAll(users);
         logger.info(" {} utilizadores inseridos", saved.size());
         return saved;
@@ -228,7 +236,8 @@ public class DatabaseSeeder_test implements CommandLineRunner {
         List<Trip> trips = new ArrayList<>();
 
         for (String[] row : readCsv(TRIPS_CSV)) {
-            if (row.length < 2) continue;
+            if (row.length < 2)
+                continue;
             Trip trip = new Trip();
             trip.setStartTime(LocalDateTime.parse(row[0].trim(), DT_FORMATTER));
             String endTimeRaw = row[1].trim();
@@ -236,7 +245,7 @@ public class DatabaseSeeder_test implements CommandLineRunner {
                 trip.setEndTime(LocalDateTime.parse(endTimeRaw, DT_FORMATTER));
             }
             trip.vehicle = vehicles.get(rnd.nextInt(vehicles.size()));
-            trip.route   = routes.get(rnd.nextInt(routes.size()));
+            trip.route = routes.get(rnd.nextInt(routes.size()));
             trips.add(trip);
         }
         tripRepository.saveAll(trips);
@@ -245,9 +254,9 @@ public class DatabaseSeeder_test implements CommandLineRunner {
 
     private void seedTitles(List<User> users) {
         logger.info("A popular tabela 'title' (cards + tickets)...");
-        List<Zone>  zones  = zoneRepository.findAll();
+        List<Zone> zones = zoneRepository.findAll();
         Random rnd = new Random(42);
-        List<Card>   cards   = new ArrayList<>();
+        List<Card> cards = new ArrayList<>();
         List<Ticket> tickets = new ArrayList<>();
 
         // Construir mapa route -> lista de stops para garantir pares válidos
@@ -264,15 +273,17 @@ public class DatabaseSeeder_test implements CommandLineRunner {
             }
         }
         List<Route> routesWithStops = new ArrayList<>(routeStopsMap.keySet());
-        if (routesWithStops.isEmpty()) throw new IllegalStateException("No routes with stops found");
+        if (routesWithStops.isEmpty())
+            throw new IllegalStateException("No routes with stops found");
 
         for (String[] row : readCsv(TITLES_CSV)) {
-            if (row.length < 6) continue;
-            String        titleType  = row[0].trim();
-            String        stateName  = row[1].trim();
-            BigDecimal    price      = new BigDecimal(row[2].trim());
-            LocalDateTime createdAt  = LocalDateTime.parse(row[3].trim(), DT_FORMATTER);
-            LocalDateTime validFrom  = LocalDateTime.parse(row[4].trim(), DT_FORMATTER);
+            if (row.length < 6)
+                continue;
+            String titleType = row[0].trim();
+            String stateName = row[1].trim();
+            BigDecimal price = new BigDecimal(row[2].trim());
+            LocalDateTime createdAt = LocalDateTime.parse(row[3].trim(), DT_FORMATTER);
+            LocalDateTime validFrom = LocalDateTime.parse(row[4].trim(), DT_FORMATTER);
             LocalDateTime validUntil = LocalDateTime.parse(row[5].trim(), DT_FORMATTER);
             User user = users.get(rnd.nextInt(users.size()));
 
@@ -291,7 +302,9 @@ public class DatabaseSeeder_test implements CommandLineRunner {
                 List<Stop> stops = routeStopsMap.get(route);
                 int fromIdx = rnd.nextInt(stops.size());
                 int toIdx;
-                do { toIdx = rnd.nextInt(stops.size()); } while (toIdx == fromIdx);
+                do {
+                    toIdx = rnd.nextInt(stops.size());
+                } while (toIdx == fromIdx);
 
                 Ticket ticket = new Ticket();
                 ticket.setCreatedAt(createdAt);
@@ -331,12 +344,12 @@ public class DatabaseSeeder_test implements CommandLineRunner {
             }
 
             String routeCode = normalizeKey(row[COL_ROUTE_CODE]);
-            String stopCode  = normalizeKey(row[COL_STOP_CODE]);
-            String stopName  = row[COL_STOP_NAME].trim();
-            double latitude  = Double.parseDouble(row[COL_LATITUDE].trim());
+            String stopCode = normalizeKey(row[COL_STOP_CODE]);
+            String stopName = row[COL_STOP_NAME].trim();
+            double latitude = Double.parseDouble(row[COL_LATITUDE].trim());
             double longitude = Double.parseDouble(row[COL_LONGITUDE].trim());
-            String zoneCode  = normalizeKey(row[COL_ZONE_CODE]);
-            int sequence     = Integer.parseInt(row[COL_SEQUENCE].trim());
+            String zoneCode = normalizeKey(row[COL_ZONE_CODE]);
+            int sequence = Integer.parseInt(row[COL_SEQUENCE].trim());
             VehicleType stopType = parseVehicleType(row[COL_TRANSPORT_TYPE]);
             String zoneColor = row[COL_HEX_COLOR].trim();
 
@@ -378,7 +391,8 @@ public class DatabaseSeeder_test implements CommandLineRunner {
 
             RouteStop routeStop = new RouteStop(route, stop, sequence);
             route.getRouteStops().add(routeStop);
-            routeStopsByRouteAndStop.computeIfAbsent(routeCode, ignored -> new LinkedHashMap<>()).putIfAbsent(stopCode, routeStop);
+            routeStopsByRouteAndStop.computeIfAbsent(routeCode, ignored -> new LinkedHashMap<>()).putIfAbsent(stopCode,
+                    routeStop);
             routeStopSequenceByRouteAndStop
                     .computeIfAbsent(routeCode, ignored -> new LinkedHashMap<>())
                     .merge(stopCode, sequence, Math::min);
@@ -403,23 +417,28 @@ public class DatabaseSeeder_test implements CommandLineRunner {
 
         for (String[] row : readCsv(STOP_SCHEDULES_CSV)) {
             if (row.length < 5) {
-                throw new IllegalStateException("Invalid schedule.csv row. Expected arrival_time,departure_time,stop_code,route_id,direction");
+                throw new IllegalStateException(
+                        "Invalid schedule.csv row. Expected arrival_time,departure_time,stop_code,route_id,direction");
             }
 
             String routeCode = normalizeKey(row[COL_SCHEDULE_ROUTE_CODE]);
-            String stopCode  = normalizeKey(row[COL_SCHEDULE_STOP_CODE]);
-            LocalDateTime arrivalTime   = parseScheduleDateTime(row[COL_SCHEDULE_ARRIVAL]);
+            String stopCode = normalizeKey(row[COL_SCHEDULE_STOP_CODE]);
+            LocalDateTime arrivalTime = parseScheduleDateTime(row[COL_SCHEDULE_ARRIVAL]);
             LocalDateTime departureTime = parseScheduleDateTime(row[COL_SCHEDULE_DEPARTURE]);
 
             Route route = routesByCode.get(routeCode);
-            if (route == null) throw new IllegalStateException("Unknown route_id in schedule.csv: " + routeCode);
+            if (route == null)
+                throw new IllegalStateException("Unknown route_id in schedule.csv: " + routeCode);
 
             Stop stop = stopsByCode.get(stopCode);
-            if (stop == null) throw new IllegalStateException("Unknown stop_code in schedule.csv: " + stopCode);
+            if (stop == null)
+                throw new IllegalStateException("Unknown stop_code in schedule.csv: " + stopCode);
 
             Integer sequence = routeStopSequenceByRouteAndStop.getOrDefault(routeCode, Map.of()).get(stopCode);
-            if (sequence == null) throw new IllegalStateException(
-                    "No route_stop sequence found for route_code " + routeCode + " and stop_code " + stopCode);
+            if (sequence == null) {
+                logger.warn("Skipping schedule: no route_stop sequence found for route_code {} and stop_code {}", routeCode, stopCode);
+                continue;
+            }
 
             StopSchedule schedule = new StopSchedule();
             schedule.setArrivalTime(arrivalTime);
@@ -432,7 +451,8 @@ public class DatabaseSeeder_test implements CommandLineRunner {
             loadedSchedules++;
         }
 
-        if (loadedSchedules == 0) throw new IllegalStateException("schedule.csv is empty");
+        if (loadedSchedules == 0)
+            throw new IllegalStateException("schedule.csv is empty");
     }
 
     // ------------------------------------------------------------------
@@ -440,7 +460,8 @@ public class DatabaseSeeder_test implements CommandLineRunner {
     // ------------------------------------------------------------------
 
     private List<String[]> readCsv(Path filePath) {
-        if (!Files.exists(filePath)) throw new IllegalStateException("CSV file not found: " + filePath);
+        if (!Files.exists(filePath))
+            throw new IllegalStateException("CSV file not found: " + filePath);
         try (BufferedReader reader = Files.newBufferedReader(filePath, StandardCharsets.UTF_8)) {
             return reader.lines()
                     .map(String::trim)
@@ -456,16 +477,20 @@ public class DatabaseSeeder_test implements CommandLineRunner {
     }
 
     private String stripBom(String line) {
-        if (!line.isEmpty() && line.charAt(0) == '\uFEFF') return line.substring(1);
+        if (!line.isEmpty() && line.charAt(0) == '\uFEFF')
+            return line.substring(1);
         return line;
     }
 
-    private LocalTime parseTime(String value) { return LocalTime.parse(value.trim()); }
+    private LocalTime parseTime(String value) {
+        return LocalTime.parse(value.trim());
+    }
 
     private LocalDateTime parseScheduleDateTime(String value) {
         String rawValue = value.trim();
         String[] parts = rawValue.split(":", -1);
-        if (parts.length != 3) throw new IllegalStateException("Invalid time value: " + rawValue);
+        if (parts.length != 3)
+            throw new IllegalStateException("Invalid time value: " + rawValue);
         int hour = Integer.parseInt(parts[0]);
         int dayOffset = hour / 24;
         int normalizedHour = hour % 24;
@@ -477,16 +502,20 @@ public class DatabaseSeeder_test implements CommandLineRunner {
     }
 
     private VehicleType parseVehicleType(String raw) {
-        if (raw == null || raw.isBlank()) return VehicleType.BUS;
+        if (raw == null || raw.isBlank())
+            return VehicleType.BUS;
         return VehicleType.valueOf(raw.trim().toUpperCase());
     }
 
     private String normalizeKey(String value) {
-        if (value == null) return "";
+        if (value == null)
+            return "";
         return value.trim().toUpperCase();
     }
 
-    private String[] splitCsvLine(String line) { return line.split(",", -1); }
+    private String[] splitCsvLine(String line) {
+        return line.split(",", -1);
+    }
 
     private String[] normalizeCsvRow(String[] row) {
         String[] normalized = new String[row.length];
@@ -497,8 +526,10 @@ public class DatabaseSeeder_test implements CommandLineRunner {
     }
 
     private String normalizeCsvValue(String value) {
-        if (value == null || value.isBlank()) return value;
-        if (!looksLikeMojibake(value)) return value;
+        if (value == null || value.isBlank())
+            return value;
+        if (!looksLikeMojibake(value))
+            return value;
         byte[] latin1Bytes = value.getBytes(StandardCharsets.ISO_8859_1);
         return new String(latin1Bytes, StandardCharsets.UTF_8);
     }
