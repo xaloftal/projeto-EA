@@ -16,6 +16,9 @@ import java.time.format.DateTimeFormatter;
 import java.time.LocalTime;
 import java.util.Map;
 
+import PSM.Travel.VehicleType;
+import PSM.Location.api.stop.StopRepository;
+
 /**
  * Calls OTP2 GraphQL, converts the resulting itinerary into a GeoJSON
  * FeatureCollection that the frontend can drop straight into Leaflet.
@@ -27,6 +30,7 @@ public class OtpRoutingService {
     private final WebClient webClient;
     private final StringRedisTemplate redis;
     private final ObjectMapper mapper = new ObjectMapper();
+    private final StopRepository stopRepository;
 
     @Value("${otp.router-id}")
     private String routerId;
@@ -46,12 +50,14 @@ public class OtpRoutingService {
     public OtpRoutingService(
             @Value("${otp.base-url}") String otpBaseUrl,
             @Value("${otp.timeout-ms}") int timeoutMs,
-            StringRedisTemplate redis) {
+            StringRedisTemplate redis,
+            StopRepository stopRepository) {
         this.webClient = WebClient.builder()
                 .baseUrl(otpBaseUrl)
                 .defaultHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
                 .build();
         this.redis = redis;
+        this.stopRepository = stopRepository;
     }
 
     /**
@@ -202,14 +208,93 @@ public class OtpRoutingService {
 
             ObjectNode props = mapper.createObjectNode();
             props.put("legIndex", legIndex++);
-            props.put("mode", leg.path("mode").asText());
+            String modeStr = leg.path("mode").asText();
+            props.put("mode", modeStr);
+            VehicleType vehicleType = mapOtpModeToVehicleType(modeStr);
             props.put("routeShortName", leg.path("route").path("shortName").asText(""));
             props.put("routeLongName", leg.path("route").path("longName").asText(""));
             props.put("routeColor", leg.path("route").path("color").asText(""));
             props.put("fromStop", leg.path("from").path("name").asText());
             props.put("toStop", leg.path("to").path("name").asText());
-            props.put("fromStopCode", leg.path("from").path("stop").path("code").asText(""));
-            props.put("toStopCode", leg.path("to").path("stop").path("code").asText(""));
+
+            String fromCode = leg.path("from").path("stop").path("code").asText("");
+            if (fromCode.isEmpty())
+                fromCode = leg.path("from").path("stop").path("gtfsId").asText("");
+            if (fromCode.isEmpty())
+                fromCode = leg.path("from").path("stop").path("id").asText("");
+            if (fromCode.contains(":")) {
+                fromCode = fromCode.substring(fromCode.indexOf(":") + 1);
+            }
+            final String finalFromCode = fromCode;
+            final String fromName = leg.path("from").path("name").asText("");
+
+            PSM.Location.Stop fromStop = null;
+            if (vehicleType != null) {
+                if (!finalFromCode.isEmpty()) {
+                    fromStop = stopRepository.findByStopCodeAndStopType(finalFromCode, vehicleType).orElse(null);
+                    if (fromStop == null) fromStop = stopRepository.findFirstByStopCodeStartingWithAndStopType(finalFromCode + "_", vehicleType).orElse(null);
+                }
+                if (fromStop == null) {
+                    for (String var : getNameVariations(fromName)) {
+                        fromStop = stopRepository.findFirstByNameContainingIgnoreCaseAndStopType(var, vehicleType).orElse(null);
+                        if (fromStop != null) break;
+                    }
+                }
+            }
+            if (fromStop == null) {
+                if (!finalFromCode.isEmpty()) {
+                    fromStop = stopRepository.findByStopCode(finalFromCode).orElse(null);
+                    if (fromStop == null) fromStop = stopRepository.findFirstByStopCodeStartingWith(finalFromCode + "_").orElse(null);
+                }
+                if (fromStop == null) {
+                    for (String var : getNameVariations(fromName)) {
+                        fromStop = stopRepository.findFirstByNameContainingIgnoreCaseAndStopType(var, null).orElse(null);
+                        if (fromStop != null) break;
+                    }
+                }
+            }
+            String fromId = fromStop != null ? fromStop.getId().toString() : finalFromCode;
+
+            String toCode = leg.path("to").path("stop").path("code").asText("");
+            if (toCode.isEmpty())
+                toCode = leg.path("to").path("stop").path("gtfsId").asText("");
+            if (toCode.isEmpty())
+                toCode = leg.path("to").path("stop").path("id").asText("");
+            if (toCode.contains(":")) {
+                toCode = toCode.substring(toCode.indexOf(":") + 1);
+            }
+            final String finalToCode = toCode;
+            final String toName = leg.path("to").path("name").asText("");
+
+            PSM.Location.Stop toStop = null;
+            if (vehicleType != null) {
+                if (!finalToCode.isEmpty()) {
+                    toStop = stopRepository.findByStopCodeAndStopType(finalToCode, vehicleType).orElse(null);
+                    if (toStop == null) toStop = stopRepository.findFirstByStopCodeStartingWithAndStopType(finalToCode + "_", vehicleType).orElse(null);
+                }
+                if (toStop == null) {
+                    for (String var : getNameVariations(toName)) {
+                        toStop = stopRepository.findFirstByNameContainingIgnoreCaseAndStopType(var, vehicleType).orElse(null);
+                        if (toStop != null) break;
+                    }
+                }
+            }
+            if (toStop == null) {
+                if (!finalToCode.isEmpty()) {
+                    toStop = stopRepository.findByStopCode(finalToCode).orElse(null);
+                    if (toStop == null) toStop = stopRepository.findFirstByStopCodeStartingWith(finalToCode + "_").orElse(null);
+                }
+                if (toStop == null) {
+                    for (String var : getNameVariations(toName)) {
+                        toStop = stopRepository.findFirstByNameContainingIgnoreCaseAndStopType(var, null).orElse(null);
+                        if (toStop != null) break;
+                    }
+                }
+            }
+            String toId = toStop != null ? toStop.getId().toString() : finalToCode;
+
+            props.put("fromStopCode", fromId);
+            props.put("toStopCode", toId);
             props.put("startTime", leg.path("startTime").asLong());
             props.put("endTime", leg.path("endTime").asLong());
             props.put("distanceMeters", leg.path("distance").asDouble());
@@ -317,4 +402,41 @@ public class OtpRoutingService {
     // }
     // return Math.max(0, transit - 1);
     // }
+
+    private VehicleType mapOtpModeToVehicleType(String mode) {
+        if (mode == null) return null;
+        switch (mode.toUpperCase()) {
+            case "BUS": return VehicleType.BUS;
+            case "TRAM": return VehicleType.METRO;
+            case "SUBWAY": return VehicleType.METRO;
+            case "RAIL": return VehicleType.TRAIN;
+            case "FUNICULAR": return VehicleType.METRO;
+            case "GONDOLA": return VehicleType.METRO;
+            default: return null;
+        }
+    }
+
+    private java.util.List<String> getNameVariations(String name) {
+        if (name == null) return java.util.Collections.emptyList();
+        String lower = name.toLowerCase().trim();
+        java.util.List<String> variations = new java.util.ArrayList<>();
+        variations.add(lower);
+        
+        String noPrefix = lower.replace("est. s. ", "").replace("est. ", "").replace("porto - ", "").replace(" (metro)", "");
+        if (!noPrefix.equals(lower)) variations.add(noPrefix);
+
+        if (lower.contains("bento")) {
+            variations.add("são bento");
+            variations.add("s.bento");
+            variations.add("s. bento");
+            variations.add("est.s.bento");
+        }
+        if (lower.contains("joão")) {
+            variations.add("são joão");
+            variations.add("s.joão");
+            variations.add("s. joão");
+            variations.add("est.s.joão");
+        }
+        return variations;
+    }
 }

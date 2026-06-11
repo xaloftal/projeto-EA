@@ -4,7 +4,7 @@
       <div class="route-planner__modal">
         <div class="route-planner__modal-header">
           <h3>Plan Trip</h3>
-          <button v-if="hasPlan" class="route-planner__close" @click="isModalOpen = false">×</button>
+          <button v-if="hasPlan" class="route-planner__close" @click="isModalOpen = false"><X class="icon-sm" /></button>
         </div>
         <div class="route-planner__pickers">
           <StopSearchPicker
@@ -106,6 +106,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { storeToRefs } from 'pinia'
+import { X } from 'lucide-vue-next'
 import StopSearchPicker from './StopSearchPicker.vue'
 import ItineraryPanel from './ItineraryPanel.vue'
 import { useRoutingStore } from '../stores/routingStore'

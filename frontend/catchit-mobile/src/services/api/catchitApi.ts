@@ -541,8 +541,8 @@ export class CatchItApiClient {
         price: Number(dto.price ?? 0),
         qrCode: '', // Vazio na listagem por motivos de performance!
         status: mapTicketStatus(dto.status),
-        stopFrom: { id: dto.fromStopId, name: dto.fromStopName, latitude: 0, longitude: 0 },
-        stopTo: { id: dto.toStopId, name: dto.toStopName, latitude: 0, longitude: 0 },
+        stopFrom: { id: dto.fromStopId, name: dto.fromStopName, latitude: 0, longitude: 0, stopType: dto.fromStopType },
+        stopTo: { id: dto.toStopId, name: dto.toStopName, latitude: 0, longitude: 0, stopType: dto.toStopType },
       }))
 
       return { success: true, data: mappedTickets }

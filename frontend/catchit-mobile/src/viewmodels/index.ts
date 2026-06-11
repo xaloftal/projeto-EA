@@ -377,7 +377,7 @@ export function useTransportViewModel(titleId?: string) {
     const ticketsResponse = await catchitApi.getUserTickets(currentUser.value.id)
     const ticket = ticketsResponse.data?.find((t) => t.id === localId)
     if (ticket) {
-      titleLabel.value = `🎟️ Ticket: ${ticket.stopFrom?.name ?? '?'} → ${ticket.stopTo?.name ?? '?'}`
+      titleLabel.value = `Ticket: ${ticket.stopFrom?.name ?? '?'} → ${ticket.stopTo?.name ?? '?'}`
       ticketFromStop.value = ticket.stopFrom ?? null
       ticketToStop.value = ticket.stopTo ?? null
       isTicketTitle.value = true
@@ -387,7 +387,7 @@ export function useTransportViewModel(titleId?: string) {
     const cardsResponse = await catchitApi.getUserCards(currentUser.value.id)
     const card = cardsResponse.data?.find((c) => c.id === localId)
     if (card) {
-      titleLabel.value = `🎫 Card: ${card.name}`
+      titleLabel.value = `Card: ${card.name}`
       return
     }
 
@@ -550,7 +550,12 @@ export function useCheckoutViewModel() {
     if (!currentUser.value) return
 
     await fetchCart()
-    const ticketId = `ticket_${route.routeId}_${route.fromStop.id}_${route.toStop.id}`
+    const s1 = route.fromStop
+    const s2 = route.toStop
+
+    const sortedIds = [s1.id, s2.id].sort((a, b) => a.localeCompare(b))
+    const ticketId = `ticket_${route.routeId}_${sortedIds[0]}_${sortedIds[1]}`
+    
     const existing = cartItems.value.find(
       (entry) => entry.kind === 'ticket' && entry.id === ticketId
     )
@@ -559,17 +564,17 @@ export function useCheckoutViewModel() {
     const payload: CartEntry = {
       id: ticketId,
       kind: 'ticket',
-      title: `${route.fromStop.name} → ${route.toStop.name}`,
+      title: `${s1.name} → ${s2.name}`,
       description: `${route.departureTime} - ${route.arrivalTime}`,
       quantity: resolvedQuantity,
       unitPrice: route.price,
       totalPrice: route.price * resolvedQuantity,
       source: {
         routeId: route.routeId,
-        fromStopId: route.fromStop.id,
-        toStopId: route.toStop.id,
-        fromStop: route.fromStop.name,
-        toStop: route.toStop.name,
+        fromStopId: s1.id,
+        toStopId: s2.id,
+        fromStop: s1.name,
+        toStop: s2.name,
         departureTime: route.departureTime,
         arrivalTime: route.arrivalTime,
       },

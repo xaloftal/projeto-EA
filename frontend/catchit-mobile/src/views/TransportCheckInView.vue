@@ -8,7 +8,7 @@
 
     <div class="content">
       <div v-if="checkInSuccess" class="success-state">
-        <div class="success-icon">✅</div>
+        <div class="success-icon"><CheckCircle class="success-icon-svg" /></div>
         <h2>Check In successful!</h2>
         <p>You are now on a trip. Present the QR Code below if requested.</p>
         
@@ -39,7 +39,9 @@
       <div v-else class="form-state">
         <section class="section">
           <h2>Your title</h2>
-          <div class="title-info">
+          <div class="title-info flex-center">
+            <Ticket v-if="isTicketTitle" class="icon-sm" />
+            <CreditCard v-else class="icon-sm" />
             <p class="option-title">{{ titleLabel }}</p>
           </div>
         </section>
@@ -94,7 +96,7 @@
 
 <script setup lang="ts">
 import { onMounted, watch, ref, computed, onUnmounted } from 'vue'
-import { ArrowLeft, House, Map, ShoppingCart, Ticket, User, LoaderCircle } from 'lucide-vue-next'
+import { ArrowLeft, House, Map, ShoppingCart, Ticket, User, LoaderCircle, CheckCircle, CreditCard } from 'lucide-vue-next'
 import { useRoute, useRouter } from 'vue-router'
 import { useTransportViewModel } from '../viewmodels'
 import { catchitApi } from '../services/api/catchitApi' 
@@ -114,6 +116,7 @@ const {
   errorMessage,
   checkOutMessage,
   titleLabel,
+  isTicketTitle,
   loadTitleInfo,
   loadActiveTrips,
   handleCheckIn,
@@ -230,6 +233,18 @@ onUnmounted(() => {
 
 .title-info {
   padding: 0.5rem 0;
+}
+
+.flex-center {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.success-icon-svg {
+  width: 3rem;
+  height: 3rem;
+  color: var(--color-primary);
 }
 
 .options-list {

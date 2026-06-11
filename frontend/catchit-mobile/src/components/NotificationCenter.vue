@@ -3,8 +3,8 @@
   <div class="notification-container">
     <!-- Status da Conexão -->
     <div class="connection-status" :class="{ connected: isConnected, disconnected: !isConnected }">
-      <span v-if="isConnected" class="status-badge">✓ Conectado</span>
-      <span v-else class="status-badge">✗ Desconectado</span>
+      <span v-if="isConnected" class="status-badge"><Check class="icon-xs" /> Conectado</span>
+      <span v-else class="status-badge"><X class="icon-xs" /> Desconectado</span>
     </div>
 
     <!-- Notificações em Toast -->
@@ -17,10 +17,10 @@
       >
         <!-- Ícone baseado no tipo de veículo -->
         <div class="notification-icon">
-          <span v-if="notif.vehicleType === 'BUS'" class="vehicle-icon">🚌</span>
-          <span v-else-if="notif.vehicleType === 'METRO'" class="vehicle-icon">🚇</span>
-          <span v-else-if="notif.vehicleType === 'TRAIN'" class="vehicle-icon">🚆</span>
-          <span v-else class="vehicle-icon">📍</span>
+          <span v-if="notif.vehicleType === 'BUS'" class="vehicle-icon"><Bus class="icon-sm" /></span>
+          <span v-else-if="notif.vehicleType === 'METRO'" class="vehicle-icon"><TramFront class="icon-sm" /></span>
+          <span v-else-if="notif.vehicleType === 'TRAIN'" class="vehicle-icon"><TrainFront class="icon-sm" /></span>
+          <span v-else class="vehicle-icon"><MapPin class="icon-sm" /></span>
         </div>
 
         <!-- Conteúdo da Notificação -->
@@ -32,14 +32,15 @@
         </div>
 
         <!-- Botão Fechar -->
-        <button class="close-btn" @click="removeNotification(notif.id)">×</button>
+        <button class="close-btn" @click="removeNotification(notif.id)"><X class="icon-sm" /></button>
       </div>
     </TransitionGroup>
   </div>
 </template>
 
 <script setup lang="ts">
-import { useWebSocketNotifications } from '@/composables/useWebSocketNotifications';
+import { useWebSocketNotifications } from '../composables/useWebSocketNotifications';
+import { Bus, TrainFront, TramFront, MapPin, Check, X } from 'lucide-vue-next';
 
 interface Notification {
   id: string;
