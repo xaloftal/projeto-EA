@@ -244,8 +244,7 @@ const groupedActiveTickets = computed(() => {
     const from = t.stopFrom || { id: 'unknown', name: 'Route details unavailable' }
     const to = t.stopTo || { id: 'unknown', name: 'Route details unavailable' }
     
-    const sorted = [from, to].sort((a, b) => a.id.localeCompare(b.id))
-    const key = `${sorted[0].id}-${sorted[1].id}`
+    const key = `${from.id}-${to.id}`
     
     const formatStopName = (stop: any) => {
       if (!stop || !stop.name) return 'Route details unavailable'
@@ -257,8 +256,8 @@ const groupedActiveTickets = computed(() => {
     if (!groups[key]) {
       groups[key] = {
         key,
-        routeLabelFrom: formatStopName(sorted[0]),
-        routeLabelTo: formatStopName(sorted[1]),
+        routeLabelFrom: formatStopName(from),
+        routeLabelTo: formatStopName(to),
         tickets: [],
         firstTicket: t
       }
@@ -416,21 +415,20 @@ const formatStatus = (status: string) => {
 const getItineraryLink = (ticket: UserTicket) => {
   const from = ticket.stopFrom
   const to = ticket.stopTo
-  const sorted = [from, to].sort((a, b) => a.id.localeCompare(b.id))
   const query: Record<string, string> = {
-    fromStopId: sorted[0].id,
-    toStopId: sorted[1].id,
-    fromName: sorted[0].name,
-    toName: sorted[1].name,
+    fromStopId: from.id,
+    toStopId: to.id,
+    fromName: from.name,
+    toName: to.name,
   }
 
-  if (sorted[0].latitude && sorted[0].longitude) {
-    query.fromLat = String(sorted[0].latitude)
-    query.fromLon = String(sorted[0].longitude)
+  if (from.latitude && from.longitude) {
+    query.fromLat = String(from.latitude)
+    query.fromLon = String(from.longitude)
   }
-  if (sorted[1].latitude && sorted[1].longitude) {
-    query.toLat = String(sorted[1].latitude)
-    query.toLon = String(sorted[1].longitude)
+  if (to.latitude && to.longitude) {
+    query.toLat = String(to.latitude)
+    query.toLon = String(to.longitude)
   }
 
   return {

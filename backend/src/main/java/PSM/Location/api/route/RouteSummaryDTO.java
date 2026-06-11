@@ -13,6 +13,7 @@ public record RouteSummaryDTO(
         UUID stopId,
         String stopName,
         String stopCode,
+        String displayCode,
         String stopType
     ) {}
 

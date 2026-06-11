@@ -117,6 +117,7 @@ export type RouteSummaryDTO = {
     stopId: string
     stopName: string
     stopCode?: string | null
+    displayCode?: string | null
     stopType?: string | null
   }[]
 }
@@ -128,6 +129,7 @@ export type RouteScheduleDTO = {
     stopId: string
     stopName: string
     stopCode?: string
+    displayCode?: string
     stopType?: string | null
     latitude: number
     longitude: number

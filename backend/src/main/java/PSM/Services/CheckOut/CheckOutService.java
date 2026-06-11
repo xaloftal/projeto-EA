@@ -203,15 +203,9 @@ public CheckoutSessionResponseDTO createSession(UUID userId) {
                         Stop fromStop = resolveStop(source.getFromStopId());
                         Stop toStop = resolveStop(source.getToStopId());
                         
-                        // Remove sequence by always sorting from/to by ID
                         if (fromStop != null && toStop != null) {
-                            if (fromStop.getId().toString().compareTo(toStop.getId().toString()) > 0) {
-                                ticket.setFrom(toStop);
-                                ticket.setTo(fromStop);
-                            } else {
-                                ticket.setFrom(fromStop);
-                                ticket.setTo(toStop);
-                            }
+                            ticket.setFrom(fromStop);
+                            ticket.setTo(toStop);
                         } else {
                             ticket.setFrom(fromStop);
                             ticket.setTo(toStop);

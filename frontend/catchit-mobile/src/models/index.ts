@@ -76,6 +76,7 @@ export interface Stop {
   id: string
   name: string
   code?: string
+  displayCode?: string
   latitude: number
   longitude: number
   stopType?: string
