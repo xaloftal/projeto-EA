@@ -1,0 +1,2 @@
+Query,Execution Mean (ms),Execution Median (ms),Execution Min (ms),Execution Max (ms),Execution StdDev,Planning Mean (ms),Total Mean (ms),Plan Type,Cache Hit %,Warmup Runs,Benchmark Runs
+query5_stopArrivals,27.18,25.58,25.45,33.24,3.40,8.03,35.21,Unique,100.0,1,5
