@@ -49,8 +49,6 @@
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Location/api/zone/ZoneController.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Location/api/zone/ZoneRepository.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Location/api/zone/ZoneService.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Location/benchmark/DatabaseLocationTransactionalBenchmark.java
-/home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Location/benchmark/LocationRealisticBenchmarkRunner.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Services/CheckOut/CheckOutService.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Services/OTP/OtpRoutingController.java
 /home/gojalo/mei/pea/projeto-EA/backend/src/main/java/PSM/Services/OTP/OtpRoutingService.java

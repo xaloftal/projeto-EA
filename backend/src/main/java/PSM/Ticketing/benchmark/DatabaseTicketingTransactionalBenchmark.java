@@ -61,6 +61,12 @@ public class DatabaseTicketingTransactionalBenchmark {
     @Autowired
     private ZoneRepository zoneRepository;
 
+    // ========== CONFIGURAÇÕES DE CARGA ==========
+private int iterations = 10000;      // Stress
+private int batchSize = 2000;        // Stress  
+private int threads = 100;           // Stress
+private int concurrentOps = 10000;   // Stress
+
     private static class TestMetrics {
         String testName;
         String operation;
@@ -108,7 +114,36 @@ public class DatabaseTicketingTransactionalBenchmark {
     private List<UUID> zoneIds = new ArrayList<>();
     private String csvFileName;
 
+    // ========== CARREGAR CONFIGURAÇÃO ==========
+    private void loadBenchmarkConfig() {
+        String iterationsEnv = System.getProperty("benchmark.iterations");
+        String batchSizeEnv = System.getProperty("benchmark.batch.size");
+        String threadsEnv = System.getProperty("benchmark.threads");
+        String concurrentOpsEnv = System.getProperty("benchmark.concurrent.ops");
+        
+        if (iterationsEnv != null) {
+            iterations = Integer.parseInt(iterationsEnv);
+        }
+        if (batchSizeEnv != null) {
+            batchSize = Integer.parseInt(batchSizeEnv);
+        }
+        if (threadsEnv != null) {
+            threads = Integer.parseInt(threadsEnv);
+        }
+        if (concurrentOpsEnv != null) {
+            concurrentOps = Integer.parseInt(concurrentOpsEnv);
+        }
+        
+        System.out.println("🔧 CONFIGURAÇÃO DO BENCHMARK:");
+        System.out.println("   Iterations: " + iterations);
+        System.out.println("   Batch Size: " + batchSize);
+        System.out.println("   Threads: " + threads);
+        System.out.println("   Concurrent Ops: " + concurrentOps);
+        System.out.println();
+    }
+
     public void runFullBenchmark() {
+        loadBenchmarkConfig();
         allMetrics.clear();
         
         // Gerar nome do ficheiro CSV
@@ -172,7 +207,6 @@ public class DatabaseTicketingTransactionalBenchmark {
 
     private void exportToCSV() {
         try (PrintWriter writer = new PrintWriter(new FileWriter(csvFileName))) {
-            // Cabeçalho do CSV
             writer.println("Teste,Operação,Throughput(ops/s),Latência_Média(ms),Latência_Mín(ms),Latência_Máx(ms),P95(ms),P99(ms),Sucesso,Falhas,Total_Operações,Tempo_Total(ms)");
             
             for (TestMetrics m : allMetrics) {
@@ -259,12 +293,12 @@ public class DatabaseTicketingTransactionalBenchmark {
             return;
         }
 
-        int iterations = 200;
+        int iterationsCount = this.iterations;
         List<UUID> createdIds = new ArrayList<>();
 
         long testStartTime = System.currentTimeMillis();
 
-        for (int i = 0; i < iterations; i++) {
+        for (int i = 0; i < iterationsCount; i++) {
             UUID userId = userIds.get(i % userIds.size());
             long startNanos = System.nanoTime();
             try {
@@ -291,9 +325,9 @@ public class DatabaseTicketingTransactionalBenchmark {
 
         metrics.calculateStats();
         metrics.totalTimeMs = System.currentTimeMillis() - testStartTime;
-        metrics.throughput = (iterations * 1000.0) / metrics.totalTimeMs;
+        metrics.throughput = (iterationsCount * 1000.0) / metrics.totalTimeMs;
 
-        printMetrics(metrics, iterations);
+        printMetrics(metrics, iterationsCount);
         
         for (UUID id : createdIds) {
             ticketRepository.deleteById(id);
@@ -301,74 +335,74 @@ public class DatabaseTicketingTransactionalBenchmark {
         allMetrics.add(metrics);
     }
 
-@Transactional
-private void testInsertTicketWithStops() {
-    TestMetrics metrics = new TestMetrics("INSERT Ticket with Stops", "INSERT INTO ticket (from_id, to_id, ...) VALUES (?, ?, ...)");
-    System.out.println("📝 " + metrics.testName);
-    System.out.println("   " + metrics.operation);
-    System.out.println("   Criação de ticket com origem e destino\n");
+    @Transactional
+    private void testInsertTicketWithStops() {
+        TestMetrics metrics = new TestMetrics("INSERT Ticket with Stops", "INSERT INTO ticket (from_id, to_id, ...) VALUES (?, ?, ...)");
+        System.out.println("📝 " + metrics.testName);
+        System.out.println("   " + metrics.operation);
+        System.out.println("   Criação de ticket com origem e destino\n");
 
-    if (userIds.isEmpty() || stopIds.size() < 2) {
-        System.out.println("  ⚠️ Necessário pelo menos 2 stops e 1 utilizador\n");
-        return;
-    }
-
-    int iterations = 200;
-    List<UUID> createdIds = new ArrayList<>();
-
-    long testStartTime = System.currentTimeMillis();  // <-- IMPORTANTE: medir antes do loop
-
-    for (int i = 0; i < iterations; i++) {
-        UUID userId = userIds.get(i % userIds.size());
-        UUID fromStopId = stopIds.get(i % stopIds.size());
-        UUID toStopId = stopIds.get((i + 1) % stopIds.size());
-        
-        long startNanos = System.nanoTime();
-        try {
-            Stop fromStop = stopRepository.findById(fromStopId).orElse(null);
-            Stop toStop = stopRepository.findById(toStopId).orElse(null);
-            User user = userRepository.findById(userId).orElse(null);
-            
-            Ticket ticket = new Ticket();
-            ticket.setCreatedAt(LocalDateTime.now());
-            ticket.setValidFrom(LocalDateTime.now());
-            ticket.setValidUntil(LocalDateTime.now().plusDays(30));
-            ticket.setPrice(BigDecimal.valueOf(15.99));
-            ticket.setStateName("UNUSED");
-            ticket.setUser(user);
-            ticket.setFrom(fromStop);
-            ticket.setTo(toStop);
-            
-            Ticket saved = ticketRepository.save(ticket);
-            createdIds.add(saved.getId());
-            
-            long latencyMs = (System.nanoTime() - startNanos) / 1_000_000;
-            metrics.addLatency(latencyMs);
-            metrics.successCount++;
-        } catch (Exception e) {
-            metrics.failureCount++;
+        if (userIds.isEmpty() || stopIds.size() < 2) {
+            System.out.println("  ⚠️ Necessário pelo menos 2 stops e 1 utilizador\n");
+            return;
         }
+
+        int iterationsCount = this.iterations;
+        List<UUID> createdIds = new ArrayList<>();
+
+        long testStartTime = System.currentTimeMillis();
+
+        for (int i = 0; i < iterationsCount; i++) {
+            UUID userId = userIds.get(i % userIds.size());
+            UUID fromStopId = stopIds.get(i % stopIds.size());
+            UUID toStopId = stopIds.get((i + 1) % stopIds.size());
+            
+            long startNanos = System.nanoTime();
+            try {
+                Stop fromStop = stopRepository.findById(fromStopId).orElse(null);
+                Stop toStop = stopRepository.findById(toStopId).orElse(null);
+                User user = userRepository.findById(userId).orElse(null);
+                
+                Ticket ticket = new Ticket();
+                ticket.setCreatedAt(LocalDateTime.now());
+                ticket.setValidFrom(LocalDateTime.now());
+                ticket.setValidUntil(LocalDateTime.now().plusDays(30));
+                ticket.setPrice(BigDecimal.valueOf(15.99));
+                ticket.setStateName("UNUSED");
+                ticket.setUser(user);
+                ticket.setFrom(fromStop);
+                ticket.setTo(toStop);
+                
+                Ticket saved = ticketRepository.save(ticket);
+                createdIds.add(saved.getId());
+                
+                long latencyMs = (System.nanoTime() - startNanos) / 1_000_000;
+                metrics.addLatency(latencyMs);
+                metrics.successCount++;
+            } catch (Exception e) {
+                metrics.failureCount++;
+            }
+        }
+
+        long testEndTime = System.currentTimeMillis();
+        
+        metrics.calculateStats();
+        metrics.totalTimeMs = testEndTime - testStartTime;
+        
+        if (metrics.totalTimeMs > 0) {
+            metrics.throughput = (iterationsCount * 1000.0) / metrics.totalTimeMs;
+        } else {
+            metrics.throughput = 0;
+        }
+
+        printMetrics(metrics, iterationsCount);
+        
+        for (UUID id : createdIds) {
+            ticketRepository.deleteById(id);
+        }
+        allMetrics.add(metrics);
     }
 
-    long testEndTime = System.currentTimeMillis();  // <-- IMPORTANTE: medir depois do loop
-    
-    metrics.calculateStats();
-    metrics.totalTimeMs = testEndTime - testStartTime;  // <-- CORRIGIDO
-    
-    // Evitar divisão por zero
-    if (metrics.totalTimeMs > 0) {
-        metrics.throughput = (iterations * 1000.0) / metrics.totalTimeMs;
-    } else {
-        metrics.throughput = 0;
-    }
-
-    printMetrics(metrics, iterations);
-    
-    for (UUID id : createdIds) {
-        ticketRepository.deleteById(id);
-    }
-    allMetrics.add(metrics);
-}
     @Transactional
     private void testBatchInsertTickets() {
         TestMetrics metrics = new TestMetrics("BATCH INSERT Tickets", "INSERT INTO title (...) VALUES (...), (...), ...");
@@ -381,16 +415,16 @@ private void testInsertTicketWithStops() {
             return;
         }
 
-        int batchSize = 100;
-        int totalBatches = 5;
-        int totalOps = batchSize * totalBatches;
+        int currentBatchSize = this.batchSize;
+        int totalBatches = Math.max(1, this.iterations / currentBatchSize);
+        int totalOps = currentBatchSize * totalBatches;
         
         long testStartTime = System.currentTimeMillis();
 
         for (int batch = 0; batch < totalBatches; batch++) {
             List<Ticket> batchList = new ArrayList<>();
-            for (int i = 0; i < batchSize; i++) {
-                UUID userId = userIds.get((batch * batchSize + i) % userIds.size());
+            for (int i = 0; i < currentBatchSize; i++) {
+                UUID userId = userIds.get((batch * currentBatchSize + i) % userIds.size());
                 
                 Ticket ticket = new Ticket();
                 ticket.setCreatedAt(LocalDateTime.now());
@@ -439,7 +473,7 @@ private void testInsertTicketWithStops() {
 
         // Criar tickets para atualizar
         List<Ticket> tickets = new ArrayList<>();
-        for (int i = 0; i < 200; i++) {
+        for (int i = 0; i < this.iterations; i++) {
             Ticket ticket = new Ticket();
             ticket.setCreatedAt(LocalDateTime.now());
             ticket.setValidFrom(LocalDateTime.now());
@@ -449,10 +483,10 @@ private void testInsertTicketWithStops() {
             tickets.add(ticketRepository.save(ticket));
         }
 
-        int iterations = 200;
+        int iterationsCount = this.iterations;
         long testStartTime = System.currentTimeMillis();
 
-        for (int i = 0; i < iterations; i++) {
+        for (int i = 0; i < iterationsCount; i++) {
             Ticket ticket = tickets.get(i);
             long startNanos = System.nanoTime();
             try {
@@ -468,9 +502,9 @@ private void testInsertTicketWithStops() {
 
         metrics.calculateStats();
         metrics.totalTimeMs = System.currentTimeMillis() - testStartTime;
-        metrics.throughput = (iterations * 1000.0) / metrics.totalTimeMs;
+        metrics.throughput = (iterationsCount * 1000.0) / metrics.totalTimeMs;
 
-        printMetrics(metrics, iterations);
+        printMetrics(metrics, iterationsCount);
         
         for (Ticket t : tickets) {
             ticketRepository.delete(t);
@@ -480,65 +514,64 @@ private void testInsertTicketWithStops() {
 
     @Transactional(readOnly = true)
     private void testFindTicketById() {
-    TestMetrics metrics = new TestMetrics("SELECT Ticket by ID", "SELECT * FROM title WHERE id = ?");
-    System.out.println("🔍 " + metrics.testName);
-    System.out.println("   " + metrics.operation);
-    System.out.println("   Busca de ticket por ID (com EntityGraph de stops)\n");
+        TestMetrics metrics = new TestMetrics("SELECT Ticket by ID", "SELECT * FROM title WHERE id = ?");
+        System.out.println("🔍 " + metrics.testName);
+        System.out.println("   " + metrics.operation);
+        System.out.println("   Busca de ticket por ID (com EntityGraph de stops)\n");
 
-    // Criar tickets para buscar
-    List<UUID> ticketIds = new ArrayList<>();
-    for (int i = 0; i < 100; i++) {
-        Ticket ticket = new Ticket();
-        ticket.setCreatedAt(LocalDateTime.now());
-        ticket.setValidFrom(LocalDateTime.now());
-        ticket.setValidUntil(LocalDateTime.now().plusDays(30));
-        ticket.setPrice(BigDecimal.valueOf(15.99));
-        ticket.setStateName("UNUSED");
-        ticket = ticketRepository.save(ticket);
-        ticketIds.add(ticket.getId());
-    }
+        // Criar tickets para buscar
+        List<UUID> ticketIds = new ArrayList<>();
+        for (int i = 0; i < 100; i++) {
+            Ticket ticket = new Ticket();
+            ticket.setCreatedAt(LocalDateTime.now());
+            ticket.setValidFrom(LocalDateTime.now());
+            ticket.setValidUntil(LocalDateTime.now().plusDays(30));
+            ticket.setPrice(BigDecimal.valueOf(15.99));
+            ticket.setStateName("UNUSED");
+            ticket = ticketRepository.save(ticket);
+            ticketIds.add(ticket.getId());
+        }
 
-    int iterations = 500;
-    long testStartTime = System.currentTimeMillis();  // <-- Adicionar
+        int iterationsCount = this.iterations * 2;
+        long testStartTime = System.currentTimeMillis();
 
-    for (int i = 0; i < iterations; i++) {
-        UUID id = ticketIds.get(i % ticketIds.size());
-        long startNanos = System.nanoTime();
-        try {
-            Optional<Ticket> found = ticketRepository.findById(id);
-            if (found.isPresent()) {
-                metrics.successCount++;
-            } else {
+        for (int i = 0; i < iterationsCount; i++) {
+            UUID id = ticketIds.get(i % ticketIds.size());
+            long startNanos = System.nanoTime();
+            try {
+                Optional<Ticket> found = ticketRepository.findById(id);
+                if (found.isPresent()) {
+                    metrics.successCount++;
+                } else {
+                    metrics.failureCount++;
+                }
+                long latencyMs = (System.nanoTime() - startNanos) / 1_000_000;
+                metrics.addLatency(latencyMs);
+            } catch (Exception e) {
                 metrics.failureCount++;
             }
-            long latencyMs = (System.nanoTime() - startNanos) / 1_000_000;
-            metrics.addLatency(latencyMs);
-        } catch (Exception e) {
-            metrics.failureCount++;
         }
-    }
 
-    long testEndTime = System.currentTimeMillis();  // <-- Adicionar
-    
-    metrics.calculateStats();
-    metrics.totalTimeMs = testEndTime - testStartTime;  // <-- Corrigido
-    
-    // Evitar divisão por zero
-    if (metrics.totalTimeMs > 0) {
-        metrics.throughput = (iterations * 1000.0) / metrics.totalTimeMs;
-    } else {
-        metrics.throughput = 0;
-    }
+        long testEndTime = System.currentTimeMillis();
+        
+        metrics.calculateStats();
+        metrics.totalTimeMs = testEndTime - testStartTime;
+        
+        if (metrics.totalTimeMs > 0) {
+            metrics.throughput = (iterationsCount * 1000.0) / metrics.totalTimeMs;
+        } else {
+            metrics.throughput = 0;
+        }
 
-    System.out.printf("  ✅ Throughput: %.2f ops/segundo%n", metrics.throughput);
-    System.out.printf("  ✅ Avg latency: %.2f ms%n", metrics.avgLatencyMs);
-    System.out.printf("  ✅ Success rate: %.1f%%%n", (metrics.successCount * 100.0 / iterations));
-    System.out.println();
-    
-    for (UUID id : ticketIds) {
-        ticketRepository.deleteById(id);
-    }
-    allMetrics.add(metrics);
+        System.out.printf("  ✅ Throughput: %.2f ops/segundo%n", metrics.throughput);
+        System.out.printf("  ✅ Avg latency: %.2f ms%n", metrics.avgLatencyMs);
+        System.out.printf("  ✅ Success rate: %.1f%%%n", (metrics.successCount * 100.0 / iterationsCount));
+        System.out.println();
+        
+        for (UUID id : ticketIds) {
+            ticketRepository.deleteById(id);
+        }
+        allMetrics.add(metrics);
     }
 
     @Transactional(readOnly = true)
@@ -568,10 +601,10 @@ private void testInsertTicketWithStops() {
             ticketRepository.save(ticket);
         }
 
-        int iterations = 100;
+        int iterationsCount = Math.max(50, this.iterations / 2);
         long testStartTime = System.currentTimeMillis();
 
-        for (int i = 0; i < iterations; i++) {
+        for (int i = 0; i < iterationsCount; i++) {
             UUID userId = userIds.get(i % userIds.size());
             long startNanos = System.nanoTime();
             try {
@@ -586,11 +619,11 @@ private void testInsertTicketWithStops() {
 
         metrics.calculateStats();
         metrics.totalTimeMs = System.currentTimeMillis() - testStartTime;
-        metrics.throughput = (iterations * 1000.0) / metrics.totalTimeMs;
+        metrics.throughput = (iterationsCount * 1000.0) / metrics.totalTimeMs;
 
         System.out.printf("  ✅ Throughput: %.2f ops/segundo%n", metrics.throughput);
         System.out.printf("  ✅ Avg latency: %.2f ms%n", metrics.avgLatencyMs);
-        System.out.printf("  ✅ Success rate: %.1f%%%n", (metrics.successCount * 100.0 / iterations));
+        System.out.printf("  ✅ Success rate: %.1f%%%n", (metrics.successCount * 100.0 / iterationsCount));
         System.out.println();
         
         allMetrics.add(metrics);
@@ -610,12 +643,12 @@ private void testInsertTicketWithStops() {
             return;
         }
 
-        int iterations = 200;
+        int iterationsCount = this.iterations;
         List<UUID> createdIds = new ArrayList<>();
 
         long testStartTime = System.currentTimeMillis();
 
-        for (int i = 0; i < iterations; i++) {
+        for (int i = 0; i < iterationsCount; i++) {
             UUID userId = userIds.get(i % userIds.size());
             long startNanos = System.nanoTime();
             try {
@@ -642,9 +675,9 @@ private void testInsertTicketWithStops() {
 
         metrics.calculateStats();
         metrics.totalTimeMs = System.currentTimeMillis() - testStartTime;
-        metrics.throughput = (iterations * 1000.0) / metrics.totalTimeMs;
+        metrics.throughput = (iterationsCount * 1000.0) / metrics.totalTimeMs;
 
-        printMetrics(metrics, iterations);
+        printMetrics(metrics, iterationsCount);
         
         for (UUID id : createdIds) {
             cardRepository.deleteById(id);
@@ -664,12 +697,12 @@ private void testInsertTicketWithStops() {
             return;
         }
 
-        int iterations = 200;
+        int iterationsCount = this.iterations;
         List<UUID> createdIds = new ArrayList<>();
 
         long testStartTime = System.currentTimeMillis();
 
-        for (int i = 0; i < iterations; i++) {
+        for (int i = 0; i < iterationsCount; i++) {
             UUID userId = userIds.get(i % userIds.size());
             UUID zoneId = zoneIds.get(i % zoneIds.size());
             
@@ -700,9 +733,9 @@ private void testInsertTicketWithStops() {
 
         metrics.calculateStats();
         metrics.totalTimeMs = System.currentTimeMillis() - testStartTime;
-        metrics.throughput = (iterations * 1000.0) / metrics.totalTimeMs;
+        metrics.throughput = (iterationsCount * 1000.0) / metrics.totalTimeMs;
 
-        printMetrics(metrics, iterations);
+        printMetrics(metrics, iterationsCount);
         
         for (UUID id : createdIds) {
             cardRepository.deleteById(id);
@@ -719,7 +752,7 @@ private void testInsertTicketWithStops() {
 
         // Criar cards para atualizar
         List<Card> cards = new ArrayList<>();
-        for (int i = 0; i < 200; i++) {
+        for (int i = 0; i < this.iterations; i++) {
             Card card = new Card();
             card.setCreatedAt(LocalDateTime.now());
             card.setValidFrom(LocalDateTime.now());
@@ -729,10 +762,10 @@ private void testInsertTicketWithStops() {
             cards.add(cardRepository.save(card));
         }
 
-        int iterations = 200;
+        int iterationsCount = this.iterations;
         long testStartTime = System.currentTimeMillis();
 
-        for (int i = 0; i < iterations; i++) {
+        for (int i = 0; i < iterationsCount; i++) {
             Card card = cards.get(i);
             long startNanos = System.nanoTime();
             try {
@@ -748,9 +781,9 @@ private void testInsertTicketWithStops() {
 
         metrics.calculateStats();
         metrics.totalTimeMs = System.currentTimeMillis() - testStartTime;
-        metrics.throughput = (iterations * 1000.0) / metrics.totalTimeMs;
+        metrics.throughput = (iterationsCount * 1000.0) / metrics.totalTimeMs;
 
-        printMetrics(metrics, iterations);
+        printMetrics(metrics, iterationsCount);
         
         for (Card c : cards) {
             cardRepository.delete(c);
@@ -767,12 +800,12 @@ private void testInsertTicketWithStops() {
         System.out.println("   " + metrics.operation);
         System.out.println("   Criação de pack de tickets\n");
 
-        int iterations = 200;
+        int iterationsCount = this.iterations;
         List<UUID> createdIds = new ArrayList<>();
 
         long testStartTime = System.currentTimeMillis();
 
-        for (int i = 0; i < iterations; i++) {
+        for (int i = 0; i < iterationsCount; i++) {
             long startNanos = System.nanoTime();
             try {
                 TicketPack pack = new TicketPack();
@@ -791,9 +824,9 @@ private void testInsertTicketWithStops() {
 
         metrics.calculateStats();
         metrics.totalTimeMs = System.currentTimeMillis() - testStartTime;
-        metrics.throughput = (iterations * 1000.0) / metrics.totalTimeMs;
+        metrics.throughput = (iterationsCount * 1000.0) / metrics.totalTimeMs;
 
-        printMetrics(metrics, iterations);
+        printMetrics(metrics, iterationsCount);
         
         for (UUID id : createdIds) {
             ticketPackRepository.deleteById(id);
@@ -813,12 +846,12 @@ private void testInsertTicketWithStops() {
             return;
         }
 
-        int iterations = 50;
+        int iterationsCount = Math.max(20, this.iterations / 4);
         int ticketsPerPack = 10;
 
         long testStartTime = System.currentTimeMillis();
 
-        for (int i = 0; i < iterations; i++) {
+        for (int i = 0; i < iterationsCount; i++) {
             long startNanos = System.nanoTime();
             try {
                 UUID userId = userIds.get(i % userIds.size());
@@ -856,7 +889,7 @@ private void testInsertTicketWithStops() {
             }
         }
 
-        int totalOps = iterations * (ticketsPerPack + 1);
+        int totalOps = iterationsCount * (ticketsPerPack + 1);
         metrics.calculateStats();
         metrics.totalTimeMs = System.currentTimeMillis() - testStartTime;
         metrics.throughput = (totalOps * 1000.0) / metrics.totalTimeMs;
@@ -888,10 +921,10 @@ private void testInsertTicketWithStops() {
             packIds.add(pack.getId());
         }
 
-        int iterations = 500;
+        int iterationsCount = this.iterations * 2;
         long testStartTime = System.currentTimeMillis();
 
-        for (int i = 0; i < iterations; i++) {
+        for (int i = 0; i < iterationsCount; i++) {
             UUID id = packIds.get(i % packIds.size());
             long startNanos = System.nanoTime();
             try {
@@ -910,11 +943,11 @@ private void testInsertTicketWithStops() {
 
         metrics.calculateStats();
         metrics.totalTimeMs = System.currentTimeMillis() - testStartTime;
-        metrics.throughput = (iterations * 1000.0) / metrics.totalTimeMs;
+        metrics.throughput = (iterationsCount * 1000.0) / metrics.totalTimeMs;
 
         System.out.printf("  ✅ Throughput: %.2f ops/segundo%n", metrics.throughput);
         System.out.printf("  ✅ Avg latency: %.2f ms%n", metrics.avgLatencyMs);
-        System.out.printf("  ✅ Success rate: %.1f%%%n", (metrics.successCount * 100.0 / iterations));
+        System.out.printf("  ✅ Success rate: %.1f%%%n", (metrics.successCount * 100.0 / iterationsCount));
         System.out.println();
         
         for (UUID id : packIds) {
@@ -932,10 +965,10 @@ private void testInsertTicketWithStops() {
         System.out.println("   " + metrics.operation);
         System.out.println("   Geração de QR code para ticket\n");
 
-        int iterations = 200;
+        int iterationsCount = this.iterations;
         long testStartTime = System.currentTimeMillis();
 
-        for (int i = 0; i < iterations; i++) {
+        for (int i = 0; i < iterationsCount; i++) {
             Ticket ticket = new Ticket();
             long startNanos = System.nanoTime();
             try {
@@ -950,9 +983,9 @@ private void testInsertTicketWithStops() {
 
         metrics.calculateStats();
         metrics.totalTimeMs = System.currentTimeMillis() - testStartTime;
-        metrics.throughput = (iterations * 1000.0) / metrics.totalTimeMs;
+        metrics.throughput = (iterationsCount * 1000.0) / metrics.totalTimeMs;
 
-        printMetrics(metrics, iterations);
+        printMetrics(metrics, iterationsCount);
         allMetrics.add(metrics);
     }
 
@@ -981,10 +1014,10 @@ private void testInsertTicketWithStops() {
             {"USED", "EXPIRED"}
         };
 
-        int iterations = 100;
+        int iterationsCount = Math.max(50, this.iterations / 2);
         long testStartTime = System.currentTimeMillis();
 
-        for (int i = 0; i < iterations; i++) {
+        for (int i = 0; i < iterationsCount; i++) {
             Ticket t = ticketRepository.findById(ticket.getId()).orElse(null);
             if (t == null) continue;
             
@@ -1034,10 +1067,10 @@ private void testInsertTicketWithStops() {
         card.setStateName("UNUSED");
         card = cardRepository.save(card);
 
-        int iterations = 100;
+        int iterationsCount = Math.max(50, this.iterations / 2);
         long testStartTime = System.currentTimeMillis();
 
-        for (int i = 0; i < iterations; i++) {
+        for (int i = 0; i < iterationsCount; i++) {
             Card c = cardRepository.findById(card.getId()).orElse(null);
             if (c == null) continue;
             
@@ -1079,15 +1112,15 @@ private void testInsertTicketWithStops() {
         TestMetrics metrics = new TestMetrics("Concurrent Ticket Inserts", "10 threads a inserir tickets");
         System.out.println("⚡ " + metrics.testName);
         System.out.println("   " + metrics.operation);
-        System.out.println("   👥 Simula 10 utilizadores a comprar tickets ao mesmo tempo\n");
+        System.out.println("   👥 Simula " + this.threads + " utilizadores a comprar tickets ao mesmo tempo\n");
 
         if (userIds.isEmpty()) {
             System.out.println("  ⚠️ Sem utilizadores disponíveis\n");
             return;
         }
 
-        int threadCount = 10;
-        int opsPerThread = 100;
+        int threadCount = this.threads;
+        int opsPerThread = this.concurrentOps / this.threads;
         int totalOps = threadCount * opsPerThread;
         
         ExecutorService executor = Executors.newFixedThreadPool(threadCount);
@@ -1152,7 +1185,7 @@ private void testInsertTicketWithStops() {
         TestMetrics metrics = new TestMetrics("Concurrent State Transitions", "10 threads a atualizar estados");
         System.out.println("⚡ " + metrics.testName);
         System.out.println("   " + metrics.operation);
-        System.out.println("   👥 Simula 10 validações simultâneas em catracas\n");
+        System.out.println("   👥 Simula " + this.threads + " validações simultâneas em catracas\n");
 
         // Criar tickets
         List<Ticket> tickets = new ArrayList<>();
@@ -1166,8 +1199,8 @@ private void testInsertTicketWithStops() {
             tickets.add(ticketRepository.save(ticket));
         }
 
-        int threadCount = 10;
-        int opsPerThread = 50;
+        int threadCount = this.threads;
+        int opsPerThread = Math.max(10, (this.concurrentOps / 2) / this.threads);
         int totalOps = threadCount * opsPerThread;
         
         ExecutorService executor = Executors.newFixedThreadPool(threadCount);
@@ -1223,7 +1256,7 @@ private void testInsertTicketWithStops() {
 
     // ==================== UTILITÁRIOS ====================
 
-    private void printMetrics(TestMetrics metrics, int iterations) {
+    private void printMetrics(TestMetrics metrics, int iterationsCount) {
         System.out.printf("  ✅ Throughput: %.2f ops/segundo%n", metrics.throughput);
         System.out.printf("  ✅ Avg latency: %.2f ms%n", metrics.avgLatencyMs);
         System.out.printf("  ✅ Min latency: %.2f ms%n", metrics.minLatencyMs);
@@ -1231,7 +1264,7 @@ private void testInsertTicketWithStops() {
         System.out.printf("  ✅ P95 latency: %.2f ms%n", metrics.p95LatencyMs);
         System.out.printf("  ✅ P99 latency: %.2f ms%n", metrics.p99LatencyMs);
         System.out.printf("  ✅ Success rate: %.1f%% (%d/%d)%n", 
-            (metrics.successCount * 100.0 / iterations), metrics.successCount, iterations);
+            (metrics.successCount * 100.0 / iterationsCount), metrics.successCount, iterationsCount);
         System.out.println();
     }
 
@@ -1279,7 +1312,6 @@ private void testInsertTicketWithStops() {
         System.out.println("╚═══════════════════════════════════════════════════════════════════════════════╝");
         System.out.println();
 
-        // Encontrar melhor e pior throughput
         TestMetrics best = allMetrics.stream().max(Comparator.comparingDouble(m -> m.throughput)).orElse(null);
         TestMetrics worst = allMetrics.stream().min(Comparator.comparingDouble(m -> m.throughput)).orElse(null);
 
