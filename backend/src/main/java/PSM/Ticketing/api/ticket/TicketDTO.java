@@ -3,6 +3,7 @@ package PSM.Ticketing.api.ticket;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
+import PSM.Travel.VehicleType;
 
 public class TicketDTO {
     private UUID id;
@@ -13,11 +14,13 @@ public class TicketDTO {
     private String status;
     private UUID fromStopId;
     private String fromStopName;
+    private VehicleType fromStopType;
     private UUID toStopId;
     private String toStopName;
+    private VehicleType toStopType;
 
     public TicketDTO(UUID id, LocalDateTime createdAt, LocalDateTime validFrom, LocalDateTime validUntil, 
-                     BigDecimal price, String status, UUID fromStopId, String fromStopName, UUID toStopId, String toStopName) {
+                     BigDecimal price, String status, UUID fromStopId, String fromStopName, VehicleType fromStopType, UUID toStopId, String toStopName, VehicleType toStopType) {
         this.id = id;
         this.createdAt = createdAt;
         this.validFrom = validFrom;
@@ -26,8 +29,10 @@ public class TicketDTO {
         this.status = status;
         this.fromStopId = fromStopId;
         this.fromStopName = fromStopName;
+        this.fromStopType = fromStopType;
         this.toStopId = toStopId;
         this.toStopName = toStopName;
+        this.toStopType = toStopType;
     }
 
     // Getters e Setters
@@ -51,4 +56,8 @@ public class TicketDTO {
     public void setToStopId(UUID toStopId) { this.toStopId = toStopId; }
     public String getToStopName() { return toStopName; }
     public void setToStopName(String toStopName) { this.toStopName = toStopName; }
+    public String getFromStopType() { return fromStopType != null ? fromStopType.name() : null; }
+    public void setFromStopType(VehicleType fromStopType) { this.fromStopType = fromStopType; }
+    public String getToStopType() { return toStopType != null ? toStopType.name() : null; }
+    public void setToStopType(VehicleType toStopType) { this.toStopType = toStopType; }
 }

@@ -164,6 +164,7 @@ onMounted(async () => {
   border-bottom-left-radius: 4px;
   border-bottom-right-radius: 4px;
   filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.08));
+  overflow: scroll;
 }
 
 .receipt-card::after {

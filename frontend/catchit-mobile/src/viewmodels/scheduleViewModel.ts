@@ -5,6 +5,7 @@ export type ScheduleStopOption = {
   stopId: string
   stopName: string
   stopCode?: string | null
+  displayCode?: string | null
   stopType?: string | null
 }
 
@@ -63,7 +64,8 @@ const buildRouteTimetableFromDTO = (dto: RouteScheduleDTO): SelectedTimetable =>
   
   sortedSchedules.forEach(s => {
     if (!stopMap.has(s.stopId)) {
-      stopMap.set(s.stopId, { stopName: s.stopName, stopCode: s.stopCode ?? null, times: [] });
+      const displayCode = (s.stopType && s.stopType.toUpperCase() === 'METRO' && s.displayCode) ? s.displayCode : s.stopCode;
+      stopMap.set(s.stopId, { stopName: s.stopName, stopCode: displayCode ?? null, times: [] });
     }
     const time = getScheduleTime(s);
     if (time) stopMap.get(s.stopId)!.times.push(parseTimeValue(time));
@@ -299,7 +301,8 @@ export function useScheduleViewModel(initialRouteId = '') {
         for (const route of routes.value) {
           for (const stop of route.stops) {
             if (!stopMap.has(stop.stopId)) {
-              stopMap.set(stop.stopId, stop)
+              const displayCode = (stop.stopType && stop.stopType.toUpperCase() === 'METRO' && stop.displayCode) ? stop.displayCode : stop.stopCode;
+              stopMap.set(stop.stopId, { ...stop, stopCode: displayCode })
             }
           }
         }

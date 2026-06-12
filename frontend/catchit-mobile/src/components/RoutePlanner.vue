@@ -1,26 +1,44 @@
 <template>
   <div class="route-planner" :class="[`route-planner--${layout}`]">
-    <div v-if="showPickers" class="route-planner__pickers">
-      <StopSearchPicker
-        v-model="fromStop"
-        label="From"
-        placeholder="Search origin stop"
-      />
-      <StopSearchPicker
-        v-model="toStop"
-        label="To"
-        placeholder="Search destination stop"
-      />
-      <q-btn
-        color="primary"
-        unelevated
-        no-caps
-        class="route-planner__plan-btn"
-        :disable="!canPlan || routingStore.isLoading"
-        @click="planRoute"
-      >
-        Plan route
-      </q-btn>
+    <div v-if="showPickers && isModalOpen" class="route-planner__modal-backdrop" @click.self="isModalOpen = false">
+      <div class="route-planner__modal">
+        <div class="route-planner__modal-header">
+          <h3>Plan Trip</h3>
+          <button v-if="hasPlan" class="route-planner__close" @click="isModalOpen = false"><X class="icon-sm" /></button>
+        </div>
+        <div class="route-planner__pickers">
+          <StopSearchPicker
+            v-model="fromStop"
+            label="From"
+            placeholder="Search origin stop"
+          />
+          <StopSearchPicker
+            v-model="toStop"
+            label="To"
+            placeholder="Search destination stop"
+          />
+          <div class="route-planner__datetime">
+            <label class="route-planner__label">
+              <span>Date</span>
+              <input v-model="departureDate" type="date" :min="todayDateString" class="route-planner__input" />
+            </label>
+            <label class="route-planner__label">
+              <span>Time</span>
+              <input v-model="departureTime" type="time" class="route-planner__input" />
+            </label>
+          </div>
+          <q-btn
+            color="primary"
+            unelevated
+            no-caps
+            class="route-planner__plan-btn"
+            :disable="!canPlan || routingStore.isLoading"
+            @click="planRoute"
+          >
+            Plan trip
+          </q-btn>
+        </div>
+      </div>
     </div>
 
     <q-banner
@@ -53,6 +71,7 @@
             :plan="routingStore.currentPlan"
             :from-label="fromLabel"
             :to-label="toLabel"
+            :hide-cart-button="hideCartButton"
           />
           <div v-else class="route-planner__placeholder">
             <p>Select origin and destination, then plan your route.</p>
@@ -64,12 +83,17 @@
       </q-splitter>
 
       <div v-else class="route-planner__stacked">
-        <div ref="mapContainerStacked" class="route-planner__map route-planner__map--stacked" />
+        <div ref="mapContainerStacked" class="route-planner__map route-planner__map--stacked">
+          <button v-if="hasPlan && !isModalOpen" class="route-planner__edit-fab" @click="isModalOpen = true">
+            Edit Trip
+          </button>
+        </div>
         <ItineraryPanel
           v-if="hasPlan"
           :plan="routingStore.currentPlan"
           :from-label="fromLabel"
           :to-label="toLabel"
+          :hide-cart-button="hideCartButton"
           class="route-planner__stacked-panel"
         />
       </div>
@@ -82,9 +106,9 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { storeToRefs } from 'pinia'
+import { X } from 'lucide-vue-next'
 import StopSearchPicker from './StopSearchPicker.vue'
 import ItineraryPanel from './ItineraryPanel.vue'
-import { catchitApi } from '../services/api/catchitApi'
 import { useRoutingStore } from '../stores/routingStore'
 import type { RoutingLegFeature, RoutingPlanResponse, TransitMode } from '../types/routing'
 import type { Stop } from '../models'
@@ -98,6 +122,7 @@ const props = withDefaults(
     autoPlan?: boolean
     fromLabel?: string
     toLabel?: string
+    hideCartButton?: boolean
   }>(),
   {
     layout: 'split',
@@ -107,6 +132,7 @@ const props = withDefaults(
     autoPlan: false,
     fromLabel: '',
     toLabel: '',
+    hideCartButton: false,
   },
 )
 
@@ -119,11 +145,16 @@ const mapContainer = ref<HTMLElement | null>(null)
 const mapContainerStacked = ref<HTMLElement | null>(null)
 const splitterModel = ref(42)
 
+const todayDateString = new Date().toISOString().split('T')[0]
+const departureDate = ref(todayDateString)
+const departureTime = ref(new Date().toTimeString().substring(0, 5))
+
+const isModalOpen = ref(true)
+
 const portoCenter: [number, number] = [41.1579, -8.6291]
 const portugalNorthBounds = L.latLngBounds([40.5, -9.0], [42.0, -7.5])
 
 let map: L.Map | null = null
-let baseStopsLayer: L.LayerGroup | null = null
 let itineraryLayer: L.GeoJSON | null = null
 
 const showPickers = computed(() => !props.hidePickers)
@@ -193,29 +224,9 @@ const initMap = async () => {
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; OpenStreetMap contributors',
   }).addTo(map)
-
-  baseStopsLayer = L.layerGroup().addTo(map)
-  await loadBaseStopsLayer()
 }
 
-const loadBaseStopsLayer = async () => {
-  if (!map || !baseStopsLayer) return
 
-  const response = await catchitApi.getStopsGeoJson()
-  if (!response.success || !response.data) return
-
-  baseStopsLayer.clearLayers()
-  L.geoJSON(response.data, {
-    pointToLayer: (_feature, latlng) =>
-      L.circleMarker(latlng, {
-        radius: 3,
-        color: '#94a3b8',
-        weight: 1,
-        fillColor: '#cbd5e1',
-        fillOpacity: 0.7,
-      }),
-  }).addTo(baseStopsLayer)
-}
 
 const renderItineraryLayer = (plan: RoutingPlanResponse) => {
   if (!map) return
@@ -244,11 +255,15 @@ const renderItineraryLayer = (plan: RoutingPlanResponse) => {
 const planRoute = async () => {
   if (!fromStop.value || !toStop.value) return
 
+  isModalOpen.value = false
+
   await routingStore.fetchPlan({
     fromLat: fromStop.value.latitude,
     fromLon: fromStop.value.longitude,
     toLat: toStop.value.latitude,
     toLon: toStop.value.longitude,
+    date: departureDate.value,
+    time: departureTime.value + ':00'
   })
 
   await nextTick()
@@ -258,6 +273,24 @@ const planRoute = async () => {
     renderItineraryLayer(routingStore.currentPlan)
   }
 }
+
+watch(departureDate, (newDate) => {
+  if (newDate === todayDateString) {
+    const nowTime = new Date().toTimeString().substring(0, 5)
+    if (departureTime.value < nowTime) {
+      departureTime.value = nowTime
+    }
+  }
+})
+
+watch(departureTime, (newTime) => {
+  if (departureDate.value === todayDateString) {
+    const nowTime = new Date().toTimeString().substring(0, 5)
+    if (newTime < nowTime) {
+      departureTime.value = nowTime
+    }
+  }
+})
 
 watch(
   () => [props.initialFromStop, props.initialToStop] as const,
@@ -299,6 +332,8 @@ onMounted(async () => {
         fromLon: fromStop.value.longitude,
         toLat: toStop.value.latitude,
         toLon: toStop.value.longitude,
+        date: departureDate.value,
+        time: departureTime.value + ':00',
       }
     : null
 
@@ -308,6 +343,7 @@ onMounted(async () => {
       routingStore.currentPlan = cached
       routingStore.currentError = cached.error ?? null
       if (!cached.error) {
+        isModalOpen.value = false
         renderItineraryLayer(cached)
       }
     } else if (props.autoPlan && canPlan.value) {
@@ -323,7 +359,6 @@ onBeforeUnmount(() => {
   itineraryLayer = null
   map?.remove()
   map = null
-  baseStopsLayer = null
 })
 </script>
 
@@ -331,13 +366,87 @@ onBeforeUnmount(() => {
 .route-planner {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0;
   min-height: 0;
+}
+
+.route-planner__modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.4);
+  backdrop-filter: blur(4px);
+  z-index: 1500;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0;
+}
+
+.route-planner__modal {
+  background: white;
+  width: 100%;
+  border-radius: 20px 20px 0 0;
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.12);
+  display: flex;
+  flex-direction: column;
+  overflow: scroll;
+  padding-bottom: env(safe-area-inset-bottom, 1rem);
+
+}
+
+.route-planner__modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.route-planner__modal-header h3 {
+  margin: 0;
+  font-size: 1.15rem;
+  color: #0f172a;
+}
+
+.route-planner__close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: #64748b;
+  cursor: pointer;
+  padding: 0;
 }
 
 .route-planner__pickers {
   display: grid;
   gap: 0.75rem;
+  padding: 1.25rem;
+}
+
+.route-planner__datetime {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.route-planner__label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #4b5563;
+}
+
+.route-planner__input {
+  width: 100%;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  background: white;
+  color: #111827;
 }
 
 .route-planner__plan-btn {
@@ -376,8 +485,7 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 0;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
+  height: 100%;
   overflow: hidden;
 }
 
@@ -386,6 +494,23 @@ onBeforeUnmount(() => {
   height: 100%;
   min-height: 280px;
   background: #eef1f5;
+  position: relative;
+}
+
+.route-planner__edit-fab {
+  position: sticky;
+  top: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  background: white;
+  color: var(--color-brand, #4f46e5);
+  font-weight: 600;
+  border: 1px solid #e5e7eb;
+  padding: 0.6rem 1.25rem;
+  border-radius: 24px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  cursor: pointer;
 }
 
 .route-planner__map--stacked {

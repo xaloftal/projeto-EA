@@ -200,8 +200,16 @@ public CheckoutSessionResponseDTO createSession(UUID userId) {
 
                     CartItemSourceDTO source = item.getSource();
                     if (source != null) {
-                        ticket.setFrom(resolveStop(source.getFromStopId()));
-                        ticket.setTo(resolveStop(source.getToStopId()));
+                        Stop fromStop = resolveStop(source.getFromStopId());
+                        Stop toStop = resolveStop(source.getToStopId());
+                        
+                        if (fromStop != null && toStop != null) {
+                            ticket.setFrom(fromStop);
+                            ticket.setTo(toStop);
+                        } else {
+                            ticket.setFrom(fromStop);
+                            ticket.setTo(toStop);
+                        }
                     }
                     ticket.setValidFrom(LocalDateTime.now());
                     ticket.setValidUntil(LocalDateTime.now().plusWeeks(1));
@@ -291,7 +299,8 @@ public CheckoutSessionResponseDTO createSession(UUID userId) {
 		try {
 			return stopRepository.findById(UUID.fromString(stopId)).orElse(null);
 		} catch (IllegalArgumentException e) {
-			return null;
+			String code = stopId.contains(":") ? stopId.substring(stopId.indexOf(":") + 1) : stopId;
+			return stopRepository.findByStopCode(code).orElse(null);
 		}
 	}
 

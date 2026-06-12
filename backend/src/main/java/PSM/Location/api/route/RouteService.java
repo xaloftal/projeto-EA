@@ -72,19 +72,20 @@ public class RouteService {
                 continue;
             }
 
-            if (fromSchedule.getSequence() >= toSchedule.getSequence()) {
-                continue;
-            }
+            StopSchedule firstSchedule = fromSchedule.getSequence() < toSchedule.getSequence() ? fromSchedule
+                    : toSchedule;
+            StopSchedule secondSchedule = fromSchedule.getSequence() < toSchedule.getSequence() ? toSchedule
+                    : fromSchedule;
 
-            LocalTime departureTime = scheduleTime(fromSchedule);
+            LocalTime departureTime = scheduleTime(firstSchedule);
 
             if (departureAfter != null && departureTime != null && departureTime.isBefore(departureAfter)) {
                 continue;
             }
 
-            LocalTime arrivalTime = scheduleTime(toSchedule);
+            LocalTime arrivalTime = scheduleTime(secondSchedule);
 
-            int stopSpan = Math.max(1, toSchedule.getSequence() - fromSchedule.getSequence());
+            int stopSpan = Math.max(1, secondSchedule.getSequence() - firstSchedule.getSequence());
 
             results.add(new RouteSearchResultDTO(
                     route.getId(),
@@ -125,19 +126,20 @@ public class RouteService {
             }
 
             if (nextArrivalAt != null) {
-                String firstStop = route.routeStops.isEmpty() ? null : 
-                    route.routeStops.stream()
-                        .min(Comparator.comparingInt(RouteStop::getSequence))
-                        .map(rs -> rs.getStop().getName())
-                        .orElse(null);
-                
-                String lastStop = route.routeStops.isEmpty() ? null :
-                    route.routeStops.stream()
-                        .max(Comparator.comparingInt(RouteStop::getSequence))
-                        .map(rs -> rs.getStop().getName())
-                        .orElse(null);
+                String firstStop = route.routeStops.isEmpty() ? null
+                        : route.routeStops.stream()
+                                .min(Comparator.comparingInt(RouteStop::getSequence))
+                                .map(rs -> rs.getStop().getName())
+                                .orElse(null);
 
-                arrivals.add(new StopRouteArrivalDTO(route.getId(), route.getName(), nextArrivalAt, firstStop, lastStop));
+                String lastStop = route.routeStops.isEmpty() ? null
+                        : route.routeStops.stream()
+                                .max(Comparator.comparingInt(RouteStop::getSequence))
+                                .map(rs -> rs.getStop().getName())
+                                .orElse(null);
+
+                arrivals.add(
+                        new StopRouteArrivalDTO(route.getId(), route.getName(), nextArrivalAt, firstStop, lastStop));
             }
         }
 
@@ -224,13 +226,16 @@ public class RouteService {
             if (route.schedules != null) {
                 for (StopSchedule schedule : route.schedules) {
                     if (schedule.stop != null) {
-                        double lat = schedule.stop.getLocation() != null ? schedule.stop.getLocation().getLatitude() : 0;
-                        double lon = schedule.stop.getLocation() != null ? schedule.stop.getLocation().getLongitude() : 0;
+                        double lat = schedule.stop.getLocation() != null ? schedule.stop.getLocation().getLatitude()
+                                : 0;
+                        double lon = schedule.stop.getLocation() != null ? schedule.stop.getLocation().getLongitude()
+                                : 0;
 
                         dto.schedules.add(new RouteWithSchedulesDTO.ScheduleDTO(
                                 schedule.stop.getId(),
                                 schedule.stop.getName(),
                                 schedule.stop.getStopCode(),
+                                schedule.stop.getDisplayCode(),
                                 schedule.stop.getStopType() != null ? schedule.stop.getStopType().name() : null,
                                 lat,
                                 lon,
@@ -256,20 +261,20 @@ public class RouteService {
         for (Route route : routes) {
             List<RouteSummaryDTO.StopSummaryDTO> stops = new ArrayList<>();
             java.util.Set<UUID> seenStops = new java.util.HashSet<>();
-            
+
             if (route.getRouteStops() != null) {
                 route.getRouteStops().stream()
-                    .sorted(Comparator.comparingInt(rs -> rs.getSequence() != null ? rs.getSequence() : 0))
-                    .forEach(rs -> {
-                        if (rs.getStop() != null && seenStops.add(rs.getStop().getId())) {
-                            stops.add(new RouteSummaryDTO.StopSummaryDTO(
-                                rs.getStop().getId(),
-                                rs.getStop().getName(),
-                                rs.getStop().getStopCode(),
-                                rs.getStop().getStopType() != null ? rs.getStop().getStopType().name() : null
-                            ));
-                        }
-                    });
+                        .sorted(Comparator.comparingInt(rs -> rs.getSequence() != null ? rs.getSequence() : 0))
+                        .forEach(rs -> {
+                            if (rs.getStop() != null && seenStops.add(rs.getStop().getId())) {
+                                stops.add(new RouteSummaryDTO.StopSummaryDTO(
+                                        rs.getStop().getId(),
+                                        rs.getStop().getName(),
+                                        rs.getStop().getStopCode(),
+                                        rs.getStop().getDisplayCode(),
+                                        rs.getStop().getStopType() != null ? rs.getStop().getStopType().name() : null));
+                            }
+                        });
             }
             if (!stops.isEmpty()) {
                 summaries.add(new RouteSummaryDTO(route.getId(), route.getName(), stops));
@@ -280,8 +285,8 @@ public class RouteService {
 
     public RouteWithSchedulesDTO findRouteScheduleOptimized(UUID routeId) {
         Route route = repository.findByIdWithSchedules(routeId)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Route not found"));
-            
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Route not found"));
+
         RouteWithSchedulesDTO dto = new RouteWithSchedulesDTO(route.getId(), route.getName());
         if (route.schedules != null) {
             for (StopSchedule schedule : route.schedules) {
@@ -292,6 +297,7 @@ public class RouteService {
                             schedule.stop.getId(),
                             schedule.stop.getName(),
                             schedule.stop.getStopCode(),
+                            schedule.stop.getDisplayCode(),
                             schedule.stop.getStopType() != null ? schedule.stop.getStopType().name() : null,
                             lat,
                             lon,
@@ -313,12 +319,15 @@ public class RouteService {
             if (route.schedules != null) {
                 for (StopSchedule schedule : route.schedules) {
                     if (schedule.stop != null && schedule.stop.getId().equals(stopId)) {
-                        double lat = schedule.stop.getLocation() != null ? schedule.stop.getLocation().getLatitude() : 0;
-                        double lon = schedule.stop.getLocation() != null ? schedule.stop.getLocation().getLongitude() : 0;
+                        double lat = schedule.stop.getLocation() != null ? schedule.stop.getLocation().getLatitude()
+                                : 0;
+                        double lon = schedule.stop.getLocation() != null ? schedule.stop.getLocation().getLongitude()
+                                : 0;
                         dto.schedules.add(new RouteWithSchedulesDTO.ScheduleDTO(
                                 schedule.stop.getId(),
                                 schedule.stop.getName(),
                                 schedule.stop.getStopCode(),
+                                schedule.stop.getDisplayCode(),
                                 schedule.stop.getStopType() != null ? schedule.stop.getStopType().name() : null,
                                 lat,
                                 lon,
@@ -335,34 +344,37 @@ public class RouteService {
         return result;
     }
 
-    // Gets all the stops from a route (used to show the stops of a vehicle in the map view)
+    // Gets all the stops from a route (used to show the stops of a vehicle in the
+    // map view)
     public List<RouteStopDTO> findRouteStops(UUID routeId) {
         Route route = findById(routeId);
         LocalTime now = LocalTime.now(APP_TIMEZONE);
-        
+
         return route.schedules.stream()
-            .filter(s -> s.stop != null)
-            .collect(Collectors.toMap(
-                s -> s.stop.getId(),
-                s -> s,
-                (existing, replacement) -> {
-                    LocalTime existingTime = scheduleTime(existing);
-                    LocalTime replacementTime = scheduleTime(replacement);
-                    if (existingTime == null) return replacement;
-                    if (replacementTime == null) return existing;
-                    return existingTime.isBefore(replacementTime) ? existing : replacement;
-                },
-                java.util.LinkedHashMap::new
-            ))
-            .values()
-            .stream()
-            .sorted(Comparator.comparingInt(StopSchedule::getSequence))
-            .map(s -> new RouteStopDTO(
-                s.stop.getId().toString(),
-                s.stop.getName(),
-                s.getSequence(),
-                s.getArrivalTime() != null ? s.getArrivalTime().toLocalTime().format(DateTimeFormatter.ofPattern("HH:mm")) : "--"
-            ))
-            .toList();
+                .filter(s -> s.stop != null)
+                .collect(Collectors.toMap(
+                        s -> s.stop.getId(),
+                        s -> s,
+                        (existing, replacement) -> {
+                            LocalTime existingTime = scheduleTime(existing);
+                            LocalTime replacementTime = scheduleTime(replacement);
+                            if (existingTime == null)
+                                return replacement;
+                            if (replacementTime == null)
+                                return existing;
+                            return existingTime.isBefore(replacementTime) ? existing : replacement;
+                        },
+                        java.util.LinkedHashMap::new))
+                .values()
+                .stream()
+                .sorted(Comparator.comparingInt(StopSchedule::getSequence))
+                .map(s -> new RouteStopDTO(
+                        s.stop.getId().toString(),
+                        s.stop.getName(),
+                        s.getSequence(),
+                        s.getArrivalTime() != null
+                                ? s.getArrivalTime().toLocalTime().format(DateTimeFormatter.ofPattern("HH:mm"))
+                                : "--"))
+                .toList();
     }
 }

@@ -241,14 +241,23 @@ interface TicketGroup {
 const groupedActiveTickets = computed(() => {
   const groups: Record<string, TicketGroup> = {}
   activeTickets.value.forEach(t => {
-    const fromId = t.stopFrom?.id || 'unknown'
-    const toId = t.stopTo?.id || 'unknown'
-    const key = `${fromId}-${toId}`
+    const from = t.stopFrom || { id: 'unknown', name: 'Route details unavailable' }
+    const to = t.stopTo || { id: 'unknown', name: 'Route details unavailable' }
+    
+    const key = `${from.id}-${to.id}`
+    
+    const formatStopName = (stop: any) => {
+      if (!stop || !stop.name) return 'Route details unavailable'
+      if (!stop.stopType) return stop.name
+      const typeLetter = stop.stopType.charAt(0).toUpperCase()
+      return `(${typeLetter}) ${stop.name}`
+    }
+
     if (!groups[key]) {
       groups[key] = {
         key,
-        routeLabelFrom: getTicketFromStop(t),
-        routeLabelTo: getTicketToStop(t),
+        routeLabelFrom: formatStopName(from),
+        routeLabelTo: formatStopName(to),
         tickets: [],
         firstTicket: t
       }
@@ -403,27 +412,23 @@ const formatStatus = (status: string) => {
   return statusMap[status] || status
 }
 
-const getTicketFromStop = (ticket: UserTicket) =>
-  ticket.stopFrom?.name ?? 'Route details unavailable'
-
-const getTicketToStop = (ticket: UserTicket) =>
-  ticket.stopTo?.name ?? 'Route details unavailable'
-
 const getItineraryLink = (ticket: UserTicket) => {
+  const from = ticket.stopFrom
+  const to = ticket.stopTo
   const query: Record<string, string> = {
-    fromStopId: ticket.stopFrom.id,
-    toStopId: ticket.stopTo.id,
-    fromName: ticket.stopFrom.name,
-    toName: ticket.stopTo.name,
+    fromStopId: from.id,
+    toStopId: to.id,
+    fromName: from.name,
+    toName: to.name,
   }
 
-  if (ticket.stopFrom.latitude && ticket.stopFrom.longitude) {
-    query.fromLat = String(ticket.stopFrom.latitude)
-    query.fromLon = String(ticket.stopFrom.longitude)
+  if (from.latitude && from.longitude) {
+    query.fromLat = String(from.latitude)
+    query.fromLon = String(from.longitude)
   }
-  if (ticket.stopTo.latitude && ticket.stopTo.longitude) {
-    query.toLat = String(ticket.stopTo.latitude)
-    query.toLon = String(ticket.stopTo.longitude)
+  if (to.latitude && to.longitude) {
+    query.toLat = String(to.latitude)
+    query.toLon = String(to.longitude)
   }
 
   return {

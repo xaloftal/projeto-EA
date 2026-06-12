@@ -20,7 +20,7 @@ public interface TicketRepository extends JpaRepository<Ticket, UUID> {
 
     @Query("SELECT new PSM.Ticketing.api.ticket.TicketDTO(" +
            "t.id, t.createdAt, t.validFrom, t.validUntil, t.price, t.stateName, " +
-           "f.id, f.name, o.id, o.name) " +
+           "f.id, f.name, f.stopType, o.id, o.name, o.stopType) " +
            "FROM Ticket t " +
            "JOIN t.fromStop f " +
            "JOIN t.toStop o " +

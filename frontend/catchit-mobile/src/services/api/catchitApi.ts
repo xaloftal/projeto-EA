@@ -117,6 +117,7 @@ export type RouteSummaryDTO = {
     stopId: string
     stopName: string
     stopCode?: string | null
+    displayCode?: string | null
     stopType?: string | null
   }[]
 }
@@ -128,6 +129,7 @@ export type RouteScheduleDTO = {
     stopId: string
     stopName: string
     stopCode?: string
+    displayCode?: string
     stopType?: string | null
     latitude: number
     longitude: number
@@ -541,8 +543,8 @@ export class CatchItApiClient {
         price: Number(dto.price ?? 0),
         qrCode: '', // Vazio na listagem por motivos de performance!
         status: mapTicketStatus(dto.status),
-        stopFrom: { id: dto.fromStopId, name: dto.fromStopName, latitude: 0, longitude: 0 },
-        stopTo: { id: dto.toStopId, name: dto.toStopName, latitude: 0, longitude: 0 },
+        stopFrom: { id: dto.fromStopId, name: dto.fromStopName, latitude: 0, longitude: 0, stopType: dto.fromStopType },
+        stopTo: { id: dto.toStopId, name: dto.toStopName, latitude: 0, longitude: 0, stopType: dto.toStopType },
       }))
 
       return { success: true, data: mappedTickets }
@@ -1021,6 +1023,8 @@ export class CatchItApiClient {
       toLat: String(request.toLat),
       toLon: String(request.toLon),
     })
+    if (request.date) params.append('date', request.date)
+    if (request.time) params.append('time', request.time)
     return requestJson<RoutingPlanResponse>(`/api/routing/plan?${params.toString()}`)
   }
 
