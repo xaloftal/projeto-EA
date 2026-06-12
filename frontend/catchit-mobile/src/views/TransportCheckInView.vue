@@ -13,8 +13,8 @@
         <div class="success-icon">
           <CheckCircle class="success-icon-svg" />
         </div>
-        <h2>You are on a trip</h2>
-        <p>Present the QR Code below if requested.</p>
+        <h2>Check In successful!</h2>
+        <p>You are now on a trip. Present the QR Code below if requested.</p>
 
         <div class="qr-container">
           <div v-if="isLoadingQr" class="qr-skeleton">
@@ -27,12 +27,33 @@
           </div>
         </div>
 
-        <button class="btn-checkout" @click="handleCheckOut" :disabled="isCheckingOut">
+        <!-- Banner de situação do checkout -->
+        <div v-if="checkoutSituation" :class="['situation-banner', getSituationClass(checkoutSituation.situation)]">
+          <AlertTriangle v-if="checkoutSituation.situation === 'AFTER_DESTINATION'" class="banner-icon" />
+          <InfoIcon v-else-if="checkoutSituation.situation === 'BEFORE_DESTINATION'" class="banner-icon" />
+          <CheckCircle v-else class="banner-icon" />
+          <div class="banner-content">
+            <h3>{{ getSituationTitle(checkoutSituation.situation) }}</h3>
+            <p>{{ checkoutSituation.message }}</p>
+            <p v-if="checkoutSituation.currentStopName" class="stop-info">
+              <strong>Current Stop:</strong> {{ checkoutSituation.currentStopName }}
+            </p>
+            <p v-if="checkoutSituation.destinationStopName" class="stop-info">
+              <strong>Destiny:</strong> {{ checkoutSituation.destinationStopName }}
+            </p>
+          </div>
+        </div>
+
+        <button class="btn-checkout" @click="openCheckoutModal" :disabled="isCheckingOut">
           {{ isCheckingOut ? 'Processing...' : 'Check Out' }}
         </button>
-        <p v-if="checkOutMessage" :class="checkOutMessage.success ? 'msg-success' : 'msg-error'">
-          {{ checkOutMessage.text }}
-        </p>
+
+        <div v-if="checkOutMessage" :class="['checkout-message', checkOutMessage.success ? 'msg-success' : 'msg-warning']">
+          <AlertCircle v-if="!checkOutMessage.success" class="icon-sm" />
+          <CheckCircle v-else class="icon-sm" />
+          <p>{{ checkOutMessage.text }}</p>
+        </div>
+        <p v-if="errorMessage" class="msg-error">{{ errorMessage }}</p>
       </div>
 
       <div v-else class="form-state">
@@ -62,43 +83,115 @@
               <LoaderCircle class="spinner-icon-small" />
               <span>Loading more trips...</span>
             </div>
-            <div v-if="!hasMoreTrips && displayedTrips.length > 0" class="end-of-list">
-            </div>
+            <div v-if="!hasMoreTrips && displayedTrips.length > 0" class="end-of-list"></div>
           </div>
         </section>
 
-        <p v-if="errorMessage" class="msg-error">{{ errorMessage }}</p>
-
-        <button class="btn-checkin" :disabled="!selectedTripId || isCheckingIn" @click="handleCheckIn">
+        <button class="btn-checkin" :disabled="!selectedTripId || isCheckingIn" @click="openCheckinModal">
           {{ isCheckingIn ? 'Processing...' : 'Check In' }}
         </button>
       </div>
     </div>
 
+    <!-- Modal de Confirmação de Check-in -->
+    <div v-if="showCheckinModal" class="modal-overlay" @click.self="closeModals">
+      <div class="modal-container">
+        <div class="modal-header">
+          <h3>Confirm Check-in</h3>
+          <button class="modal-close" @click="closeModals">×</button>
+        </div>
+        <div class="modal-body">
+          <AlertCircle class="modal-icon" />
+          <p>Are you sure you want to check in for this trip?</p>
+          <div class="trip-details">
+            <p><strong>Route:</strong> {{ selectedTripDetails?.routeName || 'N/A' }}</p>
+            <p><strong>Departure:</strong> {{ selectedTripDetails?.startTime || 'N/A' }}</p>
+          </div>
+          <p class="warning-text">After the check-in, your ticket will be validated and cannot be canceled.</p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-cancel" @click="closeModals">Cancel</button>
+          <button class="btn-confirm" @click="confirmCheckIn" :disabled="isCheckingIn">
+            {{ isCheckingIn ? 'Processing...' : 'Confirm Check-in' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal de Confirmação de Check-out -->
+    <div v-if="showCheckoutModal" class="modal-overlay" @click.self="closeModals">
+      <div class="modal-container">
+        <div class="modal-header">
+          <h3>Confirm Check-out</h3>
+          <button class="modal-close" @click="closeModals">×</button>
+        </div>
+        <div class="modal-body">
+          <AlertCircle class="modal-icon" />
+          <p>Are you sure you want to check out?</p>
+          <div class="trip-details">
+            <p><strong>Destiny:</strong> {{ checkoutSituation?.destinationStopName || 'N/A' }}</p>
+            <p><strong>Current Stop:</strong> {{ checkoutSituation?.currentStopName || 'N/A' }}</p>
+          </div>
+          <p v-if="checkoutSituation?.situation === 'AFTER_DESTINATION'" class="warning-text danger">
+            ⚠️ Attention: You have already passed the destination stop. The check-out will be registered as outside the allowed zone.
+          </p>
+          <p v-else class="warning-text">
+            After the check-out, your ticket will be marked as used.
+          </p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-cancel" @click="closeModals">Cancel</button>
+          <button class="btn-confirm" @click="confirmCheckOut" :disabled="isCheckingOut">
+            {{ isCheckingOut ? 'Processing...' : 'Confirm Check-out' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast de feedback -->
+    <div v-if="toastMessage" :class="['toast', toastType]">
+      <CheckCircle v-if="toastType === 'success'" class="toast-icon" />
+      <AlertCircle v-else class="toast-icon" />
+      <span>{{ toastMessage }}</span>
+    </div>
+
     <nav class="bottom-nav">
-      <router-link to="/home" class="nav-item">
-        <House class="nav-icon" />
-      </router-link>
+      <router-link to="/home" class="nav-item"><House class="nav-icon" /></router-link>
       <router-link to="/map" class="nav-item"><Map class="nav-icon" /></router-link>
-      <router-link to="/cart" class="nav-item">
-        <ShoppingCart class="nav-icon" />
-      </router-link>
-      <router-link to="/cards" class="nav-item">
-        <Ticket class="nav-icon" />
-      </router-link>
-      <router-link to="/profile" class="nav-item">
-        <User class="nav-icon" />
-      </router-link>
+      <router-link to="/cart" class="nav-item"><ShoppingCart class="nav-icon" /></router-link>
+      <router-link to="/cards" class="nav-item"><Ticket class="nav-icon" /></router-link>
+      <router-link to="/profile" class="nav-item"><User class="nav-icon" /></router-link>
     </nav>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, watch, ref, computed, onUnmounted } from 'vue'
-import { ArrowLeft, House, Map, ShoppingCart, Ticket, User, LoaderCircle, CheckCircle, CreditCard } from 'lucide-vue-next'
+import { onMounted, computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import {
+  ArrowLeft,
+  House,
+  Map,
+  ShoppingCart,
+  Ticket,
+  User,
+  LoaderCircle,
+  CheckCircle,
+  CreditCard,
+  AlertTriangle,
+  AlertCircle,
+  InfoIcon
+} from 'lucide-vue-next'
 import { useTransportViewModel } from '../viewmodels'
 import { catchitApi } from '../services/api/catchitApi'
+
+// Definir a interface para o tipo CheckoutSituation
+interface CheckoutSituation {
+  situation: string
+  currentStopName: string | null
+  destinationStopName: string | null
+  message: string
+}
 
 const route = useRoute()
 const router = useRouter()
@@ -118,17 +211,31 @@ const {
   isTicketTitle,
   loadTitleInfo,
   loadActiveTrips,
-  handleCheckIn,
-  handleCheckOut
+  handleCheckIn: originalHandleCheckIn,
+  handleCheckOut: originalHandleCheckOut
 } = transport
 
-const qrCodeUrl = ref<string>('')
+// Estado local
 const isLoadingQr = ref<boolean>(false)
-
-const ITEMS_PER_PAGE = 15
-const currentPage = ref(1)
-const isLoadingMore = ref(false)
+const qrCodeUrl = ref<string | null>(null)
+const checkoutSituation = ref<CheckoutSituation | null>(null)
+const isLoadingMore = ref<boolean>(false)
+const currentPage = ref<number>(1)
 const scrollContainer = ref<HTMLElement | null>(null)
+const ITEMS_PER_PAGE = 15
+
+// Estado dos modais
+const showCheckinModal = ref<boolean>(false)
+const showCheckoutModal = ref<boolean>(false)
+
+// Estado do toast
+const toastMessage = ref<string>('')
+const toastType = ref<'success' | 'error'>('success')
+
+// Trip selecionada detalhes
+const selectedTripDetails = computed(() => {
+  return activeTrips.value.find(trip => trip.id === selectedTripId.value)
+})
 
 const displayedTrips = computed(() => {
   return activeTrips.value.slice(0, currentPage.value * ITEMS_PER_PAGE)
@@ -138,85 +245,148 @@ const hasMoreTrips = computed(() => {
   return displayedTrips.value.length < activeTrips.value.length
 })
 
-const loadMoreTrips = async () => {
-  if (isLoadingMore.value || !hasMoreTrips.value) return
-
-  isLoadingMore.value = true
-
-  await new Promise(resolve => setTimeout(resolve, 300))
-
-  currentPage.value++
-  isLoadingMore.value = false
-}
-
-const handleScroll = (event: Event) => {
-  const target = event.target as HTMLElement
-  const scrollTop = target.scrollTop
-  const scrollHeight = target.scrollHeight
-  const clientHeight = target.clientHeight
-
-  if (scrollTop + clientHeight >= scrollHeight * 0.8) {
-    loadMoreTrips()
+const getSituationClass = (situation: string) => {
+  switch (situation) {
+    case 'BEFORE_DESTINATION':
+      return 'situation-info'
+    case 'AT_DESTINATION':
+      return 'situation-success'
+    case 'AFTER_DESTINATION':
+      return 'situation-warning'
+    default:
+      return ''
   }
 }
 
-watch(activeTrips, () => {
-  currentPage.value = 1
-})
+const getSituationTitle = (situation: string) => {
+  switch (situation) {
+    case 'BEFORE_DESTINATION':
+      return 'You are on the way to the destination'
+    case 'AT_DESTINATION':
+      return 'You are at the destination'
+    case 'AFTER_DESTINATION':
+      return 'Attention: Passed the destination!'
+    default:
+      return 'Checkout Situation'
+  }
+}
 
-const fetchQrCode = async () => {
-  if (!titleId) {
-    console.warn('No titleId provided')
+// Função para mostrar toast
+const showToast = (message: string, type: 'success' | 'error') => {
+  toastMessage.value = message
+  toastType.value = type
+  setTimeout(() => {
+    toastMessage.value = ''
+  }, 3000)
+}
+
+// Funções dos modais
+const openCheckinModal = () => {
+  if (!selectedTripId.value) {
+    showToast('Please select a trip first', 'error')
     return
   }
+  showCheckinModal.value = true
+}
 
+const openCheckoutModal = () => {
+  if (!selectedTripId.value) {
+    showToast('Please select a trip first', 'error')
+    return
+  }
+  showCheckoutModal.value = true
+}
+
+const closeModals = () => {
+  showCheckinModal.value = false
+  showCheckoutModal.value = false
+}
+
+// Confirmar Check-in
+const confirmCheckIn = async () => {
+  closeModals()
+  await originalHandleCheckIn()
+  
+  if (checkInSuccess.value) {
+    showToast('Check-in completed successfully!', 'success')
+    await fetchQrCode()
+    await fetchCheckoutSituation()
+  } else if (errorMessage.value) {
+    showToast(errorMessage.value, 'error')
+  }
+}
+
+const confirmCheckOut = async () => {
+  closeModals()
+  await originalHandleCheckOut()
+  
+  setTimeout(() => {
+    if (checkOutMessage.value) {
+      if (checkOutMessage.value.success) {
+        showToast(checkOutMessage.value.text, 'success')
+        setTimeout(() => {
+          router.push('/profile?tab=tickets')
+        }, 1500)
+      } else {
+        showToast(checkOutMessage.value.text, 'error')
+      }
+    } else if (errorMessage.value) {
+      showToast(errorMessage.value, 'error')
+    }
+  }, 500)
+}
+
+// Buscar QR code
+const fetchQrCode = async () => {
+  if (!titleId) return
   isLoadingQr.value = true
-  qrCodeUrl.value = '' // Limpar URL anterior se existir
-
   try {
-    console.log('Fetching QR code for ticket:', titleId)
-    const imageUrl = await catchitApi.getTicketQrCode(titleId)
-    qrCodeUrl.value = imageUrl
-    console.log('QR Code loaded successfully')
-  } catch (err: any) {
+    qrCodeUrl.value = await catchitApi.getTicketQrCode(titleId)
+  } catch (err) {
     console.error('Error fetching QR Code:', err)
-    // Mostrar mensagem de erro para o usuário
-    errorMessage.value = err.message || 'Failed to load QR Code. Please try again.'
   } finally {
     isLoadingQr.value = false
   }
 }
 
-// Limpar URL da imagem quando o componente for destruído
-onUnmounted(() => {
-  if (qrCodeUrl.value) {
-    URL.revokeObjectURL(qrCodeUrl.value)
+// Buscar situação do checkout
+const fetchCheckoutSituation = async () => {
+  if (!titleId || !selectedTripId.value) return
+
+  try {
+    const response = await catchitApi.getCheckoutSituation(titleId, selectedTripId.value)
+    if (response.success && response.data) {
+      checkoutSituation.value = response.data
+    }
+  } catch (err) {
+    console.error('Error fetching checkout situation:', err)
+  }
+}
+
+const handleScroll = () => {
+  const target = scrollContainer.value
+  if (!target) return
+  
+  const scrollTop = target.scrollTop
+  const scrollHeight = target.scrollHeight
+  const clientHeight = target.clientHeight
+
+  if (scrollTop + clientHeight >= scrollHeight * 0.8) {
+    // Implementar load more se necessário
+  }
+}
+
+// Monitorizar mudanças de trip selecionada
+import { watch } from 'vue'
+watch(selectedTripId, () => {
+  if (selectedTripId.value && checkInSuccess.value) {
+    fetchCheckoutSituation()
   }
 })
 
 onMounted(() => {
-  void loadTitleInfo()
-  void loadActiveTrips()
-
-  if (checkInSuccess.value) {
-    void fetchQrCode()
-  }
-})
-
-watch(checkInSuccess, (isSuccess) => {
-  if (isSuccess) {
-    void fetchQrCode()
-  }
-})
-
-watch(() => checkOutMessage.value, (msg) => {
-  if (msg && msg.success) {
-    router.push('/home')
-  }
-})
-
-onUnmounted(() => {
-  // Cleanup se necessário
+  loadTitleInfo()
+  loadActiveTrips()
 })
 </script>
 
@@ -396,6 +566,70 @@ onUnmounted(() => {
   font-weight: 500;
 }
 
+.situation-banner {
+  padding: 1rem;
+  border-radius: 12px;
+  display: flex;
+  gap: 0.75rem;
+  margin: 1rem 0;
+  text-align: left;
+  width: 100%;
+}
+
+.situation-info {
+  background: #e0f2fe;
+  border-left: 4px solid #0284c7;
+}
+
+.situation-success {
+  background: #d1fae5;
+  border-left: 4px solid #059669;
+}
+
+.situation-warning {
+  background: #fef3c7;
+  border-left: 4px solid #d97706;
+}
+
+.banner-icon {
+  width: 1.5rem;
+  height: 1.5rem;
+  flex-shrink: 0;
+}
+
+.situation-info .banner-icon {
+  color: #0284c7;
+}
+
+.situation-success .banner-icon {
+  color: #059669;
+}
+
+.situation-warning .banner-icon {
+  color: #d97706;
+}
+
+.banner-content {
+  flex: 1;
+}
+
+.banner-content h3 {
+  margin: 0 0 0.25rem 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.banner-content p {
+  margin: 0;
+  font-size: 0.8rem;
+}
+
+.stop-info {
+  margin-top: 0.25rem !important;
+  font-size: 0.75rem !important;
+  color: #4b5563;
+}
+
 .btn-checkout {
   width: 100%;
   padding: 0.85rem;
@@ -412,6 +646,33 @@ onUnmounted(() => {
 .btn-checkout:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.checkout-message {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.msg-success {
+  background: #d1fae5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.msg-warning {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.icon-sm {
+  width: 1rem;
+  height: 1rem;
 }
 
 .loading,
@@ -446,13 +707,6 @@ onUnmounted(() => {
   margin: 0;
 }
 
-.msg-success {
-  color: #16a34a;
-  font-size: 0.875rem;
-  font-weight: 600;
-  margin: 0;
-}
-
 .route-planner-section {
   min-height: 460px;
   display: flex;
@@ -463,11 +717,177 @@ onUnmounted(() => {
   margin-top: auto;
 }
 
+/* Estilos do Modal */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-container {
+  background: white;
+  border-radius: 16px;
+  width: 90%;
+  max-width: 400px;
+  overflow: hidden;
+  animation: modalSlideIn 0.3s ease;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: #6b7280;
+}
+
+.modal-body {
+  padding: 1.5rem;
+  text-align: center;
+}
+
+.modal-icon {
+  width: 3rem;
+  height: 3rem;
+  color: var(--color-brand);
+  margin-bottom: 1rem;
+}
+
+.trip-details {
+  background: #f3f4f6;
+  padding: 0.75rem;
+  border-radius: 8px;
+  margin: 1rem 0;
+  text-align: left;
+}
+
+.trip-details p {
+  margin: 0.25rem 0;
+  font-size: 0.85rem;
+}
+
+.warning-text {
+  font-size: 0.8rem;
+  color: #6b7280;
+  margin-top: 0.75rem;
+}
+
+.warning-text.danger {
+  color: #dc2626;
+  font-weight: 500;
+}
+
+.modal-footer {
+  display: flex;
+  gap: 0.75rem;
+  padding: 1rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.btn-cancel,
+.btn-confirm {
+  flex: 1;
+  padding: 0.75rem;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-cancel {
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  color: #374151;
+}
+
+.btn-confirm {
+  background: var(--color-brand);
+  border: none;
+  color: white;
+}
+
+.btn-confirm:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Estilos do Toast */
+.toast {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  border-radius: 50px;
+  z-index: 1100;
+  animation: toastSlideUp 0.3s ease;
+}
+
+.toast.success {
+  background: #10b981;
+  color: white;
+}
+
+.toast.error {
+  background: #ef4444;
+  color: white;
+}
+
+.toast-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes toastSlideUp {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
 @keyframes spin {
   from {
     transform: rotate(0deg);
   }
-
   to {
     transform: rotate(360deg);
   }
