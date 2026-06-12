@@ -1,0 +1,42 @@
+================================================================================
+QUERY: query5_stopArrivals
+DATA: 2026-06-12 13:04:33
+================================================================================
+
+CONFIGURAÇÃO:
+----------------------------------------
+Warmup runs: 1 (descartadas)
+Benchmark runs: 5
+
+RESULTADOS POR EXECUÇÃO:
+----------------------------------------
+Run    Tipo       Execution (ms)  Planning (ms)   Total (ms)     
+------------------------------------------------------------
+1      Warmup     31.06           11.40           42.46          
+2      Benchmark  25.52           8.10            33.62          
+3      Benchmark  33.24           7.66            40.90          
+4      Benchmark  25.58           8.55            34.14          
+5      Benchmark  25.45           8.19            33.64          
+6      Benchmark  26.13           7.62            33.75          
+
+ESTATÍSTICAS FINAIS (apenas Benchmark runs):
+----------------------------------------
+Plan Type: Unique
+
+Execution Time:
+  Mean:   27.18 ms
+  Median: 25.58 ms
+  Min:    25.45 ms
+  Max:    33.24 ms
+  StdDev: 3.40 ms
+  Values: ['25.52', '33.24', '25.58', '25.45', '26.13']
+
+Planning Time:
+  Mean:   8.03 ms
+  Median: 8.10 ms
+  Min:    7.62 ms
+  Max:    8.55 ms
+  Values: ['8.10', '7.66', '8.55', '8.19', '7.62']
+
+Cache Hit Ratio:
+  Hit Ratio: 100.0% (avg hit: 52600, avg read: 0)

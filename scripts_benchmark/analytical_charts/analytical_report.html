@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analytical Benchmark - Relatório de Performance</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; }
+        h1 { color: #2c3e50; border-bottom: 3px solid #3498db; padding-bottom: 10px; }
+        h2 { color: #34495e; margin-top: 30px; border-left: 4px solid #3498db; padding-left: 15px; }
+        .summary { display: flex; gap: 20px; margin: 20px 0; flex-wrap: wrap; }
+        .card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 10px; flex: 1; min-width: 150px; text-align: center; }
+        .card.green { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); }
+        .card.orange { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+        .card.blue { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+        .card-value { font-size: 32px; font-weight: bold; margin: 10px 0; }
+        .card-label { font-size: 14px; opacity: 0.9; }
+        img { width: 100%; margin: 20px 0; border: 1px solid #ddd; border-radius: 8px; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background-color: #3498db; color: white; }
+        tr:hover { background-color: #f5f5f5; }
+        .good { color: #27ae60; font-weight: bold; }
+        .warning { color: #f39c12; font-weight: bold; }
+        .bad { color: #e74c3c; font-weight: bold; }
+        .footer { text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #ddd; color: #7f8c8d; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 Analytical Benchmark - Relatório de Performance</h1>
+        <p><strong>Data de análise:</strong> 2026-06-12 14:14:52</p>
+        <p><strong>Número de queries analisadas:</strong> 1</p>
+        
+        <div class="summary">
+            <div class="card blue">
+                <div class="card-value">27.2</div>
+                <div class="card-label">Tempo Médio (ms)</div>
+            </div>
+            <div class="card green">
+                <div class="card-value">100.0%</div>
+                <div class="card-label">Cache Hit Ratio</div>
+            </div>
+            <div class="card orange">
+                <div class="card-value">0</div>
+                <div class="card-label">Queries Lentas (>100ms)</div>
+            </div>
+            <div class="card">
+                <div class="card-value">0</div>
+                <div class="card-label">Queries com Index Scan</div>
+            </div>
+        </div>
+        
+        <h2>📈 Gráficos de Performance</h2>
+        <img src="01_execution_times.png" alt="Execution Times">
+        <img src="02_boxplot_distribution.png" alt="Boxplot">
+        <img src="03_plan_type_distribution.png" alt="Plan Type">
+        <img src="04_cache_hit_ratio.png" alt="Cache Hit Ratio">
+        <img src="05_mean_vs_median.png" alt="Mean vs Median">
+        <img src="06_radar_chart.png" alt="Radar Chart">
+        <img src="07_correlation_heatmap.png" alt="Correlation Heatmap">
+        <img src="08_slowest_queries.png" alt="Slowest Queries">
+        
+        <h2>📋 Tabela de Resultados</h2>
+        <table>
+            <thead>
+                <tr><th>Query</th><th>Média (ms)</th><th>Mediana (ms)</th><th>Min (ms)</th><th>Max (ms)</th><th>StdDev</th><th>Plan Type</th><th>Cache Hit %</th></tr>
+            </thead>
+            <tbody>
+
+                <tr>
+                    <td>query5_stopArrivals</td>
+                    <td class="warning">27.18</td>
+                    <td>25.58</td>
+                    <td>25.45</td>
+                    <td>33.24</td>
+                    <td>3.40</td>
+                    <td>Unique</td>
+                    <td>100.0%</td>
+                </tr>
+
+            </tbody>
+        </table>
+        
+        <h2>🎯 Recomendações</h2>
+        <ul>
+<li>✅ <strong>Performance excelente!</strong> Todas as queries estão otimizadas.</li>
+        </ul>
+        
+        <div class="footer">
+            <p>Relatório gerado automaticamente pelo Analytical Benchmark Suite</p>
+            <p>CatchIT Database Benchmark</p>
+        </div>
+    </div>
+</body>
+</html>
