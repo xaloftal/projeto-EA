@@ -1,28 +1,27 @@
 <template>
   <div class="container app-screen">
     <header class="app-header">
-      <router-link to="/home" class="back-btn" aria-label="Back"><ArrowLeft class="icon-md" /></router-link>
+      <router-link to="/home" class="back-btn" aria-label="Back">
+        <ArrowLeft class="icon-md" />
+      </router-link>
       <h1>Check In</h1>
       <div style="width: 1rem"></div>
     </header>
 
     <div class="content">
       <div v-if="checkInSuccess" class="success-state">
-        <div class="success-icon"><CheckCircle class="success-icon-svg" /></div>
+        <div class="success-icon">
+          <CheckCircle class="success-icon-svg" />
+        </div>
         <h2>Check In successful!</h2>
         <p>You are now on a trip. Present the QR Code below if requested.</p>
-        
+
         <div class="qr-container">
           <div v-if="isLoadingQr" class="qr-skeleton">
             <LoaderCircle class="spinner-icon" />
             <p>Loading validation code...</p>
           </div>
-          <img 
-            v-else-if="qrCodeUrl" 
-            :src="qrCodeUrl" 
-            alt="Validation QR Code" 
-            class="qr-image" 
-          />
+          <img v-else-if="qrCodeUrl" :src="qrCodeUrl" alt="Validation QR Code" class="qr-image" />
           <div v-else class="qr-error">
             <p>QR Code unavailable for validation</p>
           </div>
@@ -51,12 +50,8 @@
           <p v-if="isLoadingTrips && displayedTrips.length === 0" class="loading">Loading trips...</p>
           <p v-else-if="activeTrips.length === 0 && !hasMoreTrips" class="empty">No active trips available.</p>
           <div v-else class="options-list" ref="scrollContainer" @scroll="handleScroll">
-            <label
-              v-for="trip in displayedTrips"
-              :key="trip.id"
-              class="option-item"
-              :class="{ selected: selectedTripId === trip.id }"
-            >
+            <label v-for="trip in displayedTrips" :key="trip.id" class="option-item"
+              :class="{ selected: selectedTripId === trip.id }">
               <input type="radio" :value="trip.id" v-model="selectedTripId" />
               <div class="option-info">
                 <p class="option-title">{{ trip.routeName }}</p>
@@ -74,22 +69,26 @@
 
         <p v-if="errorMessage" class="msg-error">{{ errorMessage }}</p>
 
-        <button
-          class="btn-checkin"
-          :disabled="!selectedTripId || isCheckingIn"
-          @click="handleCheckIn"
-        >
+        <button class="btn-checkin" :disabled="!selectedTripId || isCheckingIn" @click="handleCheckIn">
           {{ isCheckingIn ? 'Processing...' : 'Check In' }}
         </button>
       </div>
     </div>
 
     <nav class="bottom-nav">
-      <router-link to="/home" class="nav-item"><House class="nav-icon" /></router-link>
+      <router-link to="/home" class="nav-item">
+        <House class="nav-icon" />
+      </router-link>
       <router-link to="/map" class="nav-item"><Map class="nav-icon" /></router-link>
-      <router-link to="/cart" class="nav-item"><ShoppingCart class="nav-icon" /></router-link>
-      <router-link to="/cards" class="nav-item"><Ticket class="nav-icon" /></router-link>
-      <router-link to="/profile" class="nav-item"><User class="nav-icon" /></router-link>
+      <router-link to="/cart" class="nav-item">
+        <ShoppingCart class="nav-icon" />
+      </router-link>
+      <router-link to="/cards" class="nav-item">
+        <Ticket class="nav-icon" />
+      </router-link>
+      <router-link to="/profile" class="nav-item">
+        <User class="nav-icon" />
+      </router-link>
     </nav>
   </div>
 </template>
@@ -99,7 +98,7 @@ import { onMounted, watch, ref, computed, onUnmounted } from 'vue'
 import { ArrowLeft, House, Map, ShoppingCart, Ticket, User, LoaderCircle, CheckCircle, CreditCard } from 'lucide-vue-next'
 import { useRoute, useRouter } from 'vue-router'
 import { useTransportViewModel } from '../viewmodels'
-import { catchitApi } from '../services/api/catchitApi' 
+import { catchitApi } from '../services/api/catchitApi'
 
 const route = useRoute()
 const router = useRouter()
@@ -141,11 +140,11 @@ const hasMoreTrips = computed(() => {
 
 const loadMoreTrips = async () => {
   if (isLoadingMore.value || !hasMoreTrips.value) return
-  
+
   isLoadingMore.value = true
-  
+
   await new Promise(resolve => setTimeout(resolve, 300))
-  
+
   currentPage.value++
   isLoadingMore.value = false
 }
@@ -155,7 +154,7 @@ const handleScroll = (event: Event) => {
   const scrollTop = target.scrollTop
   const scrollHeight = target.scrollHeight
   const clientHeight = target.clientHeight
-  
+
   if (scrollTop + clientHeight >= scrollHeight * 0.8) {
     loadMoreTrips()
   }
@@ -165,29 +164,45 @@ watch(activeTrips, () => {
   currentPage.value = 1
 })
 
-// Função responsável por buscar o endpoint de imagem binária do Java
 const fetchQrCode = async () => {
-  if (!titleId) return
+  if (!titleId) {
+    console.warn('No titleId provided')
+    return
+  }
+
   isLoadingQr.value = true
+  qrCodeUrl.value = '' // Limpar URL anterior se existir
+
   try {
-    qrCodeUrl.value = await catchitApi.getTicketQrCode(titleId)
-  } catch (err) {
+    console.log('Fetching QR code for ticket:', titleId)
+    const imageUrl = await catchitApi.getTicketQrCode(titleId)
+    qrCodeUrl.value = imageUrl
+    console.log('QR Code loaded successfully')
+  } catch (err: any) {
     console.error('Error fetching QR Code:', err)
+    // Mostrar mensagem de erro para o usuário
+    errorMessage.value = err.message || 'Failed to load QR Code. Please try again.'
   } finally {
     isLoadingQr.value = false
   }
 }
 
+// Limpar URL da imagem quando o componente for destruído
+onUnmounted(() => {
+  if (qrCodeUrl.value) {
+    URL.revokeObjectURL(qrCodeUrl.value)
+  }
+})
+
 onMounted(() => {
   void loadTitleInfo()
   void loadActiveTrips()
-  
+
   if (checkInSuccess.value) {
     void fetchQrCode()
   }
 })
 
-// Monitoriza o sucesso do check-in
 watch(checkInSuccess, (isSuccess) => {
   if (isSuccess) {
     void fetchQrCode()
@@ -399,7 +414,8 @@ onUnmounted(() => {
   cursor: not-allowed;
 }
 
-.loading, .empty {
+.loading,
+.empty {
   color: #6b7280;
   font-size: 0.9rem;
   margin: 0;
@@ -448,7 +464,12 @@ onUnmounted(() => {
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 </style>

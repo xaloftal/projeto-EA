@@ -553,13 +553,39 @@ export class CatchItApiClient {
     }
   }
 
-  async getTicketQrCode(ticketId: string): Promise<string> {
-    const viteEnv = (import.meta as any).env ?? {}
-    const apiBaseUrl = (viteEnv.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
-
-    // Retorna diretamente o URL do endpoint que cospe a imagem PNG do QR Code
-    return `${apiBaseUrl}/api/tickets/${ticketId}/qrcode`
+async getTicketQrCode(ticketId: string): Promise<string> {
+  try {
+    const authToken = localStorage.getItem('authToken')
+    const apiBaseUrl = (import.meta as any).env?.VITE_API_BASE_URL?.replace(/\/$/, '') ?? ''
+    const url = `${apiBaseUrl}/api/tickets/${ticketId}/qrcode`
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': authToken ? `Bearer ${authToken}` : '',
+        'Accept': 'image/png, image/jpeg, image/*'
+      },
+      credentials: 'include'
+    })
+    
+    if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error('Não autorizado - faça login novamente')
+      }
+      if (response.status === 404) {
+        throw new Error('Ticket não encontrado')
+      }
+      throw new Error(`Erro ${response.status}: ${response.statusText}`)
+    }
+    
+    const blob = await response.blob()
+    // Retorna uma URL local para a imagem
+    return URL.createObjectURL(blob)
+  } catch (error) {
+    console.error('Erro ao buscar QR Code:', error)
+    throw error
   }
+}
 
   async purchaseTickets(data: {
     userID: string
