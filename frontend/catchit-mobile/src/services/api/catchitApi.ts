@@ -932,9 +932,13 @@ async getTicketQrCode(ticketId: string): Promise<string> {
   }
 
   async checkoutTransport(data: { titleId: string; tripId?: string }): Promise<ApiResponse<{ success: boolean; message: string }>> {
+    const payload: { titleId: string; tripId?: string } = { titleId: data.titleId }
+    if (data.tripId && data.tripId.trim() !== '') {
+      payload.tripId = data.tripId
+    }
     return requestJson<{ success: boolean; message: string }>('/api/checkout-transport', {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: JSON.stringify(payload),
     })
   }
 

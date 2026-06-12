@@ -56,6 +56,7 @@ public class CheckInService {
             return new CheckInResponseDTO(false, "Trip does not match ticket route");
         }
         ticket.validate();
+        ticket.getTrips().add(trip);
         titleRepository.save(ticket);
         saveValidationRecord(ticket, trip, true);
         
@@ -71,6 +72,8 @@ public class CheckInService {
             saveValidationRecord(card, trip, false);
             return new CheckInResponseDTO(false, "Trip is not within the card's zone");
         }
+        card.getTrips().add(trip);
+        titleRepository.save(card);
         saveValidationRecord(card, trip, true);
         return new CheckInResponseDTO(true, "Successful CheckIn");
     }
