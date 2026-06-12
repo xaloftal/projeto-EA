@@ -510,6 +510,7 @@ export class CatchItApiClient {
   public async getUserHistory(userId: string): Promise<ApiResponse<any[]>> {
     return await requestJson<any[]>(`/api/exitrecords/user/${userId}`, {
       method: 'GET'
+      
     });
   }
 
