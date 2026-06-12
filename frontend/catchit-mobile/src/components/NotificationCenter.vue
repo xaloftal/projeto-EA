@@ -19,7 +19,6 @@
         <div class="notification-icon">
           <span v-if="notif.vehicleType === 'BUS'" class="vehicle-icon"><Bus class="icon-sm" /></span>
           <span v-else-if="notif.vehicleType === 'METRO'" class="vehicle-icon"><TramFront class="icon-sm" /></span>
-          <span v-else-if="notif.vehicleType === 'TRAIN'" class="vehicle-icon"><TrainFront class="icon-sm" /></span>
           <span v-else class="vehicle-icon"><MapPin class="icon-sm" /></span>
         </div>
 
@@ -40,7 +39,7 @@
 
 <script setup lang="ts">
 import { useWebSocketNotifications } from '../composables/useWebSocketNotifications';
-import { Bus, TrainFront, TramFront, MapPin, Check, X } from 'lucide-vue-next';
+import { Bus, TramFront, MapPin, Check, X } from 'lucide-vue-next';
 
 interface Notification {
   id: string;
@@ -48,7 +47,7 @@ interface Notification {
   stopName?: string;
   stopId?: string;
   routeName?: string;
-  vehicleType?: 'BUS' | 'METRO' | 'TRAIN';
+  vehicleType?: 'BUS' | 'METRO';
   createdAt?: string;
 }
 

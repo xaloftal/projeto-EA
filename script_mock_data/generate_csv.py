@@ -26,7 +26,7 @@ def parse_gtfs_and_generate_csv(gtfs_dir, output_csv):
             transport_type = 'BUS'
             if route_type == '0': transport_type = 'METRO'
             elif route_type == '1': transport_type = 'METRO'
-            elif route_type == '2': transport_type = 'TRAIN'
+            elif route_type == '2': transport_type = 'BUS'
 
             routes[route_id] = {
                 'route_code': row.get('route_short_name', route_id),

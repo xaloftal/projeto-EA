@@ -65,7 +65,6 @@ const getStopTypeLetter = (type?: string) => {
   const t = type.toLowerCase()
   if (t.includes('bus')) return 'B'
   if (t.includes('metro')) return 'M'
-  if (t.includes('train')) return 'T'
   return t.charAt(0).toUpperCase()
 }
 

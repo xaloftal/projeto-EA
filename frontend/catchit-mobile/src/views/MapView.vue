@@ -281,7 +281,7 @@ let selectedBusDashOffset = 0
 let tickIntervalId: number | null = null
 let clockIntervalId: number | null = null
 const stopMarkers = new Map<string, L.CircleMarker>()
-const busMarkers = new Map<string, L.CircleMarker>()
+const busMarkers = new Map<string, L.Marker | L.CircleMarker>()
 const portoCenter: [number, number] = [41.1579, -8.6291]
 const portugalNorthBounds = L.latLngBounds([40.5, -9.0], [42.0, -7.5])
 
@@ -512,7 +512,7 @@ const getTransportTypeColor = (stopType?: string) => {
   const type = stopType?.toUpperCase()
   switch (type) {
     case 'BUS': return { color: '#0ea5e9', fillColor: '#0ea5e9', label: 'Bus' }
-    case 'TRAIN': return { color: '#f97316', fillColor: '#f97316', label: 'Train' }
+
     case 'METRO': return { color: '#ec4899', fillColor: '#ec4899', label: 'Metro' }
     default: return { color: '#64748b', fillColor: '#64748b', label: 'Stop' }
   }
@@ -627,8 +627,18 @@ const drawBusMarkers = () => {
 
   for (const bus of activeBuses.value) {
     const isActive = bus.busId === selectedBusId.value
-    const color = isActive ? '#111827' : '#0284c7'
-    const haloColor = isActive ? '#111827' : '#38bdf8'
+    const typeInfo = getTransportTypeColor(bus.vehicleType as string)
+    let color = isActive ? '#111827' : typeInfo.color
+    const haloColor = isActive ? '#111827' : typeInfo.fillColor
+    
+    // Make vehicles slightly darker than stops for better contrast
+    if (!isActive) {
+      if (bus.vehicleType === 'BUS') {
+        color = '#0284c7'
+      } else if (bus.vehicleType === 'METRO') {
+        color = '#be185d'
+      }
+    }
 
     L.circleMarker([bus.latitude, bus.longitude], {
       radius: isActive ? 15 : 12, weight: 2, fillColor: haloColor, fillOpacity: isActive ? 0.18 : 0.14, interactive: false,
@@ -643,7 +653,7 @@ const drawBusMarkers = () => {
         selectedStopId.value = bus.nextStopId
         await openSheetWithAnimation()
       })
-      .addTo(busMarkersLayer) // TypeScript agora aceita sem reclamar
+      .addTo(busMarkersLayer) 
 
     marker.bringToFront()
     busMarkers.set(bus.busId, marker)

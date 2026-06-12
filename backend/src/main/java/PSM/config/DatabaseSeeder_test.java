@@ -197,8 +197,21 @@ public class DatabaseSeeder_test implements CommandLineRunner {
                 continue;
             Vehicle vehicle = new Vehicle();
             vehicle.setCapacity(Integer.parseInt(row[0].trim()));
-            vehicle.setType(row[1].trim().toUpperCase());
-            vehicle.activeRoute = routes.get(routeIdx % routes.size());
+            
+            Route assignedRoute = routes.get(routeIdx % routes.size());
+            vehicle.activeRoute = assignedRoute;
+            
+            if (assignedRoute.getRouteStops() != null && !assignedRoute.getRouteStops().isEmpty()) {
+                PSM.Location.Stop firstStop = assignedRoute.getRouteStops().get(0).getStop();
+                if (firstStop != null && firstStop.getStopType() != null) {
+                    vehicle.setType(firstStop.getStopType().name());
+                } else {
+                    vehicle.setType(row[1].trim().toUpperCase());
+                }
+            } else {
+                vehicle.setType(row[1].trim().toUpperCase());
+            }
+
             routeIdx++;
             vehicles.add(vehicle);
         }
