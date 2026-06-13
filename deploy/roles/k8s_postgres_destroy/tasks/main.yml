@@ -1,0 +1,57 @@
+- name: Delete PostgreSQL Service
+  kubernetes.core.k8s:
+    kind: Service
+    name: postgres-service
+    namespace: default
+    state: absent
+  ignore_errors: yes
+
+- name: Delete PostgreSQL Deployment
+  kubernetes.core.k8s:
+    kind: Deployment
+    name: postgres
+    namespace: default
+    state: absent
+  ignore_errors: yes
+
+- name: Wait a moment for pods to start terminating
+  pause:
+    seconds: 30
+
+- name: Check if any postgres pods still exist
+  kubernetes.core.k8s_info:
+    kind: Pod
+    namespace: default
+    label_selectors: "app=postgres"
+  register: remaining_pods
+  ignore_errors: yes
+
+- name: Display remaining pods warning
+  debug:
+    msg: "Warning: {{ remaining_pods.resources | default([]) | length }} postgres pods still exist"
+  when: remaining_pods.resources is defined and remaining_pods.resources | length > 0
+
+- name: Debug - Show delete_data variable
+  debug: 
+    msg: "delete_data = {{ delete_data | default('NOT DEFINED') }}"
+
+- name: Delete PostgreSQL PersistentVolumeClaim
+  kubernetes.core.k8s:
+    kind:  PersistentVolumeClaim
+    name: postgres-pvc
+    namespace: default
+    state: absent
+    wait: true
+    wait_timeout: 120
+  when: (delete_data is defined) and (delete_data == 'true')
+
+- name: Verify PVC is deleted
+  kubernetes.core.k8s_info:
+    kind: PersistentVolumeClaim
+    name: postgres-pvc
+    namespace: default
+  register: pvc_check
+
+- name:  Display undeploy status
+  debug:
+    msg: "PostgreSQL undeploy process completed"

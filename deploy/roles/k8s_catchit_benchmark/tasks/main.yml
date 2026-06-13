@@ -1,0 +1,40 @@
+---
+# roles/k8s_catchit_benchmark/tasks/main.yml
+
+# - name: Instalação - Garantir que o ambiente possui o Java Runtime (JRE)
+#   become: yes
+#   ansible.builtin.apt:
+#     name: default-jre
+#     state: present
+#     update_cache: yes
+#   when: ansible_os_family == "Debian"
+
+# - name: Instalação - Descompactar binário estável do Apache JMeter 5.6.3
+#   become: yes
+#   ansible.builtin.unarchive:
+#     src: https://dlcdn.apache.org//jmeter/binaries/apache-jmeter-5.6.3.tgz
+#     dest: /opt/
+#     remote_src: yes
+#     creates: /opt/apache-jmeter-5.6.3/bin/jmeter
+#   when: ansible_os_family == "Debian"
+
+# - name: Instalação - Criar ligação simbólica global no sistema para o comando 'jmeter'
+#   become: yes
+#   ansible.builtin.file:
+#     src: /opt/apache-jmeter-5.6.3/bin/jmeter
+#     dest: /usr/bin/jmeter
+#     state: link
+#   when: ansible_os_family == "Debian"
+
+- name: Configuração - Criar diretoria limpa para os relatórios do benchmark
+  ansible.builtin.file:
+    path: "./benchmark_results"
+    state: directory
+    mode: '0755'
+
+- name: Execução - Correr cenários JMeter registados em loop iterativo
+  ansible.builtin.include_tasks: run_scenario.yml
+  loop: "{{ benchmark_scenarios }}"
+  vars:
+    # Isto garante que o teu template dynamic_test.jmx.j2 consegue ler a variável 'item'
+    item: "{{ item }}"

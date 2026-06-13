@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend        # <-- MUDADO DE "backend-service" PARA "backend"
+  namespace: default
+spec:
+  selector:
+    app: catchit-backend
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080

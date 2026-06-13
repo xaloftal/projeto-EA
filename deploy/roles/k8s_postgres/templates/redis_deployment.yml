@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: catchit-redis
+  namespace: default
+  labels:
+    app: catchit-redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: catchit-redis
+  template:
+    metadata:
+      labels:
+        app: catchit-redis
+    spec:
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        ports:
+        - containerPort: 6379
+        resources:
+          requests:
+            cpu: "{{ redis_requests_cpu | default('100m') }}"
+            memory: "{{ redis_requests_memory | default('128Mi') }}"
+          limits:
+            cpu: "{{ redis_limits_cpu | default('200m') }}"
+            memory: "{{ redis_limits_memory | default('256Mi') }}"

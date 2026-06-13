@@ -1,0 +1,76 @@
+---
+- name: "CatchIt Integration Test & Performance Benchmark Pipeline"
+  hosts: localhost
+  connection: local
+  gather_facts: yes
+  
+  vars:
+    test_user_email: "teste@uminho.pt"
+    test_user_password: "testeSegura123"
+    test_user_name: "Teste Avaliador"
+    
+    benchmark_scenarios:
+      # ========================================================================
+      # 1. FRONTEND BENCHMARK (Via Gateway Pública)
+      # ========================================================================
+      - { name: "Frontend_Low", threads: "10", rampup: "5", loops: "10", path: "/" }
+      # - { name: "Frontend_Medium", threads: "100", rampup: "10", loops: "10", path: "/" }
+      # - { name: "Frontend_High", threads: "500", rampup: "20", loops: "10", path: "/" }
+      
+      # ========================================================================
+      # 2. BACKEND SIMULATION BENCHMARK (Via Gateway Pública)
+      # ========================================================================
+      - { name: "Backend_Simulation_Low", threads: "10", rampup: "5", loops: "10", path: "/api/vehicles/simulation", token: "Bearer {{ jwt_token }}" }
+      # - { name: "Backend_Simulation_Medium", threads: "100", rampup: "10", loops: "10", path: "/api/vehicles/simulation", token: "Bearer {{ jwt_token }}" }
+      # - { name: "Backend_Simulation_High", threads: "500", rampup: "20", loops: "10", path: "/api/vehicles/simulation", token: "Bearer {{ jwt_token }}" }
+
+      # ========================================================================
+      # 3. OTP ROUTING BENCHMARK (Via Gateway Pública)
+      # ========================================================================
+      - { name: "OTP_Routing_Low", threads: "10", rampup: "5", loops: "10", path: "/api/routing/plan?fromLat=41.151868&fromLon=-8.607115&toLat=41.149509&toLon=-8.607564", token: "Bearer {{ jwt_token }}" }
+      # - { name: "OTP_Routing_Medium", threads: "100", rampup: "10", loops: "10", path: "/api/routing/plan?fromLat=41.151868&fromLon=-8.607115&toLat=41.149509&toLon=-8.607564", token: "Bearer {{ jwt_token }}" }
+      # - { name: "OTP_Routing_High", threads: "500", rampup: "20", loops: "10", path: "/api/routing/plan?fromLat=41.151868&fromLon=-8.607115&toLat=41.149509&toLon=-8.607564", token: "Bearer {{ jwt_token }}" }
+      
+      # ========================================================================
+      # 4. PAYMENT MICROSERVICE BENCHMARK (Redirecionado para o Túnel Local)
+      # ========================================================================
+      - { 
+          name: "Payment_Checkout_Low", 
+          threads: "10", 
+          rampup: "5", 
+          loops: "10", 
+          path: "/api/payments/authorize", 
+          token: "Bearer {{ jwt_token }}", 
+          body: '{"orderId": "order_PLACEHOLDER", "userId": "user-uuid-mock", "sessionId": "session-uuid-mock", "paymentMethodId": "mbway", "amount": 15.50, "currency": "EUR"}',
+          domain: "127.0.0.1", 
+          port: "8081" 
+        }
+      # - { 
+      #     name: "Payment_Checkout_Medium", 
+      #     threads: "100", 
+      #     rampup: "10", 
+      #     loops: "10", 
+      #     path: "/api/payments/authorize", 
+      #     token: "Bearer {{ jwt_token }}", 
+      #     body: '{"orderId": "order_PLACEHOLDER", "userId": "user-uuid-mock", "sessionId": "session-uuid-mock", "paymentMethodId": "mbway", "amount": 15.50, "currency": "EUR"}',
+      #     domain: "127.0.0.1", 
+      #     port: "8081" 
+      #   }
+      # - { 
+      #     name: "Payment_Checkout_High", 
+      #     threads: "500", 
+      #     rampup: "20", 
+      #     loops: "10", 
+      #     path: "/api/payments/authorize", 
+      #     token: "Bearer {{ jwt_token }}", 
+      #     body: '{"orderId": "order_PLACEHOLDER", "userId": "user-uuid-mock", "sessionId": "session-uuid-mock", "paymentMethodId": "mbway", "amount": 15.50, "currency": "EUR"}',
+      #     domain: "127.0.0.1", 
+      #     port: "8081" 
+      #   }
+
+  roles:
+    - role: k8s_catchit_api_test
+      tags: ["api-test"]
+
+    - role: k8s_catchit_benchmark
+      tags: ["jmeter", "load-test"]
