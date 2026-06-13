@@ -1,0 +1,18 @@
+Teste,Operação,Throughput(ops/s),Latência_Média(ms),Latência_Mín(ms),Latência_Máx(ms),P95(ms),P99(ms),Sucesso,Falhas,Total_Operações,Tempo_Total(ms)
+INSERT Ticket,"INSERT INTO title (title_type, created_at, valid_from, valid_until, price, state_name, user_id) VALUES ('ticket', ?, ?, ?, ?, ?, ?)",420.17,1.79,1.00,17.00,4.00,6.00,1000,0,1000,2380
+INSERT Ticket with Stops,"INSERT INTO ticket (from_id, to_id, ...) VALUES (?, ?, ...)",281.21,3.14,2.00,12.00,4.00,5.00,1000,0,1000,3556
+BATCH INSERT Tickets,"INSERT INTO title (...) VALUES (...), (...), ...",1426.31,0.00,0.00,0.00,0.00,0.00,900,0,900,631
+UPDATE Ticket State,UPDATE title SET state_name = ? WHERE id = ?,442.28,1.83,1.00,19.00,2.00,3.00,1000,0,1000,2261
+SELECT Ticket by ID,SELECT * FROM title WHERE id = ?,1110.49,0.07,0.00,5.00,1.00,1.00,2000,0,2000,1801
+SELECT Tickets by User,Query com JOINs e ORDER BY CASE,122.55,7.63,6.00,25.00,9.00,11.00,500,0,500,4080
+INSERT Card,"INSERT INTO title (title_type, created_at, valid_from, valid_until, price, state_name, user_id) VALUES ('card', ?, ?, ?, ?, ?, ?)",541.13,1.16,1.00,14.00,2.00,2.00,1000,0,1000,1848
+INSERT Card with Zone,"INSERT INTO card (zone_id, ...) VALUES (?, ...)",414.25,2.06,2.00,7.00,3.00,3.00,1000,0,1000,2414
+UPDATE Card,UPDATE title SET state_name = ? WHERE id = ?,509.68,1.28,1.00,4.00,2.00,2.00,1000,0,1000,1962
+INSERT TicketPack,"INSERT INTO ticketpack (id, discount) VALUES (?, ?)",622.28,1.12,1.00,10.00,2.00,3.00,1000,0,1000,1607
+CREATE AND BIND PACK,Pack + N tickets associados,650.12,1.02,1.00,2.00,1.00,2.00,2750,0,2750,4230
+SELECT TicketPack by ID,SELECT * FROM ticketpack WHERE id = ?,2254.79,0.00,0.00,0.00,0.00,0.00,2000,0,2000,887
+Generate QR Code,ZXING QR Code generation,525.21,1.23,1.00,48.00,2.00,3.00,1000,0,1000,1904
+Ticket State Transitions,UNUSED → ACTIVE → VALIDATED → USED → EXPIRED,391.70,1.16,1.00,8.00,2.00,3.00,2000,0,2000,5106
+Card State Transitions,UNUSED → ACTIVE → EXPIRED,331.90,1.08,1.00,5.00,2.00,2.00,1000,0,1000,3013
+Concurrent Ticket Inserts,10 threads a inserir tickets,2540.22,10.74,0.00,0.00,0.00,0.00,3000,0,3000,1181
+Concurrent State Transitions,10 threads a atualizar estados,1726.12,15.80,0.00,0.00,0.00,0.00,1500,0,1500,869
