@@ -510,7 +510,7 @@ export class CatchItApiClient {
   public async getUserHistory(userId: string): Promise<ApiResponse<any[]>> {
     return await requestJson<any[]>(`/api/exitrecords/user/${userId}`, {
       method: 'GET'
-      
+
     });
   }
 
@@ -551,6 +551,48 @@ export class CatchItApiClient {
       return { success: true, data: mappedTickets }
     } catch (e) {
       return { success: false, error: (e as Error).message }
+    }
+  }
+
+  async getCardQrCode(cardId: string): Promise<string> {
+    try {
+      const authToken = localStorage.getItem('authToken')
+      const apiBaseUrl = (import.meta as any).env?.VITE_API_BASE_URL?.replace(/\/$/, '') ?? ''
+      const url = `${apiBaseUrl}/api/cards/${cardId}/qrcode`
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': authToken ? `Bearer ${authToken}` : '',
+          'Accept': 'image/png, image/jpeg, image/*'
+        },
+        credentials: 'include'
+      })
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Não autorizado - faça login novamente')
+        }
+        if (response.status === 404) {
+          throw new Error('QR Code não encontrado para este card')
+        }
+        throw new Error(`Erro ${response.status}: ${response.statusText}`)
+      }
+
+      const blob = await response.blob()
+      return URL.createObjectURL(blob)
+    } catch (error) {
+      console.error('Erro ao buscar QR Code do card:', error)
+      throw error
+    }
+  }
+
+  // Método unificado para buscar QR code
+  async getTitleQrCode(titleId: string, isTicket: boolean): Promise<string> {
+    if (isTicket) {
+      return this.getTicketQrCode(titleId)
+    } else {
+      return this.getCardQrCode(titleId)
     }
   }
 

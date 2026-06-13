@@ -16,6 +16,14 @@
         <h2>Check In successful!</h2>
         <p>You are now on a trip. Present the QR Code below if requested.</p>
 
+        <!-- Badge para identificar o tipo -->
+        <div class="title-type-badge">
+          <span :class="['badge', isTicketTitle ? 'badge-ticket' : 'badge-card']">
+            {{ isTicketTitle ? 'Ticket' : 'Card' }}
+          </span>
+        </div>
+
+        <!-- QR Code para ambos (ticket e card) -->
         <div class="qr-container">
           <div v-if="isLoadingQr" class="qr-skeleton">
             <LoaderCircle class="spinner-icon" />
@@ -27,8 +35,14 @@
           </div>
         </div>
 
-        <!-- Banner de situação do checkout -->
-        <div v-if="checkoutSituation" :class="['situation-banner', getSituationClass(checkoutSituation.situation)]">
+        <!-- Informação adicional do card -->
+        <div v-if="!isTicketTitle && cardInfo" class="card-info">
+          <p><strong>Zone:</strong> {{ cardInfo.zoneName || 'All zones' }}</p>
+          <p><strong>Valid until:</strong> {{ formatDate(cardInfo.validUntil) }}</p>
+        </div>
+
+        <!-- Banner de situação do checkout (apenas para Tickets) -->
+        <div v-if="isTicketTitle && checkoutSituation" :class="['situation-banner', getSituationClass(checkoutSituation.situation)]">
           <AlertTriangle v-if="checkoutSituation.situation === 'AFTER_DESTINATION'" class="banner-icon" />
           <InfoIcon v-else-if="checkoutSituation.situation === 'BEFORE_DESTINATION'" class="banner-icon" />
           <CheckCircle v-else class="banner-icon" />
@@ -107,7 +121,7 @@
             <p><strong>Route:</strong> {{ selectedTripDetails?.routeName || 'N/A' }}</p>
             <p><strong>Departure:</strong> {{ selectedTripDetails?.startTime || 'N/A' }}</p>
           </div>
-          <p class="warning-text">After the check-in, your ticket will be validated and cannot be canceled.</p>
+          <p class="warning-text">After the check-in, your title will be validated and cannot be canceled.</p>
         </div>
         <div class="modal-footer">
           <button class="btn-cancel" @click="closeModals">Cancel</button>
@@ -136,7 +150,7 @@
             ⚠️ Attention: You have already passed the destination stop. The check-out will be registered as outside the allowed zone.
           </p>
           <p v-else class="warning-text">
-            After the check-out, your ticket will be marked as used.
+            After the check-out, your title will be marked as used.
           </p>
         </div>
         <div class="modal-footer">
@@ -166,7 +180,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, computed, ref } from 'vue'
+import { onMounted, computed, ref, watch, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   ArrowLeft,
@@ -191,6 +205,11 @@ interface CheckoutSituation {
   currentStopName: string | null
   destinationStopName: string | null
   message: string
+}
+
+interface CardInfo {
+  zoneName: string | null
+  validUntil: string
 }
 
 const route = useRoute()
@@ -219,6 +238,7 @@ const {
 const isLoadingQr = ref<boolean>(false)
 const qrCodeUrl = ref<string | null>(null)
 const checkoutSituation = ref<CheckoutSituation | null>(null)
+const cardInfo = ref<CardInfo | null>(null)
 const isLoadingMore = ref<boolean>(false)
 const currentPage = ref<number>(1)
 const scrollContainer = ref<HTMLElement | null>(null)
@@ -244,6 +264,20 @@ const displayedTrips = computed(() => {
 const hasMoreTrips = computed(() => {
   return displayedTrips.value.length < activeTrips.value.length
 })
+
+// Formatar data
+const formatDate = (dateString: string) => {
+  if (!dateString) return 'N/A'
+  try {
+    return new Date(dateString).toLocaleDateString('pt-PT', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    })
+  } catch {
+    return dateString
+  }
+}
 
 const getSituationClass = (situation: string) => {
   switch (situation) {
@@ -302,6 +336,61 @@ const closeModals = () => {
   showCheckoutModal.value = false
 }
 
+// Buscar informações do card (para mostrar detalhes)
+const fetchCardInfo = async () => {
+  if (!titleId || isTicketTitle.value) return
+  
+  try {
+    const token = localStorage.getItem('authToken')
+    const response = await fetch(`/api/cards/${titleId}`, {
+      headers: { 'Authorization': token ? `Bearer ${token}` : '' }
+    })
+    
+    if (response.ok) {
+      const card = await response.json()
+      cardInfo.value = {
+        zoneName: card.zone?.name || null,
+        validUntil: card.validUntil
+      }
+    }
+  } catch (err) {
+    console.error('Error fetching card info:', err)
+  }
+}
+
+const fetchQrCode = async () => {
+  if (!titleId) return
+  
+  isLoadingQr.value = true
+  try {
+    let imageUrl: string
+    if (isTicketTitle.value) {
+      imageUrl = await catchitApi.getTicketQrCode(titleId)
+    } else {
+      imageUrl = await catchitApi.getCardQrCode(titleId)  // ← USAR MÉTODO DO CARD
+    }
+    qrCodeUrl.value = imageUrl
+  } catch (err) {
+    console.error('Error fetching QR Code:', err)
+  } finally {
+    isLoadingQr.value = false
+  }
+}
+
+// Buscar situação do checkout (apenas para tickets)
+const fetchCheckoutSituation = async () => {
+  if (!titleId || !selectedTripId.value || !isTicketTitle.value) return
+
+  try {
+    const response = await catchitApi.getCheckoutSituation(titleId, selectedTripId.value)
+    if (response.success && response.data) {
+      checkoutSituation.value = response.data
+    }
+  } catch (err) {
+    console.error('Error fetching checkout situation:', err)
+  }
+}
+
 // Confirmar Check-in
 const confirmCheckIn = async () => {
   closeModals()
@@ -309,13 +398,19 @@ const confirmCheckIn = async () => {
   
   if (checkInSuccess.value) {
     showToast('Check-in completed successfully!', 'success')
+    // Busca QR code para ambos (ticket e card)
     await fetchQrCode()
-    await fetchCheckoutSituation()
+    if (isTicketTitle.value) {
+      await fetchCheckoutSituation()
+    } else {
+      await fetchCardInfo()
+    }
   } else if (errorMessage.value) {
     showToast(errorMessage.value, 'error')
   }
 }
 
+// Confirmar Check-out
 const confirmCheckOut = async () => {
   closeModals()
   await originalHandleCheckOut()
@@ -336,33 +431,6 @@ const confirmCheckOut = async () => {
   }, 500)
 }
 
-// Buscar QR code
-const fetchQrCode = async () => {
-  if (!titleId) return
-  isLoadingQr.value = true
-  try {
-    qrCodeUrl.value = await catchitApi.getTicketQrCode(titleId)
-  } catch (err) {
-    console.error('Error fetching QR Code:', err)
-  } finally {
-    isLoadingQr.value = false
-  }
-}
-
-// Buscar situação do checkout
-const fetchCheckoutSituation = async () => {
-  if (!titleId || !selectedTripId.value) return
-
-  try {
-    const response = await catchitApi.getCheckoutSituation(titleId, selectedTripId.value)
-    if (response.success && response.data) {
-      checkoutSituation.value = response.data
-    }
-  } catch (err) {
-    console.error('Error fetching checkout situation:', err)
-  }
-}
-
 const handleScroll = () => {
   const target = scrollContainer.value
   if (!target) return
@@ -376,10 +444,16 @@ const handleScroll = () => {
   }
 }
 
+// Limpar URL do QR code quando o componente for destruído
+onUnmounted(() => {
+  if (qrCodeUrl.value) {
+    URL.revokeObjectURL(qrCodeUrl.value)
+  }
+})
+
 // Monitorizar mudanças de trip selecionada
-import { watch } from 'vue'
 watch(selectedTripId, () => {
-  if (selectedTripId.value && checkInSuccess.value) {
+  if (selectedTripId.value && checkInSuccess.value && isTicketTitle.value) {
     fetchCheckoutSituation()
   }
 })
@@ -516,6 +590,30 @@ onMounted(() => {
   font-size: 0.95rem;
 }
 
+/* Badge de tipo */
+.title-type-badge {
+  margin-top: -0.5rem;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.badge-ticket {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.badge-card {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+/* QR Code container */
 .qr-container {
   background: white;
   border: 2px dashed #e5e7eb;
@@ -564,6 +662,22 @@ onMounted(() => {
   color: #dc2626;
   font-size: 0.9rem;
   font-weight: 500;
+}
+
+/* Informação do card */
+.card-info {
+  background: #f3f4f6;
+  border-radius: 12px;
+  padding: 0.75rem 1rem;
+  text-align: left;
+  width: 100%;
+  margin: 0.5rem 0;
+}
+
+.card-info p {
+  margin: 0.25rem 0;
+  font-size: 0.8rem;
+  color: #374151;
 }
 
 .situation-banner {
@@ -715,6 +829,32 @@ onMounted(() => {
 
 .bottom-nav {
   margin-top: auto;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: white;
+  border-top: 1px solid #e5e7eb;
+  position: sticky;
+  bottom: 0;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+  color: #6b7280;
+  transition: color 0.2s;
+}
+
+.nav-item.router-link-active {
+  color: var(--color-brand, #3b82f6);
+}
+
+.nav-icon {
+  width: 1.5rem;
+  height: 1.5rem;
 }
 
 /* Estilos do Modal */
