@@ -15,7 +15,7 @@ import PSM.Location.StopSchedule;
 public interface StopScheduleRepository extends JpaRepository<StopSchedule, UUID> {
 
 	@Query("""
-			SELECT DISTINCT ss
+			SELECT ss
 			FROM StopSchedule ss
 			JOIN FETCH ss.route r
 			JOIN FETCH ss.stop s

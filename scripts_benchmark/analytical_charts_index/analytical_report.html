@@ -30,20 +30,20 @@
 <body>
     <div class="container">
         <h1>📊 Analytical Benchmark - Relatório de Performance</h1>
-        <p><strong>Data de análise:</strong> 2026-06-12 14:14:52</p>
-        <p><strong>Número de queries analisadas:</strong> 1</p>
+        <p><strong>Data de análise:</strong> 2026-06-13 22:23:47</p>
+        <p><strong>Número de queries analisadas:</strong> 5</p>
         
         <div class="summary">
             <div class="card blue">
-                <div class="card-value">27.2</div>
+                <div class="card-value">39.9</div>
                 <div class="card-label">Tempo Médio (ms)</div>
             </div>
             <div class="card green">
-                <div class="card-value">100.0%</div>
+                <div class="card-value">35.5%</div>
                 <div class="card-label">Cache Hit Ratio</div>
             </div>
             <div class="card orange">
-                <div class="card-value">0</div>
+                <div class="card-value">1</div>
                 <div class="card-label">Queries Lentas (>100ms)</div>
             </div>
             <div class="card">
@@ -70,14 +70,58 @@
             <tbody>
 
                 <tr>
-                    <td>query5_stopArrivals</td>
-                    <td class="warning">27.18</td>
-                    <td>25.58</td>
-                    <td>25.45</td>
-                    <td>33.24</td>
-                    <td>3.40</td>
-                    <td>Unique</td>
+                    <td>findAllByStopIdInWithRoute</td>
+                    <td class="warning">25.70</td>
+                    <td>25.52</td>
+                    <td>25.41</td>
+                    <td>26.57</td>
+                    <td>0.49</td>
+                    <td>Gather</td>
+                    <td>7.0%</td>
+                </tr>
+
+                <tr>
+                    <td>findAllWithRouteStops</td>
+                    <td class="good">4.26</td>
+                    <td>4.25</td>
+                    <td>4.20</td>
+                    <td>4.35</td>
+                    <td>0.06</td>
+                    <td>Sort</td>
                     <td>100.0%</td>
+                </tr>
+
+                <tr>
+                    <td>findAllWithSchedules</td>
+                    <td class="bad">136.93</td>
+                    <td>136.76</td>
+                    <td>135.36</td>
+                    <td>139.26</td>
+                    <td>1.47</td>
+                    <td>Hash Join</td>
+                    <td>13.5%</td>
+                </tr>
+
+                <tr>
+                    <td>findAllWithSchedulesByStopId</td>
+                    <td class="warning">14.65</td>
+                    <td>14.63</td>
+                    <td>14.30</td>
+                    <td>15.17</td>
+                    <td>0.34</td>
+                    <td>Nested Loop</td>
+                    <td>22.6%</td>
+                </tr>
+
+                <tr>
+                    <td>findByIdWithSchedules</td>
+                    <td class="warning">17.96</td>
+                    <td>17.90</td>
+                    <td>17.56</td>
+                    <td>18.63</td>
+                    <td>0.40</td>
+                    <td>Nested Loop</td>
+                    <td>34.5%</td>
                 </tr>
 
             </tbody>
@@ -85,7 +129,7 @@
         
         <h2>🎯 Recomendações</h2>
         <ul>
-<li>✅ <strong>Performance excelente!</strong> Todas as queries estão otimizadas.</li>
+<li>🔴 <strong>Queries críticas:</strong> 1 queries demoram mais de 100ms. Rever índices e plano de execução.</li><li>🟡 <strong>Cache ineficiente:</strong> 4 queries têm baixa taxa de acerto de cache. Aumentar shared_buffers.</li>
         </ul>
         
         <div class="footer">
