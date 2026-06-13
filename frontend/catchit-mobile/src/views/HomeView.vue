@@ -5,7 +5,7 @@
         <img src="../assets/app-logo-wt.png" alt="CatchIt" class="logo" />
       </h1>
       <router-link to="/notifications" class="profile-icon" aria-label="Profile">
-        <Bell class="icon-md" />
+        <Bell class="icon-md bell-icon" />
       </router-link>
     </header>
 
@@ -37,7 +37,7 @@
     >
       <div class="swipe-track" :class="{ 'is-dragging': isDragging }" :style="swipeTrackStyle">
         <div class="swipe-pane">
-          <div class="tab-content">
+          <div class="tab-content tab-content-cards">
             <div class="card-display">
               <div v-if="isCardsLoading" class="card-visual card-visual-skeleton">
                 <LoaderCircle class="spinner-icon" />
@@ -62,8 +62,13 @@
                 </div>
 
                 <div class="card-bottom">
-                  <router-link to="/cards" class="btn-primary card-action-btn">
-                    {{ currentCard ? 'Renew' : 'Buy Card' }}
+                  <template v-if="currentCard">
+                    <button v-if="canRenewCard" @click="handleRenewCard" class="btn-primary card-action-btn">
+                      Renew
+                    </button>
+                  </template>
+                  <router-link v-else to="/cards" class="btn-primary card-action-btn">
+                    Buy Card
                   </router-link>
                   <router-link v-if="currentCard" :to="`/checkin/${currentCard.id}`" class="btn-secondary card-action-btn">
                     Check In
@@ -81,39 +86,58 @@
             </div>
 
             <template v-else>
-              <div v-if="paginatedTickets.length === 0" class="empty-state">
+              <div v-if="frozenTicketsList.length === 0" class="empty-state">
                 <p><Ticket class="empty-icon" /> No tickets yet</p>
                 <router-link :to="{ path: '/cards', query: { tab: 'tickets' } }" class="btn-primary">Buy Tickets</router-link>
               </div>
 
               <div v-else>
-                <div v-for="ticket in paginatedTickets" :key="ticket.id" class="ticket-item">
-                  <div class="ticket-header">
-                    <h3>Ticket</h3>
-                    <span class="status-badge" :class="ticket.status.toLowerCase()">
-                      {{ formatStatus(ticket.status) }}
-                    </span>
-                    <div class="ticket-actions">
-                      <router-link :to="`/checkin/${ticket.id}`" class="btn-checkin-small">Check In</router-link>
+                <div v-if="groupedActiveTickets.length > 0" class="tickets-section">
+                  <div class="ticket-search">
+                    <Search class="ticket-search__icon" />
+                    <input v-model="ticketSearchQuery" type="text" placeholder="Search tickets by stop..." class="ticket-search__input" />
+                  </div>
+
+                  <div v-for="group in filteredGroupedActiveTickets" :key="group.key" class="ticket-group">
+                    <div class="ticket-group-header" @click="toggleGroup(group.key)">
+                      <div class="ticket-stops ticket-group-stops">
+                        <div class="ticket-stop-row">
+                          <span class="ticket-stop-label">From</span>
+                          <p><MapPin class="icon-sm" /> {{ group.routeLabelFrom }}</p>
+                        </div>
+                        <div class="ticket-stop-row">
+                          <span class="ticket-stop-label">To</span>
+                          <p><MapPin class="icon-sm" /> {{ group.routeLabelTo }}</p>
+                        </div>
+                      </div>
+                      <div class="ticket-group-meta">
+                        <span class="ticket-count-badge">{{ group.tickets.length }} Ticket{{ group.tickets.length !== 1 ? 's' : '' }} Available</span>
+                        <component :is="expandedGroups[group.key] ? ChevronUp : ChevronDown" class="icon-md" />
+                      </div>
+                    </div>
+                    
+                    <router-link
+                      :to="getItineraryLink(group.firstTicket)"
+                      class="btn-itinerary grouped-itinerary-btn"
+                    >
+                      See suggested itinerary
+                    </router-link>
+
+                    <div v-if="expandedGroups[group.key]" class="ticket-group-content">
+                      <div v-for="ticket in group.tickets" :key="ticket.id" class="ticket-item ticket-subitem">
+                        <div class="ticket-header">
+                          <h3>Ticket</h3>
+                          <span class="status-badge" :class="ticket.status.toLowerCase()">
+                            {{ formatStatus(ticket.status) }}
+                          </span>
+                          <div class="ticket-actions">
+                            <router-link :to="`/checkin/${ticket.id}`" class="btn-checkin-small">Check In</router-link>
+                          </div>
+                        </div>
+                        <p class="expiry">Expires on {{ formatDate(ticket.validUntil) }}</p>
+                      </div>
                     </div>
                   </div>
-                  <p class="expiry">Expires on {{ formatDate(ticket.validUntil) }}</p>
-                  <div class="ticket-stops">
-                    <div class="ticket-stop-row">
-                      <span class="ticket-stop-label">From</span>
-                      <p><MapPin class="icon-sm" /> {{ getTicketFromStop(ticket) }}</p>
-                    </div>
-                    <div class="ticket-stop-row">
-                      <span class="ticket-stop-label">To</span>
-                      <p><MapPin class="icon-sm" /> {{ getTicketToStop(ticket) }}</p>
-                    </div>
-                  </div>
-                  <router-link
-                    :to="getItineraryLink(ticket)"
-                    class="btn-itinerary"
-                  >
-                    See suggested itinerary
-                  </router-link>
                 </div>
 
                 <div v-if="hasMoreTickets" class="loading-more-indicator">
@@ -149,9 +173,10 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { Bell, House, MapPin, Map, ShoppingCart, Ticket, User, LoaderCircle } from 'lucide-vue-next'
+import { Bell, House, MapPin, Map, ShoppingCart, Ticket, User, LoaderCircle, ChevronUp, ChevronDown, Search } from 'lucide-vue-next'
 import ZoneCard from '../components/ZoneCard.vue'
-import { useTicketViewModel, useCardViewModel, currentUser } from '../viewmodels'
+import { useRouter } from 'vue-router'
+import { useTicketViewModel, useCardViewModel, useCheckoutViewModel, currentUser } from '../viewmodels'
 import type { Ticket as UserTicket } from '../models'
 
 const activeTab = ref<'cards' | 'tickets'>('cards')
@@ -161,38 +186,108 @@ const touchStartX = ref(0)
 const currentDragX = ref(0)
 const isDragging = ref(false)
 
-const ticketViewModel = useTicketViewModel()
-const cardViewModel = useCardViewModel()
+const cardVM = useCardViewModel()
+const ticketVM = useTicketViewModel()
+const cartVM = useCheckoutViewModel()
+const router = useRouter()
 
 const frozenTicketsList = ref<readonly UserTicket[]>([])
 
-const userCards = computed(() => cardViewModel.userCards.value)
+const userCards = computed(() => cardVM.userCards.value)
 const currentCard = computed(() => userCards.value[0] ?? null)
 const currentUserName = computed(() => currentUser.value?.name ?? '')
 
+const canRenewCard = computed(() => {
+  if (!currentCard.value?.validUntil) return false
+  const validUntilMs = new Date(currentCard.value.validUntil).getTime()
+  const diff = validUntilMs - Date.now()
+  return diff <= 7 * 24 * 60 * 60 * 1000 // 7 days in milliseconds
+})
+
 const isInitialLoad = ref(true)
-const isCardsLoading = computed(() => isInitialLoad.value || cardViewModel.isLoading.value)
-const isTicketsLoading = computed(() => isInitialLoad.value || ticketViewModel.isLoading.value)
+const isCardsLoading = computed(() => isInitialLoad.value || cardVM.isLoading.value)
+const isTicketsLoading = computed(() => isInitialLoad.value || ticketVM.isLoading.value)
+
+const handleRenewCard = async () => {
+  if (currentCard.value) {
+    await cartVM.addCardToCart(currentCard.value)
+    router.push('/checkout')
+  }
+}
 
 // --- ESTADOS DA PAGINAÇÃO ---
 const itemsPerPage = 10
 const visibleCount = ref(10)
 
-watch(() => ticketViewModel.tickets.value, (newTickets) => {
+watch(() => ticketVM.tickets.value, (newTickets) => {
   if (newTickets) {
     frozenTicketsList.value = Object.freeze([...newTickets])
     visibleCount.value = itemsPerPage
   }
 }, { immediate: true })
 
-// Mapeia apenas o bloco atual de bilhetes permitidos para renderização (Lendo da lista leve congelada)
-const paginatedTickets = computed(() => {
-  return frozenTicketsList.value.slice(0, visibleCount.value)
+const activeTickets = computed(() => {
+  return frozenTicketsList.value.filter(t => t.status !== 'USED' && t.status !== 'EXPIRED')
 })
+
+interface TicketGroup {
+  key: string
+  routeLabelFrom: string
+  routeLabelTo: string
+  tickets: UserTicket[]
+  firstTicket: UserTicket
+}
+
+const groupedActiveTickets = computed(() => {
+  const groups: Record<string, TicketGroup> = {}
+  activeTickets.value.forEach(t => {
+    const from = t.stopFrom || { id: 'unknown', name: 'Route details unavailable' }
+    const to = t.stopTo || { id: 'unknown', name: 'Route details unavailable' }
+    
+    const key = `${from.id}-${to.id}`
+    
+    const formatStopName = (stop: any) => {
+      if (!stop || !stop.name) return 'Route details unavailable'
+      if (!stop.stopType) return stop.name
+      const typeLetter = stop.stopType.charAt(0).toUpperCase()
+      return `(${typeLetter}) ${stop.name}`
+    }
+
+    if (!groups[key]) {
+      groups[key] = {
+        key,
+        routeLabelFrom: formatStopName(from),
+        routeLabelTo: formatStopName(to),
+        tickets: [],
+        firstTicket: t
+      }
+    }
+    groups[key].tickets.push(t)
+  })
+  return Object.values(groups)
+})
+
+const ticketSearchQuery = ref('')
+
+const filteredGroupedActiveTickets = computed(() => {
+  const query = ticketSearchQuery.value.trim().toLowerCase()
+  if (!query) return groupedActiveTickets.value
+
+  return groupedActiveTickets.value.filter(group => {
+    return group.routeLabelFrom.toLowerCase().includes(query) || 
+           group.routeLabelTo.toLowerCase().includes(query)
+  })
+})
+
+const expandedGroups = ref<Record<string, boolean>>({})
+
+const toggleGroup = (key: string) => {
+  expandedGroups.value[key] = !expandedGroups.value[key]
+}
 
 // Verifica se ainda existem mais bilhetes escondidos por carregar
 const hasMoreTickets = computed(() => {
-  return visibleCount.value < frozenTicketsList.value.length
+  return visibleCount.value <   filteredGroupedActiveTickets.value.length
 })
 
 // Deteta quando o utilizador faz scroll até ao fundo do painel de bilhetes
@@ -289,8 +384,8 @@ onMounted(async () => {
   
   // Executa os fetches assíncronos. O ticketViewModel usará o novo endpoint DTO leve
   await Promise.all([
-    ticketViewModel.fetchUserTickets(),
-    cardViewModel.fetchUserCards(),
+    ticketVM.fetchUserTickets(),
+    cardVM.fetchUserCards(),
   ])
   isInitialLoad.value = false
 })
@@ -309,7 +404,7 @@ const formatDate = (date: Date) => {
 
 const formatStatus = (status: string) => {
   const statusMap: Record<string, string> = {
-    PURCHASED_BUT_NOT_VALID: 'Pending',
+    PURCHASED_BUT_NOT_VALID: 'Available',
     VALID: 'Active',
     EXPIRED: 'Expired',
     USED: 'Used',
@@ -317,27 +412,23 @@ const formatStatus = (status: string) => {
   return statusMap[status] || status
 }
 
-const getTicketFromStop = (ticket: UserTicket) =>
-  ticket.stopFrom?.name ?? 'Route details unavailable'
-
-const getTicketToStop = (ticket: UserTicket) =>
-  ticket.stopTo?.name ?? 'Route details unavailable'
-
 const getItineraryLink = (ticket: UserTicket) => {
+  const from = ticket.stopFrom
+  const to = ticket.stopTo
   const query: Record<string, string> = {
-    fromStopId: ticket.stopFrom.id,
-    toStopId: ticket.stopTo.id,
-    fromName: ticket.stopFrom.name,
-    toName: ticket.stopTo.name,
+    fromStopId: from.id,
+    toStopId: to.id,
+    fromName: from.name,
+    toName: to.name,
   }
 
-  if (ticket.stopFrom.latitude && ticket.stopFrom.longitude) {
-    query.fromLat = String(ticket.stopFrom.latitude)
-    query.fromLon = String(ticket.stopFrom.longitude)
+  if (from.latitude && from.longitude) {
+    query.fromLat = String(from.latitude)
+    query.fromLon = String(from.longitude)
   }
-  if (ticket.stopTo.latitude && ticket.stopTo.longitude) {
-    query.toLat = String(ticket.stopTo.latitude)
-    query.toLon = String(ticket.stopTo.longitude)
+  if (to.latitude && to.longitude) {
+    query.toLat = String(to.latitude)
+    query.toLon = String(to.longitude)
   }
 
   return {
@@ -435,6 +526,9 @@ const getItineraryLink = (ticket: UserTicket) => {
   padding: 1rem;
   display: flex;
   flex-direction: column;
+}
+
+.tab-content-cards {
   justify-content: center;
 }
 
@@ -540,6 +634,10 @@ const getItineraryLink = (ticket: UserTicket) => {
   margin: 0.25rem 0;
 }
 
+.icon-md.bell-icon {
+  color: #ffffff;
+}
+
 .date {
   font-size: 0.9rem;
   opacity: 0.9;
@@ -555,6 +653,120 @@ const getItineraryLink = (ticket: UserTicket) => {
   padding: 1rem;
   margin-bottom: 1rem;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.ticket-group {
+  background: white;
+  border-radius: 12px;
+  margin-bottom: 1rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+}
+
+.ticket-group-header {
+  padding: 1rem;
+  cursor: pointer;
+  background: white;
+}
+
+.ticket-group-stops {
+  margin-top: 0;
+  background: #f8fafc;
+  border: 1px solid #f1f5f9;
+}
+
+.ticket-group-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.ticket-count-badge {
+  background: #e0e7ff;
+  color: #4338ca;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.icon-md {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: #6b7280;
+}
+
+.grouped-itinerary-btn {
+  margin: 0;
+  border-radius: 0;
+  background: #1f2937;
+}
+
+.ticket-group-content {
+  padding: 1rem;
+  background: #f3f4f6;
+}
+
+.ticket-subitem {
+  margin-bottom: 0.75rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.ticket-subitem:last-child {
+  margin-bottom: 0;
+}
+
+.tickets-section {
+  margin-bottom: 1.5rem;
+}
+
+.section-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #334155;
+  margin-bottom: 0.5rem;
+}
+
+.ticket-search {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.8rem 0.9rem;
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.05);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  margin-bottom: 1rem;
+}
+
+.ticket-search__icon {
+  width: 1rem;
+  height: 1rem;
+  color: #64748b;
+  flex-shrink: 0;
+}
+
+.ticket-search__input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  font-size: 0.96rem;
+  color: #111827;
+}
+
+.ticket-search__input:focus {
+  outline: none;
+}
+
+.ticket-search__input::placeholder {
+  color: #94a3b8;
+}
+
+.ticket-used {
+  opacity: 0.7;
+  background: #f9fafb;
 }
 
 .ticket-header {
@@ -573,6 +785,11 @@ const getItineraryLink = (ticket: UserTicket) => {
   border-radius: 20px;
   font-size: 0.75rem;
   font-weight: 600;
+}
+
+.status-badge.purchased_but_not_valid {
+  background: #f3e8ff;
+  color: #7e22ce;
 }
 
 .status-badge.valid {

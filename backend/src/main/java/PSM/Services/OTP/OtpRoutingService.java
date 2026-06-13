@@ -11,9 +11,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import java.time.Duration;
-import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.time.LocalTime;
 import java.util.Map;
+
+import PSM.Travel.VehicleType;
+import PSM.Location.api.stop.StopRepository;
 
 /**
  * Calls OTP2 GraphQL, converts the resulting itinerary into a GeoJSON
@@ -26,6 +30,7 @@ public class OtpRoutingService {
     private final WebClient webClient;
     private final StringRedisTemplate redis;
     private final ObjectMapper mapper = new ObjectMapper();
+    private final StopRepository stopRepository;
 
     @Value("${otp.router-id}")
     private String routerId;
@@ -45,12 +50,14 @@ public class OtpRoutingService {
     public OtpRoutingService(
             @Value("${otp.base-url}") String otpBaseUrl,
             @Value("${otp.timeout-ms}") int timeoutMs,
-            StringRedisTemplate redis) {
+            StringRedisTemplate redis,
+            StopRepository stopRepository) {
         this.webClient = WebClient.builder()
                 .baseUrl(otpBaseUrl)
                 .defaultHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
                 .build();
         this.redis = redis;
+        this.stopRepository = stopRepository;
     }
 
     /**
@@ -63,32 +70,38 @@ public class OtpRoutingService {
      * @return GeoJSON FeatureCollection (as JsonNode) with one Feature per leg
      */
     public JsonNode planFewestTransfers(double fromLat, double fromLon,
-                                        double toLat, double toLon) {
-        String cacheKey = String.format("route:%.6f,%.6f:%.6f,%.6f:fewest",
-                fromLat, fromLon, toLat, toLon);
+            double toLat, double toLon, String date, String time) {
+        String cacheKey = String.format("route:%.6f,%.6f:%.6f,%.6f:%s:%s:fewest",
+                fromLat, fromLon, toLat, toLon, date, time);
 
         String cached = redis.opsForValue().get(cacheKey);
         if (cached != null) {
-            try { return mapper.readTree(cached); }
-            catch (Exception e) { /* fall through and recompute */ }
+            try {
+                return mapper.readTree(cached);
+            } catch (Exception e) {
+                /* fall through and recompute */ }
         }
 
-        JsonNode otpResponse = callOtp(fromLat, fromLon, toLat, toLon);
+        JsonNode otpResponse = callOtp(fromLat, fromLon, toLat, toLon, date, time);
         JsonNode geoJson = itineraryToGeoJson(otpResponse);
 
         try {
             redis.opsForValue().set(cacheKey, mapper.writeValueAsString(geoJson),
                     Duration.ofSeconds(cacheTtlSeconds));
-        } catch (Exception ignored) { }
+        } catch (Exception ignored) {
+        }
 
         return geoJson;
     }
 
     private JsonNode callOtp(double fromLat, double fromLon,
-                             double toLat, double toLon) {
-        // GTFS data is from 2022-09-10 to 2022-12-31, so we hardcode the date to a valid weekday
-        String date = "2022-10-12"; // A valid Wednesday in the GTFS calendar
-        String time = LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"));
+            double toLat, double toLon, String date, String time) {
+        if (date == null || date.isEmpty()) {
+            date = "2026-06-08";
+        }
+        if (time == null || time.isEmpty()) {
+            time = LocalTime.now(ZoneId.of("Europe/Lisbon")).format(DateTimeFormatter.ofPattern("HH:mm:ss"));
+        }
 
         Map<String, Object> variables = Map.of(
                 "fromLat", fromLat,
@@ -99,13 +112,11 @@ public class OtpRoutingService {
                 "time", time,
                 "transferPenalty", transferPenalty,
                 "walkReluctance", walkReluctance,
-                "maxWalkDistance", maxWalkDistance
-        );
+                "maxWalkDistance", maxWalkDistance);
 
         Map<String, Object> body = Map.of(
                 "query", PLAN_QUERY,
-                "variables", variables
-        );
+                "variables", variables);
 
         return webClient.post()
                 .uri("/otp/routers/{routerId}/index/graphql", routerId)
@@ -134,19 +145,43 @@ public class OtpRoutingService {
         }
 
         JsonNode best = null;
-        int bestTransfers = Integer.MAX_VALUE;
-        long bestDuration = Long.MAX_VALUE;
         for (JsonNode it : itineraries) {
-            int t = countTransfers(it.path("legs"));
-            long d = it.path("duration").asLong(Long.MAX_VALUE);
-            if (t < bestTransfers || (t == bestTransfers && d < bestDuration)) {
-                best = it;
-                bestTransfers = t;
-                bestDuration = d;
+            int transitLegs = 0;
+            for (JsonNode leg : it.path("legs")) {
+                if (!"WALK".equalsIgnoreCase(leg.path("mode").asText())) {
+                    transitLegs++;
+                }
             }
+
+            // If the itinerary has ZERO transit legs, it's a pure walk. We NEVER want to
+            // show this.
+            if (transitLegs == 0) {
+                continue;
+            }
+
+            // OTP already sorts itineraries by best overall score (duration, transfers, walk time).
+            // We just pick the first one that includes transit.
+            best = it;
+            break;
+        }
+
+        // If we filtered out all the pure walking itineraries and nothing is left:
+        if (best == null) {
+            featureCollection.set("features", features);
+            featureCollection.put("error", "no_route_found");
+            return featureCollection;
         }
 
         ObjectNode summary = mapper.createObjectNode();
+        
+        int transitLegsCount = 0;
+        for (JsonNode leg : best.path("legs")) {
+            if (!"WALK".equalsIgnoreCase(leg.path("mode").asText())) {
+                transitLegsCount++;
+            }
+        }
+        int bestTransfers = Math.max(0, transitLegsCount - 1);
+
         summary.put("durationSeconds", best.path("duration").asLong());
         summary.put("transfers", bestTransfers);
         summary.put("walkDistanceMeters", best.path("walkDistance").asDouble());
@@ -158,7 +193,10 @@ public class OtpRoutingService {
         for (JsonNode leg : best.path("legs")) {
             ArrayNode coords = decodePolyline(
                     leg.path("legGeometry").path("points").asText(""));
-            if (coords.isEmpty()) { legIndex++; continue; }
+            if (coords.isEmpty()) {
+                legIndex++;
+                continue;
+            }
 
             ObjectNode feature = mapper.createObjectNode();
             feature.put("type", "Feature");
@@ -170,14 +208,93 @@ public class OtpRoutingService {
 
             ObjectNode props = mapper.createObjectNode();
             props.put("legIndex", legIndex++);
-            props.put("mode", leg.path("mode").asText());
+            String modeStr = leg.path("mode").asText();
+            props.put("mode", modeStr);
+            VehicleType vehicleType = mapOtpModeToVehicleType(modeStr);
             props.put("routeShortName", leg.path("route").path("shortName").asText(""));
             props.put("routeLongName", leg.path("route").path("longName").asText(""));
             props.put("routeColor", leg.path("route").path("color").asText(""));
             props.put("fromStop", leg.path("from").path("name").asText());
             props.put("toStop", leg.path("to").path("name").asText());
-            props.put("fromStopCode", leg.path("from").path("stop").path("code").asText(""));
-            props.put("toStopCode", leg.path("to").path("stop").path("code").asText(""));
+
+            String fromCode = leg.path("from").path("stop").path("code").asText("");
+            if (fromCode.isEmpty())
+                fromCode = leg.path("from").path("stop").path("gtfsId").asText("");
+            if (fromCode.isEmpty())
+                fromCode = leg.path("from").path("stop").path("id").asText("");
+            if (fromCode.contains(":")) {
+                fromCode = fromCode.substring(fromCode.indexOf(":") + 1);
+            }
+            final String finalFromCode = fromCode;
+            final String fromName = leg.path("from").path("name").asText("");
+
+            PSM.Location.Stop fromStop = null;
+            if (vehicleType != null) {
+                if (!finalFromCode.isEmpty()) {
+                    fromStop = stopRepository.findByStopCodeAndStopType(finalFromCode, vehicleType).orElse(null);
+                    if (fromStop == null) fromStop = stopRepository.findFirstByStopCodeStartingWithAndStopType(finalFromCode + "_", vehicleType).orElse(null);
+                }
+                if (fromStop == null) {
+                    for (String var : getNameVariations(fromName)) {
+                        fromStop = stopRepository.findFirstByNameContainingIgnoreCaseAndStopType(var, vehicleType).orElse(null);
+                        if (fromStop != null) break;
+                    }
+                }
+            }
+            if (fromStop == null) {
+                if (!finalFromCode.isEmpty()) {
+                    fromStop = stopRepository.findByStopCode(finalFromCode).orElse(null);
+                    if (fromStop == null) fromStop = stopRepository.findFirstByStopCodeStartingWith(finalFromCode + "_").orElse(null);
+                }
+                if (fromStop == null) {
+                    for (String var : getNameVariations(fromName)) {
+                        fromStop = stopRepository.findFirstByNameContainingIgnoreCaseAndStopType(var, null).orElse(null);
+                        if (fromStop != null) break;
+                    }
+                }
+            }
+            String fromId = fromStop != null ? fromStop.getId().toString() : finalFromCode;
+
+            String toCode = leg.path("to").path("stop").path("code").asText("");
+            if (toCode.isEmpty())
+                toCode = leg.path("to").path("stop").path("gtfsId").asText("");
+            if (toCode.isEmpty())
+                toCode = leg.path("to").path("stop").path("id").asText("");
+            if (toCode.contains(":")) {
+                toCode = toCode.substring(toCode.indexOf(":") + 1);
+            }
+            final String finalToCode = toCode;
+            final String toName = leg.path("to").path("name").asText("");
+
+            PSM.Location.Stop toStop = null;
+            if (vehicleType != null) {
+                if (!finalToCode.isEmpty()) {
+                    toStop = stopRepository.findByStopCodeAndStopType(finalToCode, vehicleType).orElse(null);
+                    if (toStop == null) toStop = stopRepository.findFirstByStopCodeStartingWithAndStopType(finalToCode + "_", vehicleType).orElse(null);
+                }
+                if (toStop == null) {
+                    for (String var : getNameVariations(toName)) {
+                        toStop = stopRepository.findFirstByNameContainingIgnoreCaseAndStopType(var, vehicleType).orElse(null);
+                        if (toStop != null) break;
+                    }
+                }
+            }
+            if (toStop == null) {
+                if (!finalToCode.isEmpty()) {
+                    toStop = stopRepository.findByStopCode(finalToCode).orElse(null);
+                    if (toStop == null) toStop = stopRepository.findFirstByStopCodeStartingWith(finalToCode + "_").orElse(null);
+                }
+                if (toStop == null) {
+                    for (String var : getNameVariations(toName)) {
+                        toStop = stopRepository.findFirstByNameContainingIgnoreCaseAndStopType(var, null).orElse(null);
+                        if (toStop != null) break;
+                    }
+                }
+            }
+            String toId = toStop != null ? toStop.getId().toString() : finalToCode;
+
+            props.put("fromStopCode", fromId);
+            props.put("toStopCode", toId);
             props.put("startTime", leg.path("startTime").asLong());
             props.put("endTime", leg.path("endTime").asLong());
             props.put("distanceMeters", leg.path("distance").asDouble());
@@ -197,7 +314,8 @@ public class OtpRoutingService {
      */
     private ArrayNode decodePolyline(String encoded) {
         ArrayNode result = mapper.createArrayNode();
-        if (encoded == null || encoded.isEmpty()) return result;
+        if (encoded == null || encoded.isEmpty())
+            return result;
 
         int index = 0, len = encoded.length();
         int lat = 0, lng = 0;
@@ -212,7 +330,8 @@ public class OtpRoutingService {
             int dlat = ((decoded & 1) != 0 ? ~(decoded >> 1) : (decoded >> 1));
             lat += dlat;
 
-            shift = 0; decoded = 0;
+            shift = 0;
+            decoded = 0;
             do {
                 b = encoded.charAt(index++) - 63;
                 decoded |= (b & 0x1f) << shift;
@@ -222,7 +341,7 @@ public class OtpRoutingService {
             lng += dlng;
 
             ArrayNode pair = mapper.createArrayNode();
-            pair.add(lng / 1e5);  // GeoJSON is [lon, lat]
+            pair.add(lng / 1e5); // GeoJSON is [lon, lat]
             pair.add(lat / 1e5);
             result.add(pair);
         }
@@ -230,57 +349,94 @@ public class OtpRoutingService {
     }
 
     private static final String PLAN_QUERY = """
-        query Plan(
-          $fromLat: Float!, $fromLon: Float!,
-          $toLat: Float!, $toLon: Float!,
-          $date: String!, $time: String!,
-          $transferPenalty: Int!, $walkReluctance: Float!,
-          $maxWalkDistance: Float!
-        ) {
-          plan(
-            from: { lat: $fromLat, lon: $fromLon }
-            to:   { lat: $toLat,   lon: $toLon }
-            date: $date
-            time: $time
-            numItineraries: 5
-            transferPenalty: $transferPenalty
-            walkReluctance: $walkReluctance
-            maxWalkDistance: $maxWalkDistance
-            transportModes: [
-              { mode: WALK },
-              { mode: BUS },
-              { mode: RAIL },
-              { mode: SUBWAY },
-              { mode: TRAM }
-            ]
-          ) {
-            itineraries {
-              duration
-              startTime
-              endTime
-              walkDistance
-              numberOfTransfers: legs { mode }  # placeholder, see note
-              legs {
-                mode
-                startTime
-                endTime
-                distance
-                from { name lat lon stop { code name } }
-                to   { name lat lon stop { code name } }
-                route { shortName longName color mode }
-                legGeometry { points length }
+            query Plan(
+              $fromLat: Float!, $fromLon: Float!,
+              $toLat: Float!, $toLon: Float!,
+              $date: String!, $time: String!,
+              $transferPenalty: Int!, $walkReluctance: Float!,
+              $maxWalkDistance: Float!
+            ) {
+              plan(
+                from: { lat: $fromLat, lon: $fromLon }
+                to:   { lat: $toLat,   lon: $toLon }
+                date: $date
+                time: $time
+                numItineraries: 5
+                transferPenalty: $transferPenalty
+                walkReluctance: $walkReluctance
+                maxWalkDistance: $maxWalkDistance
+                transportModes: [
+                  { mode: WALK },
+                  { mode: BUS },
+                  { mode: RAIL },
+                  { mode: SUBWAY },
+                  { mode: TRAM }
+                ]
+              ) {
+                itineraries {
+                  duration
+                  startTime
+                  endTime
+                  walkDistance
+                  numberOfTransfers: legs { mode }  # placeholder, see note
+                  legs {
+                    mode
+                    startTime
+                    endTime
+                    distance
+                    from { name lat lon stop { code name } }
+                    to   { name lat lon stop { code name } }
+                    route { shortName longName color mode }
+                    legGeometry { points length }
+                  }
+                }
               }
             }
-          }
-        }
-        """;
+            """;
 
+    // private int countTransfers(JsonNode legs) {
+    // int transit = 0;
+    // for (JsonNode leg : legs) {
+    // if (!"WALK".equalsIgnoreCase(leg.path("mode").asText()))
+    // transit++;
+    // }
+    // return Math.max(0, transit - 1);
+    // }
 
-        private int countTransfers(JsonNode legs) {
-            int transit = 0;
-            for (JsonNode leg : legs) {
-                if (!"WALK".equalsIgnoreCase(leg.path("mode").asText())) transit++;
-            }
-            return Math.max(0, transit - 1);
+    private VehicleType mapOtpModeToVehicleType(String mode) {
+        if (mode == null) return null;
+        switch (mode.toUpperCase()) {
+            case "BUS": return VehicleType.BUS;
+            case "TRAM": return VehicleType.METRO;
+            case "SUBWAY": return VehicleType.METRO;
+            case "RAIL": return VehicleType.TRAIN;
+            case "FUNICULAR": return VehicleType.METRO;
+            case "GONDOLA": return VehicleType.METRO;
+            default: return null;
         }
+    }
+
+    private java.util.List<String> getNameVariations(String name) {
+        if (name == null) return java.util.Collections.emptyList();
+        String lower = name.toLowerCase().trim();
+        java.util.List<String> variations = new java.util.ArrayList<>();
+        variations.add(lower);
+        
+        String noPrefix = lower.replace("est. s. ", "").replace("est. ", "").replace("porto - ", "").replace(" (metro)", "");
+        if (!noPrefix.equals(lower)) variations.add(noPrefix);
+
+        if (lower.contains("bento")) {
+            variations.add("são bento");
+            variations.add("s.bento");
+            variations.add("s. bento");
+            variations.add("est.s.bento");
+        }
+        if (lower.contains("joão")) {
+            variations.add("são joão");
+            variations.add("s.joão");
+            variations.add("s. joão");
+            variations.add("est.s.joão");
+        }
+        return variations;
+    }
 }

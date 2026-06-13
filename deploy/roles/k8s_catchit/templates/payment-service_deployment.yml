@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: catchit-payment
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: catchit-payment
+  template:
+    metadata:
+      labels:
+        app: catchit-payment
+    spec:
+      containers:
+      - name: payment-service
+        image: "{{ catchit_payment_image | default('rodrigues17/catchit-payment:latest') }}"
+        env:
+        # Usa o nome de variável que o teu grupo definiu no docker-compose
+        - name: PAYMENT_DB_URL
+          value: "jdbc:postgresql://postgres-service:5432/{{ db_name | default('catchitdb') }}?currentSchema=payment"
+        - name: PAYMENT_DB_USER
+          value: "{{ db_username | default('postgres') }}"
+        - name: PAYMENT_DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: catchitdb-vault
+              key: DB_PASSWORD
+        ports:
+        - containerPort: 8081

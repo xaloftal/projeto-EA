@@ -42,6 +42,21 @@ public class RouteController {
         return service.findAllOptimized();
     }
 
+    @GetMapping("/summary")
+    public List<RouteSummaryDTO> getRouteSummaries() {
+        return service.getRouteSummaries();
+    }
+
+    @GetMapping("/{id}/schedule")
+    public RouteWithSchedulesDTO getRouteSchedule(@PathVariable UUID id) {
+        return service.findRouteScheduleOptimized(id);
+    }
+
+    @GetMapping("/stop-schedules/{stopId}")
+    public List<RouteWithSchedulesDTO> getStopSchedule(@PathVariable UUID stopId) {
+        return service.findStopScheduleOptimized(stopId);
+    }
+
     @GetMapping("/search")
     public List<RouteSearchResultDTO> search(
             @RequestParam UUID fromStopId,

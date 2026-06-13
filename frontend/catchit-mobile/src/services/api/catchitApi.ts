@@ -110,6 +110,18 @@ export type BackendRoute = {
   schedules?: BackendRouteSchedule[]
 }
 
+export type RouteSummaryDTO = {
+  id: string
+  name: string
+  stops: {
+    stopId: string
+    stopName: string
+    stopCode?: string | null
+    displayCode?: string | null
+    stopType?: string | null
+  }[]
+}
+
 export type RouteScheduleDTO = {
   id: string
   name?: string
@@ -117,6 +129,7 @@ export type RouteScheduleDTO = {
     stopId: string
     stopName: string
     stopCode?: string
+    displayCode?: string
     stopType?: string | null
     latitude: number
     longitude: number
@@ -130,6 +143,8 @@ type BackendStopRouteArrival = {
   routeId: string
   routeName?: string | null
   nextArrivalAt: string
+  firstStopName?: string | null
+  lastStopName?: string | null
 }
 
 export type BackendVehicleSimulationSnapshot = {
@@ -145,6 +160,7 @@ export type BackendVehicleSimulationSnapshot = {
   progress: number
   updatedAt: string
   vehicleType: string
+  tripId?: string | null
 }
 
 type BackendRouteSearchResult = {
@@ -286,10 +302,11 @@ const mapStop = (stop: BackendStop): Stop => ({
 
 const mapTicketStatus = (status?: any): TicketStatus => {
   const normalized = String(status ?? '').toUpperCase()
-  if (normalized.includes('VALID')) return TicketStatus.Valid
-  if (normalized.includes('EXPIRED')) return TicketStatus.Expired
-  if (normalized.includes('USED')) return TicketStatus.Used
-  return TicketStatus.PurchasedButNotValid
+  if (normalized.includes('UNUSED')) return TicketStatus.PurchasedButNotValid
+  else if (normalized.includes('VALID')) return TicketStatus.Valid
+  else if (normalized.includes('EXPIRED')) return TicketStatus.Expired
+  else if (normalized.includes('USED')) return TicketStatus.Used
+  else return TicketStatus.PurchasedButNotValid
 }
 
 const mapTicket = (ticket: BackendTicket, userId = ''): Ticket => ({
@@ -510,7 +527,7 @@ export class CatchItApiClient {
     return { success: true, data: mapUser(response.data) }
   };
 
-async getUserTickets(userId: string): Promise<ApiResponse<Ticket[]>> {
+  async getUserTickets(userId: string): Promise<ApiResponse<Ticket[]>> {
     try {
       const response = await requestJson<any[]>(`/api/tickets/user/${userId}`)
       if (!response.success || !response.data) {
@@ -526,8 +543,8 @@ async getUserTickets(userId: string): Promise<ApiResponse<Ticket[]>> {
         price: Number(dto.price ?? 0),
         qrCode: '', // Vazio na listagem por motivos de performance!
         status: mapTicketStatus(dto.status),
-        stopFrom: { id: dto.fromStopId, name: dto.fromStopName, latitude: 0, longitude: 0 },
-        stopTo: { id: dto.toStopId, name: dto.toStopName, latitude: 0, longitude: 0 },
+        stopFrom: { id: dto.fromStopId, name: dto.fromStopName, latitude: 0, longitude: 0, stopType: dto.fromStopType },
+        stopTo: { id: dto.toStopId, name: dto.toStopName, latitude: 0, longitude: 0, stopType: dto.toStopType },
       }))
 
       return { success: true, data: mappedTickets }
@@ -539,7 +556,7 @@ async getUserTickets(userId: string): Promise<ApiResponse<Ticket[]>> {
   async getTicketQrCode(ticketId: string): Promise<string> {
     const viteEnv = (import.meta as any).env ?? {}
     const apiBaseUrl = (viteEnv.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
-    
+
     // Retorna diretamente o URL do endpoint que cospe a imagem PNG do QR Code
     return `${apiBaseUrl}/api/tickets/${ticketId}/qrcode`
   }
@@ -755,9 +772,23 @@ async getUserTickets(userId: string): Promise<ApiResponse<Ticket[]>> {
   }
 
   async getRouteSchedules(): Promise<ApiResponse<RouteScheduleDTO[]>> {
-    const response = await requestJson<RouteScheduleDTO[]>('/api/routes/schedules')
-    if (!response.success || !response.data) return { success: false, error: response.error }
-    return { success: true, data: response.data }
+    return await requestJson<RouteScheduleDTO[]>('/api/routes/schedules')
+  }
+
+  async getRouteSummaries(): Promise<ApiResponse<RouteSummaryDTO[]>> {
+    return await requestJson<RouteSummaryDTO[]>('/api/routes/summary')
+  }
+
+  async getRouteSchedule(routeId: string): Promise<ApiResponse<RouteScheduleDTO>> {
+    return await requestJson<RouteScheduleDTO>(`/api/routes/${routeId}/schedule`)
+  }
+
+  async getStopSchedule(stopId: string): Promise<ApiResponse<RouteScheduleDTO[]>> {
+    return await requestJson<RouteScheduleDTO[]>(`/api/routes/stop-schedules/${stopId}`)
+  }
+
+  async getRoutePath(id: string): Promise<ApiResponse<Stop[]>> {
+    return await requestJson<Stop[]>(`/api/routes/${id}/path`)
   }
 
   async getStopRouteArrivals(stopId: string): Promise<ApiResponse<BackendStopRouteArrival[]>> {
@@ -844,6 +875,19 @@ async getUserTickets(userId: string): Promise<ApiResponse<Ticket[]>> {
     const response = await requestJson<Array<{ id: string; startTime?: string; routeName?: string; zoneName?: string; stopIds?: string[] }>>('/api/trips/active')
     if (!response.success || !response.data) return { success: false, error: response.error }
     // Ensure each trip includes zoneName and stopIds (may be undefined)
+    const trips = response.data.map((trip) => ({
+      id: trip.id,
+      startTime: trip.startTime,
+      routeName: trip.routeName,
+      zoneName: trip.zoneName,
+      stopIds: trip.stopIds,
+    }))
+    return { success: true, data: trips }
+  }
+
+  async getActiveTripsForTitle(titleId: string): Promise<ApiResponse<Array<{ id: string; startTime?: string; routeName?: string; zoneName?: string; stopIds?: string[] }>>> {
+    const response = await requestJson<Array<{ id: string; startTime?: string; routeName?: string; zoneName?: string; stopIds?: string[] }>>(`/api/trips/active-for-title/${titleId}`)
+    if (!response.success || !response.data) return { success: false, error: response.error }
     const trips = response.data.map((trip) => ({
       id: trip.id,
       startTime: trip.startTime,
@@ -979,7 +1023,21 @@ async getUserTickets(userId: string): Promise<ApiResponse<Ticket[]>> {
       toLat: String(request.toLat),
       toLon: String(request.toLon),
     })
+    if (request.date) params.append('date', request.date)
+    if (request.time) params.append('time', request.time)
     return requestJson<RoutingPlanResponse>(`/api/routing/plan?${params.toString()}`)
+  }
+
+  async getTripStops(tripId: string, currentStopId: string): Promise<ApiResponse<Array<{ stopId: string; stopName: string; sequence: number; arrivalTime: string }>>> {
+    return requestJson(`/api/trips/${tripId}/stops?currentStopId=${currentStopId}`)
+  }
+
+  async getStop(stopId: string): Promise<ApiResponse<{ id: string; name: string; zone?: { name: string } }>> {
+    return requestJson(`/api/stops/${stopId}`)
+  }
+
+  async getStopZone(stopId: string): Promise<ApiResponse<string>> {
+    return requestJson(`/api/stops/${stopId}/zone`)
   }
 }
 

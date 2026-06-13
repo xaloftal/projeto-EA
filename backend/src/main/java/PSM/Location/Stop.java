@@ -154,6 +154,30 @@ public class Stop implements Subject {
         this.stopCode = _stopCode;
     }
 
+    @JsonProperty("displayCode")
+    public String getDisplayCode() {
+        if (this.name == null || this.name.trim().isEmpty()) {
+            return this.stopCode;
+        }
+        
+        String[] words = this.name.trim().split("\\s+");
+        if (words.length == 1) {
+            return words[0].length() >= 3 ? words[0].substring(0, 3).toUpperCase() : words[0].toUpperCase();
+        }
+        
+        StringBuilder sb = new StringBuilder();
+        for (String w : words) {
+            if (w.length() > 0) {
+                String lower = w.toLowerCase();
+                if (lower.equals("da") || lower.equals("do") || lower.equals("de") || lower.equals("das") || lower.equals("dos") || lower.equals("e")) {
+                    continue;
+                }
+                sb.append(w.substring(0, 1).toUpperCase());
+            }
+        }
+        return sb.toString();
+    }
+
     public VehicleType getStopType() {
         return this.stopType;
     }

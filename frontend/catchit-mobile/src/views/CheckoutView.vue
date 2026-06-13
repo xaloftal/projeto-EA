@@ -36,11 +36,14 @@
       </section>
 
       <section class="section">
-        <h2>ORDER SUMMARY</h2>
+        <div class="summary-header">
+          <h2>ORDER SUMMARY</h2>
+          <span class="item-count">{{ totalItemCount }} items</span>
+        </div>
         <div v-for="item in cartItems" :key="item.id" class="summary-item">
           <div>
             <p class="summary-title">{{ item.title }}</p>
-            <p class="summary-meta">{{ item.description }} · Qty {{ item.quantity }}</p>
+            <p class="summary-meta">Qty {{ item.quantity }}</p>
           </div>
           <strong>€{{ item.totalPrice.toFixed(2) }}</strong>
         </div>
@@ -84,8 +87,8 @@
       <router-link to="/cart" class="nav-item active">
         <ShoppingCart class="nav-icon" />
       </router-link>
-      <router-link to="/notifications" class="nav-item">
-        <Bell class="nav-icon" />
+      <router-link to="/cards" class="nav-item">
+        <Ticket class="nav-icon" />
       </router-link>
       <router-link to="/profile" class="nav-item">
         <User class="nav-icon" />
@@ -96,7 +99,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { ArrowLeft, Bell, CreditCard, House, Map, ShoppingCart, User } from 'lucide-vue-next'
+import { ArrowLeft, Ticket, CreditCard, House, Map, ShoppingCart, User } from 'lucide-vue-next'
 import { useRouter } from 'vue-router'
 import { useCheckoutViewModel, useCardViewModel } from '../viewmodels'
 import { requestJson } from '../services/api/http'
@@ -113,6 +116,10 @@ const checkoutError = ref('')
 
 const sessionId = ref('')
 const checkoutSessionData = ref<{ subtotal: number; taxes: number; discount: number; total: number } | null>(null)
+
+const totalItemCount = computed(() => {
+  return cartItems.value.reduce((acc, item) => acc + item.quantity, 0)
+})
 
 const selectedPaymentMethod = computed(
   () => paymentMethods.value.find((method) => method.id === selectedPaymentMethodId.value) ?? null
@@ -155,16 +162,19 @@ const confirmCheckout = async () => {
 
   isProcessing.value = true
   try {
+    const itemsSnapshot = JSON.stringify(cartItems.value)
     const result = await checkoutViewModel.confirmCheckout(selectedPaymentMethodId.value, sessionId.value)
 
     if (result) {
+      sessionStorage.setItem(`order_${result.orderId}_items`, itemsSnapshot)
       await cardViewModel.fetchUserCards()
       void router.push({
         name: 'checkout-success',
         params: { orderId: result.orderId },
         query: {
           total: checkoutSessionData.value ? checkoutSessionData.value.total.toFixed(2) : total.value.toFixed(2),
-          items: String(cartItems.value.length),
+          tax: checkoutSessionData.value ? checkoutSessionData.value.taxes.toFixed(2) : '0.00',
+          items: String(totalItemCount.value),
           payment: selectedPaymentMethod.value ? labelPaymentMethod(selectedPaymentMethod.value) : 'Payment method',
         },
       })
@@ -274,6 +284,26 @@ const confirmCheckout = async () => {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+}
+
+.summary-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.summary-header h2 {
+  margin-bottom: 0;
+}
+
+.item-count {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-brand);
+  background: rgba(102, 126, 234, 0.1);
+  padding: 0.2rem 0.6rem;
+  border-radius: 99px;
 }
 
 .summary-item {

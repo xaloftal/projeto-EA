@@ -29,7 +29,13 @@ const router = createRouter({
       path: '/map',
       name: 'map',
       component: () => import('../views/MapView.vue'),
-      meta: { keepAlive: true },
+      meta: { keepAlive: true, requiresAuth: true },
+    },
+    {
+      path: '/plantrip',
+      name: 'plantrip',
+      component: () => import('../views/PlanTripView.vue'),
+      meta: { requiresAuth: true },
     },
 
     // ========== SCHEDULE ROUTE ==========
@@ -37,9 +43,10 @@ const router = createRouter({
       path: '/schedule',
       name: 'schedule',
       component: () => import('../views/ScheduleView.vue'),
+      meta: { requiresAuth: true },
     },
 
-     // ========== CHECKIN ROUTE ==========
+    // ========== CHECKIN ROUTE ==========
 
     {
       path: '/checkin/:titleId',
@@ -120,7 +127,7 @@ const router = createRouter({
       meta: { requiresAuth: true },
 
     }
-    
+
   ],
 })
 

@@ -377,7 +377,7 @@ export function useTransportViewModel(titleId?: string) {
     const ticketsResponse = await catchitApi.getUserTickets(currentUser.value.id)
     const ticket = ticketsResponse.data?.find((t) => t.id === localId)
     if (ticket) {
-      titleLabel.value = `🎟️ Ticket: ${ticket.stopFrom?.name ?? '?'} → ${ticket.stopTo?.name ?? '?'}`
+      titleLabel.value = `Ticket: ${ticket.stopFrom?.name ?? '?'} → ${ticket.stopTo?.name ?? '?'}`
       ticketFromStop.value = ticket.stopFrom ?? null
       ticketToStop.value = ticket.stopTo ?? null
       isTicketTitle.value = true
@@ -387,7 +387,7 @@ export function useTransportViewModel(titleId?: string) {
     const cardsResponse = await catchitApi.getUserCards(currentUser.value.id)
     const card = cardsResponse.data?.find((c) => c.id === localId)
     if (card) {
-      titleLabel.value = `🎫 Card: ${card.name}`
+      titleLabel.value = `Card: ${card.name}`
       return
     }
 
@@ -397,9 +397,31 @@ export function useTransportViewModel(titleId?: string) {
   const loadActiveTrips = async () => {
     isLoadingTrips.value = true
     try {
-      const response = await catchitApi.getActiveTrips()
+      const response = titleId
+        ? await catchitApi.getActiveTripsForTitle(titleId)
+        : await catchitApi.getActiveTrips()
+
       if (response.success && response.data) {
-        activeTrips.value = response.data.map((t) => ({
+        const now = new Date().getTime()
+        const routeBestTrip = new Map<string, { trip: any; diff: number }>()
+
+        for (const t of response.data) {
+          const rName = t.routeName ?? 'Unknown route'
+          const tTime = new Date(t.startTime || '').getTime()
+
+          const diff = isNaN(tTime) ? Number.MAX_VALUE : Math.abs(tTime - now)
+
+          if (!routeBestTrip.has(rName)) {
+            routeBestTrip.set(rName, { trip: t, diff })
+          } else {
+            const currentBest = routeBestTrip.get(rName)!
+            if (diff < currentBest.diff) {
+              routeBestTrip.set(rName, { trip: t, diff })
+            }
+          }
+        }
+
+        activeTrips.value = Array.from(routeBestTrip.values()).map(({ trip: t }) => ({
           id: t.id,
           routeName: t.routeName ?? 'Unknown route',
           startTime: formatTime(t.startTime),
@@ -528,25 +550,31 @@ export function useCheckoutViewModel() {
     if (!currentUser.value) return
 
     await fetchCart()
+    const s1 = route.fromStop
+    const s2 = route.toStop
+
+    const sortedIds = [s1.id, s2.id].sort((a, b) => a.localeCompare(b))
+    const ticketId = `ticket_${route.routeId}_${sortedIds[0]}_${sortedIds[1]}`
+    
     const existing = cartItems.value.find(
-      (entry) => entry.kind === 'ticket' && entry.source.routeId === route.routeId
+      (entry) => entry.kind === 'ticket' && entry.id === ticketId
     )
     const resolvedQuantity = existing && existing.kind === 'ticket' ? existing.quantity + quantity : quantity
 
     const payload: CartEntry = {
-      id: `ticket_${route.routeId}`,
+      id: ticketId,
       kind: 'ticket',
-      title: `${route.fromStop.name} → ${route.toStop.name}`,
+      title: `${s1.name} → ${s2.name}`,
       description: `${route.departureTime} - ${route.arrivalTime}`,
       quantity: resolvedQuantity,
       unitPrice: route.price,
       totalPrice: route.price * resolvedQuantity,
       source: {
         routeId: route.routeId,
-        fromStopId: route.fromStop.id,
-        toStopId: route.toStop.id,
-        fromStop: route.fromStop.name,
-        toStop: route.toStop.name,
+        fromStopId: s1.id,
+        toStopId: s2.id,
+        fromStop: s1.name,
+        toStop: s2.name,
         departureTime: route.departureTime,
         arrivalTime: route.arrivalTime,
       },
@@ -559,6 +587,25 @@ export function useCheckoutViewModel() {
     }
 
     error.value = response.error || 'Unable to add ticket to cart'
+  }
+
+  const updateItemQuantity = async (itemId: string, quantity: number) => {
+    if (!currentUser.value) return
+    const existing = cartItems.value.find(i => i.id === itemId)
+    if (!existing) return
+
+    const payload: CartEntry = {
+      ...existing,
+      quantity,
+      totalPrice: existing.unitPrice * quantity
+    }
+
+    const response = await catchitApi.upsertCartItem(payload)
+    if (response.success && response.data) {
+      applyBackendCart(response.data)
+      return
+    }
+    error.value = response.error || 'Unable to update quantity'
   }
 
   const removeFromCart = async (itemId: string) => {
@@ -616,39 +663,39 @@ export function useCheckoutViewModel() {
 
   // Altera a assinatura para aceitar dois parâmetros: paymentMethodId e sessionId
   const confirmCheckout = async (paymentMethodId: string, sessionId: string) => {
-  if (!currentUser.value) {
-    error.value = 'No authenticated user found'
-    return null
-  }
-
-  isLoading.value = true
-  error.value = ''
-
-  try {
-    // Faz o POST para o teu CheckoutController do Backend
-    const response = await requestJson<{ orderId: string }>('/api/checkout/confirm', {
-      method: 'POST',
-      body: JSON.stringify({
-        paymentMethodId: paymentMethodId,
-        sessionId: sessionId, // <-- PASSAMOS AGORA O SESSÃO ID DO REDIS DAQUI
-      }),
-    })
-
-    if (response.success && response.data) {
-      // Limpa o carrinho local se o pagamento correu bem
-      cartItems.value = []
-      return response.data
+    if (!currentUser.value) {
+      error.value = 'No authenticated user found'
+      return null
     }
 
-    error.value = response.error || 'Payment confirmation failed'
-    return null
-  } catch (err: any) {
-    error.value = err.message || 'An unexpected error occurred during confirmation'
-    return null
-  } finally {
-    isLoading.value = false
+    isLoading.value = true
+    error.value = ''
+
+    try {
+      // Faz o POST para o teu CheckoutController do Backend
+      const response = await requestJson<{ orderId: string }>('/api/checkout/confirm', {
+        method: 'POST',
+        body: JSON.stringify({
+          paymentMethodId: paymentMethodId,
+          sessionId: sessionId, // <-- PASSAMOS AGORA O SESSÃO ID DO REDIS DAQUI
+        }),
+      })
+
+      if (response.success && response.data) {
+        // Limpa o carrinho local se o pagamento correu bem
+        cartItems.value = []
+        return response.data
+      }
+
+      error.value = response.error || 'Payment confirmation failed'
+      return null
+    } catch (err: any) {
+      error.value = err.message || 'An unexpected error occurred during confirmation'
+      return null
+    } finally {
+      isLoading.value = false
+    }
   }
-}
 
   return {
     cartItems,
@@ -660,6 +707,7 @@ export function useCheckoutViewModel() {
     error,
     addCardToCart,
     addTicketToCart,
+    updateItemQuantity,
     removeFromCart,
     clearCart,
     fetchCart,

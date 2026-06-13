@@ -1,0 +1,40 @@
+server:
+  port: 8081
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5433/catchitdb
+    username: postgres
+    password: 1234
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 30000
+  
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        default_schema: catchit
+        jdbc:
+          batch_size: 50
+    show-sql: false
+
+logging:
+  level:
+    root: WARN
+    org.hibernate: WARN
+    org.springframework: WARN
+    com.zaxxer.hikari: WARN
+    PSM.config.DatabaseSeeder: OFF
+
+database:
+  seeder:
+    enabled: false
+
+benchmark:
+  mode: true
+  skip-seeder: true

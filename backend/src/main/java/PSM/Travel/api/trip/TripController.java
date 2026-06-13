@@ -10,8 +10,10 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import PSM.Location.api.route.RouteStopDTO;
 import PSM.Travel.Trip;
 
 @RestController
@@ -36,25 +38,40 @@ public class TripController {
     @GetMapping("/active")
     public List<ActiveTripDTO> getActiveTrips() {
         return service.findActiveTrips().stream()
-            .map(t -> {
-                String routeName = t.route != null ? t.route.getName() : "NULL_ROUTE";
-                System.out.println("Trip " + t.getId() + " route: " + routeName);
-                return new ActiveTripDTO(
-                    t.getId().toString(),
-                    t.getStartTime().toString(),
-                    routeName,
-                    t.getRoute().getSchedules().stream()
-                        .map(sch -> sch.getStop().getId().toString())
-                        .distinct()
-                        .toList(),
-                    t.getRoute().getSchedules().stream()
+                .map(this::mapToActiveTripDTO)
+                .toList();
+    }
+
+    @GetMapping("/active-for-title/{titleId}")
+    public List<ActiveTripDTO> getActiveTripsForTitle(@PathVariable UUID titleId) {
+        return service.findActiveTripsForTitle(titleId).stream()
+                .map(this::mapToActiveTripDTO)
+                .toList();
+
+    }
+
+    private ActiveTripDTO mapToActiveTripDTO(Trip t) {
+        String routeName = t.getRoute() != null ? t.getRoute().getName() : "NULL_ROUTE";
+        return new ActiveTripDTO(
+                t.getId().toString(),
+                t.getStartTime().toString(),
+                routeName, null,
+                // t.getRoute() != null ? t.getRoute().getSchedules().stream()
+                // .map(sch -> sch.getStop().getId().toString())
+                // .distinct()
+                // .toList() : java.util.List.of(),
+                t.getRoute() != null ? t.getRoute().getSchedules().stream()
                         .map(sch -> sch.getStop().getZone() != null ? sch.getStop().getZone().getName() : null)
                         .filter(java.util.Objects::nonNull)
                         .findFirst()
-                        .orElse(null)
-                );
-            })
-            .toList();
+                        .orElse(null) : null);
+    }
+
+    @GetMapping("/{id}/stops")
+    public List<RouteStopDTO> getTripStops(
+            @PathVariable UUID id,
+            @RequestParam(required = false) UUID currentStopId) {
+        return service.findTripStops(id, currentStopId);
     }
 
     @PostMapping

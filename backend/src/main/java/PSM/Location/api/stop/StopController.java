@@ -77,6 +77,12 @@ public class StopController {
         return service.findById(id);
     }
 
+    @GetMapping("/{id}/zone")
+    public String getZoneName(@PathVariable UUID id) {
+        Stop stop = service.findById(id);
+        return stop.getZone() != null ? stop.getZone().getName() : null;
+    }
+
     @PostMapping
     public Stop create(@RequestBody Stop entity) {
         return service.create(entity);

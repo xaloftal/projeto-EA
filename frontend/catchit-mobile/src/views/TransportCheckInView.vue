@@ -8,7 +8,7 @@
 
     <div class="content">
       <div v-if="checkInSuccess" class="success-state">
-        <div class="success-icon">✅</div>
+        <div class="success-icon"><CheckCircle class="success-icon-svg" /></div>
         <h2>Check In successful!</h2>
         <p>You are now on a trip. Present the QR Code below if requested.</p>
         
@@ -39,28 +39,36 @@
       <div v-else class="form-state">
         <section class="section">
           <h2>Your title</h2>
-          <div class="title-info">
+          <div class="title-info flex-center">
+            <Ticket v-if="isTicketTitle" class="icon-sm" />
+            <CreditCard v-else class="icon-sm" />
             <p class="option-title">{{ titleLabel }}</p>
           </div>
         </section>
 
-        <section class="section">
+        <section class="section route-planner-section">
           <h2>Select trip</h2>
-          <p v-if="isLoadingTrips" class="loading">Loading trips...</p>
-          <p v-else-if="activeTrips.length === 0" class="empty">No active trips available.</p>
-          <div v-else class="options-list">
+          <p v-if="isLoadingTrips && displayedTrips.length === 0" class="loading">Loading trips...</p>
+          <p v-else-if="activeTrips.length === 0 && !hasMoreTrips" class="empty">No active trips available.</p>
+          <div v-else class="options-list" ref="scrollContainer" @scroll="handleScroll">
             <label
-              v-for="trip in activeTrips"
+              v-for="trip in displayedTrips"
               :key="trip.id"
               class="option-item"
               :class="{ selected: selectedTripId === trip.id }"
             >
               <input type="radio" :value="trip.id" v-model="selectedTripId" />
               <div class="option-info">
-                <p class="option-title"> {{ trip.routeName }}</p>
-                <p class="option-meta">Started at {{ trip.startTime }}</p>
+                <p class="option-title">{{ trip.routeName }}</p>
+                <p class="option-meta">Next trip at {{ trip.startTime }}</p>
               </div>
             </label>
+            <div v-if="isLoadingMore" class="loading-more">
+              <LoaderCircle class="spinner-icon-small" />
+              <span>Loading more trips...</span>
+            </div>
+            <div v-if="!hasMoreTrips && displayedTrips.length > 0" class="end-of-list">
+            </div>
           </div>
         </section>
 
@@ -87,11 +95,10 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, watch, ref } from 'vue'
-import { ArrowLeft, House, Map, ShoppingCart, Ticket, User, LoaderCircle } from 'lucide-vue-next'
+import { onMounted, watch, ref, computed, onUnmounted } from 'vue'
+import { ArrowLeft, House, Map, ShoppingCart, Ticket, User, LoaderCircle, CheckCircle, CreditCard } from 'lucide-vue-next'
 import { useRoute, useRouter } from 'vue-router'
 import { useTransportViewModel } from '../viewmodels'
-// Importa o cliente da API para extrair o URL do QR Code
 import { catchitApi } from '../services/api/catchitApi' 
 
 const route = useRoute()
@@ -109,22 +116,60 @@ const {
   errorMessage,
   checkOutMessage,
   titleLabel,
+  isTicketTitle,
   loadTitleInfo,
   loadActiveTrips,
   handleCheckIn,
   handleCheckOut
 } = transport
 
-// Estados de controlo para carregar o QR Code sob demanda
 const qrCodeUrl = ref<string>('')
 const isLoadingQr = ref<boolean>(false)
+
+const ITEMS_PER_PAGE = 15
+const currentPage = ref(1)
+const isLoadingMore = ref(false)
+const scrollContainer = ref<HTMLElement | null>(null)
+
+const displayedTrips = computed(() => {
+  return activeTrips.value.slice(0, currentPage.value * ITEMS_PER_PAGE)
+})
+
+const hasMoreTrips = computed(() => {
+  return displayedTrips.value.length < activeTrips.value.length
+})
+
+const loadMoreTrips = async () => {
+  if (isLoadingMore.value || !hasMoreTrips.value) return
+  
+  isLoadingMore.value = true
+  
+  await new Promise(resolve => setTimeout(resolve, 300))
+  
+  currentPage.value++
+  isLoadingMore.value = false
+}
+
+const handleScroll = (event: Event) => {
+  const target = event.target as HTMLElement
+  const scrollTop = target.scrollTop
+  const scrollHeight = target.scrollHeight
+  const clientHeight = target.clientHeight
+  
+  if (scrollTop + clientHeight >= scrollHeight * 0.8) {
+    loadMoreTrips()
+  }
+}
+
+watch(activeTrips, () => {
+  currentPage.value = 1
+})
 
 // Função responsável por buscar o endpoint de imagem binária do Java
 const fetchQrCode = async () => {
   if (!titleId) return
   isLoadingQr.value = true
   try {
-    // Invoca o novo método que gera o URL direto para a rota do Controller Java: `/api/tickets/{id}/qrcode`
     qrCodeUrl.value = await catchitApi.getTicketQrCode(titleId)
   } catch (err) {
     console.error('Error fetching QR Code:', err)
@@ -137,13 +182,12 @@ onMounted(() => {
   void loadTitleInfo()
   void loadActiveTrips()
   
-  // Caso o utilizador já entre neste ecrã em estado de Check-in Ativo
   if (checkInSuccess.value) {
     void fetchQrCode()
   }
 })
 
-// Monitoriza o sucesso do check-in. Assim que passar a "true", faz o pedido do QR Code à API
+// Monitoriza o sucesso do check-in
 watch(checkInSuccess, (isSuccess) => {
   if (isSuccess) {
     void fetchQrCode()
@@ -154,6 +198,10 @@ watch(() => checkOutMessage.value, (msg) => {
   if (msg && msg.success) {
     router.push('/home')
   }
+})
+
+onUnmounted(() => {
+  // Cleanup se necessário
 })
 </script>
 
@@ -187,10 +235,22 @@ watch(() => checkOutMessage.value, (msg) => {
   padding: 0.5rem 0;
 }
 
+.flex-center {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.success-icon-svg {
+  width: 3rem;
+  height: 3rem;
+  color: var(--color-primary);
+}
+
 .options-list {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.2rem;
   max-height: 220px;
   overflow-y: auto;
 }
@@ -271,7 +331,6 @@ watch(() => checkOutMessage.value, (msg) => {
   font-size: 0.95rem;
 }
 
-/* Nova estilização para o Contentor do QR Code */
 .qr-container {
   background: white;
   border: 2px dashed #e5e7eb;
@@ -290,7 +349,7 @@ watch(() => checkOutMessage.value, (msg) => {
   width: 200px;
   height: 200px;
   object-fit: contain;
-  image-rendering: pixelated; /* Mantém o QR Code nítido mesmo em ecrãs de alta densidade */
+  image-rendering: pixelated;
 }
 
 .qr-skeleton {
@@ -305,6 +364,13 @@ watch(() => checkOutMessage.value, (msg) => {
 .spinner-icon {
   width: 2rem;
   height: 2rem;
+  color: var(--color-brand);
+  animation: spin 1s linear infinite;
+}
+
+.spinner-icon-small {
+  width: 1rem;
+  height: 1rem;
   color: var(--color-brand);
   animation: spin 1s linear infinite;
 }
@@ -337,6 +403,24 @@ watch(() => checkOutMessage.value, (msg) => {
   color: #6b7280;
   font-size: 0.9rem;
   margin: 0;
+}
+
+.loading-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  color: #6b7280;
+  font-size: 0.875rem;
+}
+
+.end-of-list {
+  text-align: center;
+  padding: 0.75rem;
+  color: #9ca3af;
+  font-size: 0.75rem;
+  font-style: italic;
 }
 
 .msg-error {

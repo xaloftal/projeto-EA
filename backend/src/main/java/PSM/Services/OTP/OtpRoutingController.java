@@ -18,7 +18,9 @@ public class OtpRoutingController {
             @RequestParam double fromLat,
             @RequestParam double fromLon,
             @RequestParam double toLat,
-            @RequestParam double toLon) {
-        return routing.planFewestTransfers(fromLat, fromLon, toLat, toLon);
+            @RequestParam double toLon,
+            @RequestParam(required = false) String date,
+            @RequestParam(required = false) String time) {
+        return routing.planFewestTransfers(fromLat, fromLon, toLat, toLon, date, time);
     }
 }

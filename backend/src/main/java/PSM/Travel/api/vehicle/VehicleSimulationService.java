@@ -21,7 +21,9 @@ import org.springframework.transaction.annotation.Transactional;
 import PSM.Location.Route;
 import PSM.Location.RouteStop;
 import PSM.Location.Stop;
+import PSM.Travel.Trip;
 import PSM.Travel.VehicleType;
+import PSM.Travel.api.trip.TripRepository;
 import jakarta.annotation.PostConstruct;
 
 @Service
@@ -36,20 +38,24 @@ public class VehicleSimulationService {
     private final PSM.Location.api.route.RouteRepository routeRepository;
     private final double speedFactor;
     private final VehicleService vehicleService;
+    private final TripRepository tripRepository;
     private final Map<UUID, VehicleTrack> tracksByVehicleId = new ConcurrentHashMap<>();
     private final Map<UUID, VehicleSimulationSnapshotDTO> latestSnapshots = new ConcurrentHashMap<>();
     
     private final Map<UUID, UUID> lastNotifiedStops = new ConcurrentHashMap<>();
+    private final Map<UUID, UUID> tripIdByVehicleId = new ConcurrentHashMap<>();
 
     public VehicleSimulationService(
             VehicleRepository vehicleRepository,
             PSM.Location.api.route.RouteRepository routeRepository,
             VehicleService vehicleService,
-            @Value("${simulation.vehicle.speed-factor:100.0}") double speedFactor) {
+            @Value("${simulation.vehicle.speed-factor:100.0}") double speedFactor,
+            TripRepository tripRepository) {
         this.vehicleRepository = vehicleRepository;
         this.routeRepository = routeRepository;
         this.speedFactor = speedFactor;
         this.vehicleService = vehicleService;
+        this.tripRepository = tripRepository;
     }
 
     @PostConstruct
@@ -58,12 +64,12 @@ public class VehicleSimulationService {
         recomputeSnapshots();
     }
 
-    // @Scheduled(fixedDelayString = "${simulation.vehicle.refresh-ms:30000}")
+    @Scheduled(fixedDelayString = "${simulation.vehicle.refresh-ms:30000}")
     public void refreshTracks() {
         rebuildTracks();
     }
 
-    // @Scheduled(fixedDelayString = "${simulation.vehicle.tick-ms:1000}")
+    @Scheduled(fixedDelayString = "${simulation.vehicle.tick-ms:1000}")
     public void tick() {
         recomputeSnapshots();
     }
@@ -138,9 +144,22 @@ public class VehicleSimulationService {
     }
     
     private VehicleSimulationSnapshotDTO computeSnapshot(VehicleTrack track, long nowMillis) {
+
         if (track.routeTrack().points().size() < 2 || track.routeTrack().totalDurationSeconds() <= 0) {
             return null;
         }
+
+        UUID tripId = tripIdByVehicleId.computeIfAbsent(
+            track.vehicleId(),
+            id -> {
+                Trip activeTrip = tripRepository
+                    .findActiveByRouteId(track.routeTrack().routeId())
+                    .stream()
+                    .findFirst()
+                    .orElse(null);
+                return activeTrip != null ? activeTrip.getId() : null;
+            }
+        );
 
         long routeSeconds = track.routeTrack().totalDurationSeconds();
         long vehicleOffsetSeconds = Math.floorMod(track.vehicleId().hashCode(), routeSeconds);
@@ -210,7 +229,8 @@ public class VehicleSimulationService {
             next.stopName(),
             progress,
             OffsetDateTime.now(ZONE).toString(),
-            track.vehicleType() != null ? track.vehicleType().name() : null
+            track.vehicleType() != null ? track.vehicleType().name() : null,
+            tripId
     );}
 
     private RouteTrack buildRouteTrack(Route route) {

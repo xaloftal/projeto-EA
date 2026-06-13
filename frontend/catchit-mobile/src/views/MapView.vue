@@ -1,6 +1,10 @@
 <template>
   <div class="search-container" :style="containerStyle">
     <div ref="mapContainer" class="map" :style="mapStyle"></div>
+    <div class="map-attribution">
+      <a href="https://leafletjs.com" target="_blank">Leaflet</a> | 
+      © <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors
+    </div>
 
     <header ref="topOverlayRef" class="app-header map-search-header">
       <div class="map-toolbar">
@@ -20,7 +24,9 @@
         <button class="chip-btn" :class="{ 'active-filter': isFilterActive }" @click="openFilterModal">
           Filter
         </button>
-        <p class="results-count">{{ resultCount }} results</p>
+        <router-link to="/plantrip" class="chip-btn plan-trip-btn">
+          Plan Trip
+        </router-link>
       </div>
 
       <div v-if="apiError" class="map-error-banner">
@@ -97,13 +103,11 @@
           >
             <Star :size="20" :fill="isStopPOI ? 'currentColor' : 'none'" />
           </button>
-          <span class="provider-badge">{{ selectedStop.stopType || 'STOP' }}</span>
+          <span class="provider-badge">{{ selectedStop.stopType ? selectedStop.stopType + ' STOP' : 'STOP' }}</span>
         </div>
       </div>
 
       <template v-if="sheetMode === 'stop' && selectedStop">
-        <p class="line-name">{{ selectedStop.stopType || 'STOP' }} stop information</p>
-        <p class="ids-line">Stop Code: {{ selectedStop.code }}</p>
         <p class="next-stop">Next arrival: {{ nextArrivalLabel }}</p>
 
         <h3 class="route-title">Routes at this stop</h3>
@@ -112,7 +116,12 @@
           :key="route.routeId"
           class="route-item"
         >
-          <span>{{ route.lineLabel }}</span>
+          <div class="route-item-left">
+              <span class="route-label">{{ route.lineLabel }}</span>
+              <span class="route-direction" v-if="route.firstStopName && route.lastStopName">
+                {{ route.firstStopName }} → {{ route.lastStopName }}
+              </span>
+          </div>
           <span class="route-time">
             {{ route.nextTime }}
             <small class="route-eta">{{ route.etaLabel }}</small>
@@ -127,14 +136,16 @@
             <p class="bus-subtitle">
               <MapPin class="icon-xs" />
               Next Stop: {{ selectedBus.nextStopName }}
+              <Clock class="icon-xs" />
+              {{ busEta ?? selectedBus.etaLabel }}
             </p>
           </div>
           <span class="provider-badge">{{ selectedBus.vehicleType }}</span>
         </div>
 
-        <div class="bus-meta-row">
+        <div class="bus-meta-row" v-if="busZone">
           <span class="bus-zone">
-            <Star class="icon-xs" /> Coroa 1
+            <Star class="icon-xs" /> {{ busZone }}
           </span>
         </div>
 
@@ -173,7 +184,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onActivated, onMounted, onUnmounted, ref, watch } from 'vue'
-import { House, Map as MapIcon, Search, ShoppingCart, User, Ticket, Star, MapPin, X } from 'lucide-vue-next'
+import { House, Map as MapIcon, Search, ShoppingCart, User, Ticket, Star } from 'lucide-vue-next'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { catchitApi, type BackendVehicleSimulationSnapshot } from '../services/api/catchitApi'
@@ -194,6 +205,8 @@ type BackendStopRouteArrival = {
   routeId: string
   routeName?: string | null
   nextArrivalAt: string
+  firstStopName?: string | null
+  lastStopName?: string | null
 }
 
 type StopRouteInfo = {
@@ -202,6 +215,8 @@ type StopRouteInfo = {
   nextArrivalAt: Date
   nextTime: string
   etaLabel: string
+  firstStopName: string | null
+  lastStopName: string | null
 }
 
 type ActiveBus = {
@@ -218,6 +233,7 @@ type ActiveBus = {
   etaLabel: string
   updatedAt: string
   vehicleType: String
+  tripId: string | null
 }
 
 const mapContainer = ref<HTMLElement | null>(null)
@@ -245,6 +261,8 @@ const isLoadingPOI = ref(false)
 const stopRouteArrivals = ref<BackendStopRouteArrival[]>([])
 const { currentUser } = useAuthViewModel()
 const routeStops = ref<Array<{ stopId: string; stopName: string; sequence: number; arrivalTime: string }>>([])
+const busZone = ref<string | null>(null)
+const busEta = ref<string | null>(null)
 
 // ESTADOS DO FILTRO
 const showFilterModal = ref(false)
@@ -263,7 +281,7 @@ let selectedBusDashOffset = 0
 let tickIntervalId: number | null = null
 let clockIntervalId: number | null = null
 const stopMarkers = new Map<string, L.CircleMarker>()
-const busMarkers = new Map<string, L.CircleMarker>()
+const busMarkers = new Map<string, L.Marker | L.CircleMarker>()
 const portoCenter: [number, number] = [41.1579, -8.6291]
 const portugalNorthBounds = L.latLngBounds([40.5, -9.0], [42.0, -7.5])
 
@@ -346,8 +364,10 @@ const stopRouteInfo = computed(() => {
         routeId: arrival.routeId,
         lineLabel: arrival.routeName?.trim() || arrival.routeId.slice(0, 8),
         nextArrivalAt,
-        nextTime: nextArrivalAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        nextTime: nextArrivalAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         etaLabel: formatCountdown(nextArrivalAt.getTime() - now.getTime()),
+        firstStopName: arrival.firstStopName ?? null,
+        lastStopName: arrival.lastStopName ?? null,
       }
     })
     .filter((entry): entry is StopRouteInfo => !!entry)
@@ -371,10 +391,6 @@ const stopById = computed(() => {
   }
   return map
 })
-
-const resultCount = computed(() =>
-  stopQuery.value.trim() ? filteredStops.value.length : stopsToShow.value.length
-)
 
 const visibleSuggestions = computed(() =>
   showSuggestions.value && stopQuery.value.trim().length > 0 && filteredStops.value.length > 0
@@ -496,7 +512,7 @@ const getTransportTypeColor = (stopType?: string) => {
   const type = stopType?.toUpperCase()
   switch (type) {
     case 'BUS': return { color: '#0ea5e9', fillColor: '#0ea5e9', label: 'Bus' }
-    case 'TRAIN': return { color: '#f97316', fillColor: '#f97316', label: 'Train' }
+
     case 'METRO': return { color: '#ec4899', fillColor: '#ec4899', label: 'Metro' }
     default: return { color: '#64748b', fillColor: '#64748b', label: 'Stop' }
   }
@@ -611,8 +627,18 @@ const drawBusMarkers = () => {
 
   for (const bus of activeBuses.value) {
     const isActive = bus.busId === selectedBusId.value
-    const color = isActive ? '#111827' : '#0284c7'
-    const haloColor = isActive ? '#111827' : '#38bdf8'
+    const typeInfo = getTransportTypeColor(bus.vehicleType as string)
+    let color = isActive ? '#111827' : typeInfo.color
+    const haloColor = isActive ? '#111827' : typeInfo.fillColor
+    
+    // Make vehicles slightly darker than stops for better contrast
+    if (!isActive) {
+      if (bus.vehicleType === 'BUS') {
+        color = '#0284c7'
+      } else if (bus.vehicleType === 'METRO') {
+        color = '#be185d'
+      }
+    }
 
     L.circleMarker([bus.latitude, bus.longitude], {
       radius: isActive ? 15 : 12, weight: 2, fillColor: haloColor, fillOpacity: isActive ? 0.18 : 0.14, interactive: false,
@@ -627,7 +653,7 @@ const drawBusMarkers = () => {
         selectedStopId.value = bus.nextStopId
         await openSheetWithAnimation()
       })
-      .addTo(busMarkersLayer) // TypeScript agora aceita sem reclamar
+      .addTo(busMarkersLayer) 
 
     marker.bringToFront()
     busMarkers.set(bus.busId, marker)
@@ -715,10 +741,11 @@ const mapSimulationSnapshotToBus = (snapshot: BackendVehicleSimulationSnapshot):
     previousStopName: snapshot.previousStopName,
     nextStopId: snapshot.nextStopId,
     nextStopName: snapshot.nextStopName,
-    etaLabel: formatCountdown((1 - progress) * 60000),
+    progress,
+    etaLabel: '',
     updatedAt: snapshot.updatedAt,
     vehicleType: snapshot.vehicleType,
-    progress: progress
+    tripId: snapshot.tripId ? String(snapshot.tripId) : null,
   }
 }
 
@@ -777,25 +804,64 @@ watch(selectedStopId, () => {
 // Redesenha as paragens quando a lista filtrada de paragens muda
 watch(stopsToShow, () => { drawStopMarkers() }, { deep: true })
 
-watch(selectedBusId, async () => {
-  drawBusMarkers()
-  updateSelectedBusArrow()
-
-  if (selectedBus.value?.routeId) {
-    const response = await catchitApi.getRouteStops(selectedBus.value.routeId)
-    if (response.success && response.data) {
-      routeStops.value = response.data.sort((a, b) => b.sequence - a.sequence)
-    }
-  } else {
-    routeStops.value = []
-  }
-})
+<<<<<<< HEAD
+=======
 // Redesenha os autocarros quando a lista filtrada de autocarros muda
 watch(activeBuses, () => { drawBusMarkers() }, { deep: true })
 
-watch(selectedBusId, () => { drawBusMarkers(); updateSelectedBusArrow() })
-watch(selectedStop, async () => { await nextTick(); measureSheetHeight() })
-watch(visibleSuggestions, async () => { await nextTick(); measureTopOverlayHeight() })
+>>>>>>> a37f67bec088bde76d39bd727dba1063d1ec38d4
+watch(selectedBusId, async () => {
+  drawBusMarkers()
+  updateSelectedBusArrow()
+  busZone.value = null
+  routeStops.value = []
+  busEta.value = null
+
+  if (!selectedBus.value?.tripId) return
+  
+  const [tripResponse, stopResponse] = await Promise.all([
+    catchitApi.getTripStops(
+      selectedBus.value.tripId,
+      selectedBus.value.previousStopId
+    ),
+    selectedBus.value.previousStopId
+      ? catchitApi.getStopZone(selectedBus.value.previousStopId)
+      : Promise.resolve({ success: false, data: undefined })
+  ])
+
+  if (stopResponse.success && stopResponse.data) {
+    busZone.value = stopResponse.data
+  }
+
+  if (tripResponse.success && tripResponse.data) {
+    routeStops.value = tripResponse.data.sort((a, b) => a.sequence - b.sequence)
+
+    const nextStop = tripResponse.data.find(s => s.stopName === selectedBus.value?.nextStopName)
+    if (nextStop?.arrivalTime) {
+      const now = new Date()
+      const [hours, minutes] = nextStop.arrivalTime.split(':').map(Number)
+      const arrivalTime = new Date()
+      arrivalTime.setHours(hours, minutes, 0, 0)
+      const diffMs = arrivalTime.getTime() - now.getTime()
+      const diffMinutes = Math.ceil(diffMs / 60000)
+      if (diffMinutes > 0) {
+        busEta.value = `in ${diffMinutes}m`
+      } else {
+        busEta.value = 'arriving'
+      }
+    }
+  }
+})
+
+watch(selectedStop, async () => {
+  await nextTick()
+  measureSheetHeight()
+})
+
+watch(visibleSuggestions, async () => {
+  await nextTick()
+  measureTopOverlayHeight()
+})
 
 onMounted(async () => {
   await nextTick()
@@ -809,7 +875,7 @@ onMounted(async () => {
     attribution: '&copy; OpenStreetMap contributors',
   }).addTo(map)
 
-  L.control.zoom({ position: 'bottomleft' }).addTo(map)
+  L.control.zoom({ position: 'topright' }).addTo(map)
 
   stopMarkersLayer = L.layerGroup().addTo(map)
   busMarkersLayer = L.layerGroup().addTo(map)
@@ -959,6 +1025,17 @@ onUnmounted(() => {
   border-color: var(--color-brand, #4f46e5);
 }
 
+.plan-trip-btn {
+  margin-left: auto;
+  text-decoration: none;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  background: var(--color-brand, #4f46e5);
+  color: white;
+  border-color: var(--color-brand, #4f46e5);
+}
+
 .results-count {
   margin: 0 0 0 auto;
   font-size: 0.88rem;
@@ -1095,7 +1172,20 @@ onUnmounted(() => {
 }
 
 .bottom-sheet.is-dragging { transition: none; }
-.drag-area { padding: 0.5rem 0; margin-top: -0.5rem; touch-action: none; cursor: grab; }
+.drag-area {
+  padding: 0.8rem 0 0.5rem;
+  margin-top: -0.6rem;
+  margin-left: -1rem;
+  margin-right: -1rem;
+  margin-bottom: 0.5rem;
+  touch-action: none;
+  cursor: grab;
+  position: sticky;
+  top: -0.6rem;
+  z-index: 10;
+  background: rgba(255, 255, 255, 0.98);
+  border-radius: 16px 16px 0 0;
+}
 .drag-handle { width: 42px; height: 4px; border-radius: 999px; background: #d1d5db; margin: 0 auto; }
 .sheet-header { display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; }
 .sheet-header-actions { display: flex; align-items: center; gap: 0.6rem; }
@@ -1113,6 +1203,7 @@ onUnmounted(() => {
   transition: color 0.2s ease;
   padding: 0;
 }
+
 .poi-btn:hover { color: #fbbf24; }
 .poi-btn.is-added { color: #fbbf24; }
 .poi-btn:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -1125,87 +1216,33 @@ onUnmounted(() => {
 .route-item { display: flex; justify-content: space-between; align-items: center; padding: 0.45rem 0; color: #111827; }
 .route-time { display: inline-flex; flex-direction: column; align-items: flex-end; line-height: 1.1; }
 .route-eta { margin-top: 0.2rem; color: #6b7280; font-size: 0.72rem; font-weight: 600; }
+.route-item-light { color: #4b5563; }
 
+.bus-header-left { display: flex; flex-direction: column; gap: 0.2rem; }
+.bus-subtitle { margin: 0; color: #6b7280; font-size: 0.88rem; display: flex; align-items: center; gap: 0.3rem; }
+.bus-meta-row { display: flex; align-items: center; gap: 0.75rem; margin: 0.4rem 0 0.2rem; }
+.bus-zone { display: flex; align-items: center; gap: 0.25rem; font-size: 0.85rem; color: #6b7280; }
+
+.route-timeline { display: flex; flex-direction: column; padding-left: 0.25rem; gap: 0; }
+.timeline-item { display: flex; align-items: center; gap: 0.75rem; position: relative; padding: 0.35rem 0; justify-content: space-between; }
+.timeline-line { position: absolute; left: 5px; top: -0.35rem; bottom: 0.6rem; width: 2px; background: #d1d5db; }
+.timeline-dot { width: 12px; height: 12px; border-radius: 50%; border: 2px solid #d1d5db; background: white; flex-shrink: 0; margin-top: 3px; z-index: 1; }
+.timeline-dot--large { width: 14px; height: 14px; border-color: #9ca3af; }
+.timeline-dot--active { border-color: var(--color-brand); background: var(--color-brand); }
+.timeline-content { flex: 1; display: flex; flex-direction: column; gap: 0.1rem; }
+.timeline-stop-name { font-size: 0.9rem; color: #111827; font-weight: 500; }
+.timeline-eta { font-size: 0.78rem; color: #6b7280; }
+.timeline-time { font-size: 0.85rem; color: #6b7280; white-space: nowrap; }
+.timeline-dot--passed { border-color: #9ca3af; background: #9ca3af; }
+.stop-passed { color: #9ca3af; }
+
+.route-item-left { display: flex; flex-direction: column; gap: 0.2rem; }
+.route-label { font-weight: 700; color: #111827; }
+.route-direction { font-size: 0.78rem; color: #6b7280; }
+
+.map-attribution { position: absolute; top: calc(var(--header-height) + 0.25rem); right: 0.5rem; z-index: 700; font-size: 0.7rem; color: #333; background: rgba(255, 255, 255, 0.8); padding: 2px 5px; border-radius: 4px; }
+.map-attribution a { color: #0078a8; text-decoration: none; }
 .bottom-nav { position: absolute; left: 0; right: 0; bottom: 0; z-index: 800; }
-.nav-item { padding: 0.75rem; }
-.nav-item.active { color: var(--color-brand); }
-.icon-sm { width: 1rem; height: 1rem; }
-
-.poi-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.sheet-header h2 {
-  margin: 0;
-  font-size: 1.4rem;
-  font-weight: 700;
-  color: #111827;
-  line-height: 1.1;
-}
-
-.provider-badge {
-  border-radius: 999px;
-  padding: 0.35rem 0.9rem;
-  font-size: 0.9rem;
-  font-weight: 700;
-  background: #e5e7eb;
-  color: #4b5563;
-}
-
-.line-name,
-.next-stop {
-  margin: 0.4rem 0;
-  color: #6b7280;
-}
-
-.ids-line {
-  margin: 0.2rem 0 0.35rem;
-  color: #374151;
-  font-weight: 600;
-  font-size: 0.9rem;
-}
-
-.route-title {
-  margin: 0.85rem 0 0.5rem;
-  font-size: 1.1rem;
-  color: #111827;
-}
-
-.route-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.45rem 0;
-  color: #111827;
-}
-
-.route-time {
-  display: inline-flex;
-  flex-direction: column;
-  align-items: flex-end;
-  line-height: 1.1;
-}
-
-.route-eta {
-  margin-top: 0.2rem;
-  color: #6b7280;
-  font-size: 0.72rem;
-  font-weight: 600;
-}
-
-.route-item-light {
-  color: #4b5563;
-}
-
-.bottom-nav {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 800;
-}
-
 .nav-item {
   padding: 0.75rem;
 }
@@ -1219,126 +1256,16 @@ onUnmounted(() => {
   height: 1rem;
 }
 
-.bus-header-left {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
+
+
+:global(.leaflet-bottom) { bottom: var(--leaflet-controls-bottom, 88px); }
+:global(.leaflet-bottom .leaflet-control) { margin-bottom: -40px; }
+
+:global(.leaflet-control-attribution) {
+  display: none;
 }
 
-.bus-subtitle {
-  margin: 0;
-  color: #6b7280;
-  font-size: 0.88rem;
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
-}
-
-.bus-meta-row {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin: 0.4rem 0 0.2rem;
-}
-
-.bus-zone {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  font-size: 0.85rem;
-  color: #6b7280;
-}
-
-.icon-xs {
-  width: 0.85rem;
-  height: 0.85rem;
-}
-
-.route-timeline {
-  display: flex;
-  flex-direction: column;
-  padding-left: 0.25rem;
-  gap: 0;
-}
-
-.timeline-item {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  position: relative;
-  padding: 0.35rem 0;
-  justify-content: space-between;
-}
-
-.timeline-line {
-  position: absolute;
-  left: 5px;
-  top: -0.35rem;
-  bottom: 0.6rem;
-  width: 2px;
-  background: #d1d5db;
-}
-
-.timeline-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  border: 2px solid #d1d5db;
-  background: white;
-  flex-shrink: 0;
-  margin-top: 3px;
-  z-index: 1;
-}
-
-.timeline-dot--large {
-  width: 14px;
-  height: 14px;
-  border-color: #9ca3af;
-}
-
-.timeline-dot--active {
-  border-color: var(--color-brand);
-  background: var(--color-brand);
-}
-
-.timeline-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-}
-
-.timeline-stop-name {
-  font-size: 0.9rem;
-  color: #111827;
-  font-weight: 500;
-}
-
-.timeline-eta {
-  font-size: 0.78rem;
-  color: #6b7280;
-}
-
-.timeline-time {
-  font-size: 0.85rem;
-  color: #6b7280;
-  white-space: nowrap;
-}
-
-.timeline-dot--passed {
-  border-color: #9ca3af;
-  background: #9ca3af;
-}
-
-.stop-passed {
-  color: #9ca3af;
-}
-
-:global(.leaflet-bottom) {
-  bottom: var(--leaflet-controls-bottom, 88px);
-}
-
-:global(.leaflet-bottom .leaflet-control) {
-  margin-bottom: -40px;
+:global(.leaflet-top.leaflet-right) {
+  top: 1rem;
 }
 </style>
