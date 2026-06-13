@@ -62,11 +62,55 @@ public class DatabaseTicketingTransactionalBenchmark {
     private ZoneRepository zoneRepository;
 
     // ========== CONFIGURAÇÕES DE CARGA ==========
-private int iterations = 10000;      // Stress
-private int batchSize = 2000;        // Stress  
-private int threads = 100;           // Stress
-private int concurrentOps = 10000;   // Stress
+private static final String CARGA = "ALTO";  
 
+// Cálculo automático dos valores baseado no nível
+private int iterations;
+private int batchSize;
+private int threads;
+private int concurrentOps;
+
+{
+    switch (CARGA) {
+        case "NORMAL":
+            iterations = 200;
+            batchSize = 100;
+            threads = 10;
+            concurrentOps = 1000;
+            break;
+        case "MEDIO":
+            iterations = 500;
+            batchSize = 200;
+            threads = 20;
+            concurrentOps = 2000;
+            break;
+        case "ALTO":
+            iterations = 1000;
+            batchSize = 300;
+            threads = 30;
+            concurrentOps = 3000;
+            break;
+        case "MUITO_ALTO":
+            iterations = 2000;
+            batchSize = 500;
+            threads = 50;
+            concurrentOps = 5000;
+            break;
+        case "EXTREME":
+            iterations = 5000;
+            batchSize = 1000;
+            threads = 80;
+            concurrentOps = 8000;
+            break;
+        case "STRESS":
+        default:
+            iterations = 10000;
+            batchSize = 2000;
+            threads = 100;
+            concurrentOps = 10000;
+            break;
+    }
+}
     private static class TestMetrics {
         String testName;
         String operation;

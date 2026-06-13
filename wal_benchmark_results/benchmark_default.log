@@ -1,0 +1,376 @@
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by com.google.common.util.concurrent.AbstractFuture$UnsafeAtomicHelper (file:/usr/share/maven/lib/guava.jar)
+WARNING: Please consider reporting this to the maintainers of class com.google.common.util.concurrent.AbstractFuture$UnsafeAtomicHelper
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+[[1;34mINFO[m] Scanning for projects...
+[[1;33mWARNING[m] 
+[[1;33mWARNING[m] Some problems were encountered while building the effective model for PSM:backend:jar:0.0.1-SNAPSHOT
+[[1;33mWARNING[m] 'dependencies.dependency.(groupId:artifactId:type:classifier)' must be unique: org.springframework.boot:spring-boot-starter-data-redis:jar -> duplicate declaration of version (?) @ line 44, column 17
+[[1;33mWARNING[m] 
+[[1;33mWARNING[m] It is highly recommended to fix these problems because they threaten the stability of your build.
+[[1;33mWARNING[m] 
+[[1;33mWARNING[m] For this reason, future Maven versions might no longer support building such malformed projects.
+[[1;33mWARNING[m] 
+[[1;34mINFO[m] 
+[[1;34mINFO[m] [1m----------------------------< [0;36mPSM:backend[0;1m >-----------------------------[m
+[[1;34mINFO[m] [1mBuilding backend 0.0.1-SNAPSHOT[m
+[[1;34mINFO[m] [1m--------------------------------[ jar ]---------------------------------[m
+[[1;34mINFO[m] 
+[[1;34mINFO[m] [1m>>> [0;32mspring-boot-maven-plugin:3.3.5:run[m [1m(default-cli)[0;1m > [0;1mtest-compile[m @ [36mbackend[0;1m >>>[m
+[[1;34mINFO[m] 
+[[1;34mINFO[m] [1m--- [0;32mmaven-resources-plugin:3.3.1:resources[m [1m(default-resources)[m @ [36mbackend[0;1m ---[m
+[[1;34mINFO[m] Copying 2 resources from src/main/resources to target/classes
+[[1;34mINFO[m] Copying 4 resources from src/main/resources to target/classes
+[[1;34mINFO[m] 
+[[1;34mINFO[m] [1m--- [0;32mmaven-compiler-plugin:3.13.0:compile[m [1m(default-compile)[m @ [36mbackend[0;1m ---[m
+[[1;34mINFO[m] Nothing to compile - all classes are up to date.
+[[1;34mINFO[m] 
+[[1;34mINFO[m] [1m--- [0;32mmaven-resources-plugin:3.3.1:testResources[m [1m(default-testResources)[m @ [36mbackend[0;1m ---[m
+[[1;34mINFO[m] skip non existing resourceDirectory /home/gojalo/mei/pea/projeto-EA/backend/src/test/resources
+[[1;34mINFO[m] 
+[[1;34mINFO[m] [1m--- [0;32mmaven-compiler-plugin:3.13.0:testCompile[m [1m(default-testCompile)[m @ [36mbackend[0;1m ---[m
+[[1;34mINFO[m] Recompiling the module because of [1mchanged source code[m.
+[[1;34mINFO[m] Compiling 1 source file with javac [debug parameters release 17] to target/test-classes
+[[1;34mINFO[m] 
+[[1;34mINFO[m] [1m<<< [0;32mspring-boot-maven-plugin:3.3.5:run[m [1m(default-cli)[0;1m < [0;1mtest-compile[m @ [36mbackend[0;1m <<<[m
+[[1;34mINFO[m] 
+[[1;34mINFO[m] 
+[[1;34mINFO[m] [1m--- [0;32mspring-boot-maven-plugin:3.3.5:run[m [1m(default-cli)[m @ [36mbackend[0;1m ---[m
+[[1;34mINFO[m] Attaching agents: []
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+
+ :: Spring Boot ::                (v3.3.5)
+
+2026-06-13T16:34:35.295+01:00  INFO 178996 --- [           main] PSM.CatchItApplication                   : Starting CatchItApplication using Java 25.0.3 with PID 178996 (/home/gojalo/mei/pea/projeto-EA/backend/target/classes started by gojalo in /home/gojalo/mei/pea/projeto-EA/backend)
+2026-06-13T16:34:35.298+01:00  INFO 178996 --- [           main] PSM.CatchItApplication                   : The following 1 profile is active: "db-only"
+2026-06-13T16:34:35.956+01:00  INFO 178996 --- [           main] .s.d.r.c.RepositoryConfigurationDelegate : Multiple Spring Data modules found, entering strict repository configuration mode
+2026-06-13T16:34:35.958+01:00  INFO 178996 --- [           main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-06-13T16:34:36.096+01:00  INFO 178996 --- [           main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 132 ms. Found 16 JPA repository interfaces.
+WARNING: A restricted method in java.lang.System has been called
+WARNING: java.lang.System::load has been called by org.apache.tomcat.jni.Library in an unnamed module (file:/home/gojalo/.m2/repository/org/apache/tomcat/embed/tomcat-embed-core/10.1.31/tomcat-embed-core-10.1.31.jar)
+WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning for callers in this module
+WARNING: Restricted methods will be blocked in a future release unless native access is enabled
+
+2026-06-13T16:34:36.748+01:00  INFO 178996 --- [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 8080 (http)
+2026-06-13T16:34:36.757+01:00  INFO 178996 --- [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-06-13T16:34:36.757+01:00  INFO 178996 --- [           main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.31]
+2026-06-13T16:34:36.795+01:00  INFO 178996 --- [           main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
+2026-06-13T16:34:36.795+01:00  INFO 178996 --- [           main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 1451 ms
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::allocateMemory has been called by io.netty.util.internal.PlatformDependent0$2 (file:/home/gojalo/.m2/repository/io/netty/netty-common/4.1.114.Final/netty-common-4.1.114.Final.jar)
+WARNING: Please consider reporting this to the maintainers of class io.netty.util.internal.PlatformDependent0$2
+WARNING: sun.misc.Unsafe::allocateMemory will be removed in a future release
+2026-06-13T16:34:37.210+01:00  INFO 178996 --- [           main] o.hibernate.jpa.internal.util.LogHelper  : HHH000204: Processing PersistenceUnitInfo [name: default]
+2026-06-13T16:34:37.238+01:00  INFO 178996 --- [           main] org.hibernate.Version                    : HHH000412: Hibernate ORM core version 6.5.3.Final
+2026-06-13T16:34:37.257+01:00  INFO 178996 --- [           main] o.h.c.internal.RegionFactoryInitiator    : HHH000026: Second-level cache disabled
+2026-06-13T16:34:37.424+01:00  INFO 178996 --- [           main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-06-13T16:34:37.440+01:00  INFO 178996 --- [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+2026-06-13T16:34:37.533+01:00  INFO 178996 --- [           main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection org.postgresql.jdbc.PgConnection@339cde4b
+2026-06-13T16:34:37.535+01:00  INFO 178996 --- [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
+2026-06-13T16:34:37.553+01:00  WARN 178996 --- [           main] org.hibernate.orm.deprecation            : HHH90000025: PostgreSQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+2026-06-13T16:34:38.445+01:00  INFO 178996 --- [           main] o.h.e.t.j.p.i.JtaPlatformInitiator       : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-06-13T16:34:38.713+01:00  INFO 178996 --- [           main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-06-13T16:34:39.163+01:00  INFO 178996 --- [           main] o.s.d.j.r.query.QueryEnhancerFactory     : Hibernate is in classpath; If applicable, HQL parser will be used.
+2026-06-13T16:34:42.530+01:00  WARN 178996 --- [           main] JpaBaseConfiguration$JpaWebConfiguration : spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2026-06-13T16:34:42.560+01:00  WARN 178996 --- [           main] .s.s.UserDetailsServiceAutoConfiguration : 
+
+Using generated security password: 9f8bcfed-2ac4-45f3-8526-1fd08a775532
+
+This generated password is for development use only. Your security configuration must be updated before running your application in production.
+
+2026-06-13T16:34:42.569+01:00  INFO 178996 --- [           main] r$InitializeUserDetailsManagerConfigurer : Global AuthenticationManager configured with UserDetailsService bean with name inMemoryUserDetailsManager
+2026-06-13T16:34:43.338+01:00  INFO 178996 --- [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port 8080 (http) with context path '/'
+2026-06-13T16:34:43.340+01:00  INFO 178996 --- [           main] o.s.m.s.b.SimpleBrokerMessageHandler     : Starting...
+2026-06-13T16:34:43.341+01:00  INFO 178996 --- [           main] o.s.m.s.b.SimpleBrokerMessageHandler     : BrokerAvailabilityEvent[available=true, SimpleBrokerMessageHandler [org.springframework.messaging.simp.broker.DefaultSubscriptionRegistry@5e95b456]]
+2026-06-13T16:34:43.344+01:00  INFO 178996 --- [           main] o.s.m.s.b.SimpleBrokerMessageHandler     : Started.
+2026-06-13T16:34:43.357+01:00  INFO 178996 --- [           main] PSM.CatchItApplication                   : Started CatchItApplication in 8.379 seconds (process running for 8.605)
+🚀 A iniciar Benchmark Transacional de Ticketing...
+
+🔧 CONFIGURAÇÃO DO BENCHMARK:
+   Iterations: 1000
+   Batch Size: 300
+   Threads: 30
+   Concurrent Ops: 3000
+
+📊 PREPARANDO DADOS DE TESTE...
+
+  ✅ 50 utilizadores, 1755 stops, 22 zonas
+
+
+
+╔═══════════════════════════════════════════════════════════════════════════════╗
+║              TICKETING TRANSACTIONAL BENCHMARK                                ║
+║              Testes de Tickets, Cards, Packs e Estados                       ║
+╚═══════════════════════════════════════════════════════════════════════════════╝
+
+
+📁 Resultados serão salvos em: benchmark_ticketing_20260613_163443.csv
+
+📝 INSERT Ticket
+   INSERT INTO title (title_type, created_at, valid_from, valid_until, price, state_name, user_id) VALUES ('ticket', ?, ?, ?, ?, ?, ?)
+   Criação de ticket básico (sem stops)
+
+  ✅ Throughput: 458.93 ops/segundo
+  ✅ Avg latency: 1.56 ms
+  ✅ Min latency: 1.00 ms
+  ✅ Max latency: 10.00 ms
+  ✅ P95 latency: 3.00 ms
+  ✅ P99 latency: 4.00 ms
+  ✅ Success rate: 100.0% (1000/1000)
+
+📝 INSERT Ticket with Stops
+   INSERT INTO ticket (from_id, to_id, ...) VALUES (?, ?, ...)
+   Criação de ticket com origem e destino
+
+  ✅ Throughput: 274.57 ops/segundo
+  ✅ Avg latency: 3.23 ms
+  ✅ Min latency: 2.00 ms
+  ✅ Max latency: 14.00 ms
+  ✅ P95 latency: 4.00 ms
+  ✅ P99 latency: 6.00 ms
+  ✅ Success rate: 100.0% (1000/1000)
+
+📦 BATCH INSERT Tickets
+   INSERT INTO title (...) VALUES (...), (...), ...
+   Inserção em lote de tickets
+
+  ✅ Total time: 605 ms
+  ✅ Total operations: 900
+  ✅ Throughput: 1487.60 ops/segundo
+  ✅ Avg latency: 0.00 ms
+  ✅ Success rate: 100.0%
+
+✏️ UPDATE Ticket State
+   UPDATE title SET state_name = ? WHERE id = ?
+   Atualização do estado do ticket (UNUSED → ACTIVE)
+
+  ✅ Throughput: 437.83 ops/segundo
+  ✅ Avg latency: 1.86 ms
+  ✅ Min latency: 1.00 ms
+  ✅ Max latency: 20.00 ms
+  ✅ P95 latency: 3.00 ms
+  ✅ P99 latency: 5.00 ms
+  ✅ Success rate: 100.0% (1000/1000)
+
+🔍 SELECT Ticket by ID
+   SELECT * FROM title WHERE id = ?
+   Busca de ticket por ID (com EntityGraph de stops)
+
+  ✅ Throughput: 1070.09 ops/segundo
+  ✅ Avg latency: 0.13 ms
+  ✅ Success rate: 100.0%
+
+👥 SELECT Tickets by User
+   Query com JOINs e ORDER BY CASE
+   Query complexa: tickets do utilizador com JOINs
+
+  ✅ Throughput: 134.01 ops/segundo
+  ✅ Avg latency: 7.00 ms
+  ✅ Success rate: 100.0%
+
+💳 INSERT Card
+   INSERT INTO title (title_type, created_at, valid_from, valid_until, price, state_name, user_id) VALUES ('card', ?, ?, ?, ?, ?, ?)
+   Criação de cartão básico
+
+  ✅ Throughput: 545.26 ops/segundo
+  ✅ Avg latency: 1.18 ms
+  ✅ Min latency: 1.00 ms
+  ✅ Max latency: 5.00 ms
+  ✅ P95 latency: 2.00 ms
+  ✅ P99 latency: 3.00 ms
+  ✅ Success rate: 100.0% (1000/1000)
+
+💳 INSERT Card with Zone
+   INSERT INTO card (zone_id, ...) VALUES (?, ...)
+   Criação de cartão com zona associada
+
+  ✅ Throughput: 421.94 ops/segundo
+  ✅ Avg latency: 2.05 ms
+  ✅ Min latency: 2.00 ms
+  ✅ Max latency: 4.00 ms
+  ✅ P95 latency: 2.00 ms
+  ✅ P99 latency: 3.00 ms
+  ✅ Success rate: 100.0% (1000/1000)
+
+✏️ UPDATE Card
+   UPDATE title SET state_name = ? WHERE id = ?
+   Atualização do cartão (renovação)
+
+  ✅ Throughput: 491.88 ops/segundo
+  ✅ Avg latency: 1.37 ms
+  ✅ Min latency: 1.00 ms
+  ✅ Max latency: 10.00 ms
+  ✅ P95 latency: 2.00 ms
+  ✅ P99 latency: 3.00 ms
+  ✅ Success rate: 100.0% (1000/1000)
+
+📦 INSERT TicketPack
+   INSERT INTO ticketpack (id, discount) VALUES (?, ?)
+   Criação de pack de tickets
+
+  ✅ Throughput: 646.41 ops/segundo
+  ✅ Avg latency: 1.05 ms
+  ✅ Min latency: 1.00 ms
+  ✅ Max latency: 8.00 ms
+  ✅ P95 latency: 1.00 ms
+  ✅ P99 latency: 3.00 ms
+  ✅ Success rate: 100.0% (1000/1000)
+
+🔗 CREATE AND BIND PACK
+   Pack + N tickets associados
+   Criação de pack com N tickets associados
+
+  ✅ Total time: 4337 ms
+  ✅ Total operations: 2750
+  ✅ Throughput: 634.08 ops/segundo
+  ✅ Avg latency: 1.05 ms
+  ✅ Success rate: 100.0%
+
+🔍 SELECT TicketPack by ID
+   SELECT * FROM ticketpack WHERE id = ?
+   Busca de pack por ID
+
+  ✅ Throughput: 2259.89 ops/segundo
+  ✅ Avg latency: 0.00 ms
+  ✅ Success rate: 100.0%
+
+🔲 Generate QR Code
+   ZXING QR Code generation
+   Geração de QR code para ticket
+
+2026-06-13T16:35:43.328+01:00  INFO 178996 --- [MessageBroker-2] o.s.w.s.c.WebSocketMessageBrokerStats    : WebSocketSession[0 current WS(0)-HttpStream(0)-HttpPoll(0), 0 total, 0 closed abnormally (0 connect failure, 0 send limit, 0 transport error)], stompSubProtocol[processed CONNECT(0)-CONNECTED(0)-DISCONNECT(0)], stompBrokerRelay[null], inboundChannel[pool size = 0, active threads = 0, queued tasks = 0, completed tasks = 0], outboundChannel[pool size = 0, active threads = 0, queued tasks = 0, completed tasks = 0], sockJsScheduler[pool size = 8, active threads = 1, queued tasks = 4, completed tasks = 61]
+  ✅ Throughput: 522.19 ops/segundo
+  ✅ Avg latency: 1.25 ms
+  ✅ Min latency: 1.00 ms
+  ✅ Max latency: 49.00 ms
+  ✅ P95 latency: 2.00 ms
+  ✅ P99 latency: 3.00 ms
+  ✅ Success rate: 100.0% (1000/1000)
+
+🔄 Ticket State Transitions
+   UNUSED → ACTIVE → VALIDATED → USED → EXPIRED
+   Ciclo completo de estados do ticket
+
+  ✅ Throughput: 362.58 ops/segundo
+  ✅ Avg latency per transition: 1.36 ms
+  ✅ Total transitions: 2000
+
+🔄 Card State Transitions
+   UNUSED → ACTIVE → EXPIRED
+   Ciclo de estados do cartão (ativação e renovação)
+
+  ✅ Throughput: 239.29 ops/segundo
+  ✅ Avg latency per transition: 1.78 ms
+
+⚡ Concurrent Ticket Inserts
+   10 threads a inserir tickets
+   👥 Simula 30 utilizadores a comprar tickets ao mesmo tempo
+
+  ✅ Total time: 1522 ms
+  ✅ Total operations: 3000
+  ✅ Throughput: 1971.09 ops/segundo
+  ✅ Avg latency: 14.13 ms
+  ✅ Success: 3000, Failures: 0 (100.0% sucesso)
+
+⚡ Concurrent State Transitions
+   10 threads a atualizar estados
+   👥 Simula 30 validações simultâneas em catracas
+
+  ✅ Total time: 1008 ms
+  ✅ Total operations: 1500
+  ✅ Throughput: 1488.10 ops/segundo
+  ✅ Avg latency: 18.60 ms
+  ✅ Success: 1500, Failures: 0 (100.0% sucesso)
+
+
+
+╔═══════════════════════════════════════════════════════════════════════════════╗
+║                    RESULTADOS DO BENCHMARK TICKETING                          ║
+╚═══════════════════════════════════════════════════════════════════════════════╝
+
+┌─────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ TESTE                                      │ THROUGHPUT     │ LATÊNCIA MÉDIA │ P95      │ SUCESSO    │
+├─────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ INSERT Ticket                            │       458.93 ops/s │         1.56 ms │     3.00 ms │  100.0% │
+│ INSERT Ticket with Stops                 │       274.57 ops/s │         3.23 ms │     4.00 ms │  100.0% │
+│ BATCH INSERT Tickets                     │      1487.60 ops/s │         0.00 ms │     0.00 ms │  100.0% │
+│ UPDATE Ticket State                      │       437.83 ops/s │         1.86 ms │     3.00 ms │  100.0% │
+│ SELECT Ticket by ID                      │      1070.09 ops/s │         0.13 ms │     1.00 ms │  100.0% │
+│ SELECT Tickets by User                   │       134.01 ops/s │         7.00 ms │     8.00 ms │  100.0% │
+│ INSERT Card                              │       545.26 ops/s │         1.18 ms │     2.00 ms │  100.0% │
+│ INSERT Card with Zone                    │       421.94 ops/s │         2.05 ms │     2.00 ms │  100.0% │
+│ UPDATE Card                              │       491.88 ops/s │         1.37 ms │     2.00 ms │  100.0% │
+│ INSERT TicketPack                        │       646.41 ops/s │         1.05 ms │     1.00 ms │  100.0% │
+│ CREATE AND BIND PACK                     │       634.08 ops/s │         1.05 ms │     1.00 ms │  100.0% │
+│ SELECT TicketPack by ID                  │      2259.89 ops/s │         0.00 ms │     0.00 ms │  100.0% │
+│ Generate QR Code                         │       522.19 ops/s │         1.25 ms │     2.00 ms │  100.0% │
+│ Ticket State Transitions                 │       362.58 ops/s │         1.36 ms │     2.00 ms │  100.0% │
+│ Card State Transitions                   │       239.29 ops/s │         1.78 ms │     3.00 ms │  100.0% │
+│ Concurrent Ticket Inserts                │      1971.09 ops/s │        14.13 ms │     0.00 ms │  100.0% │
+│ Concurrent State Transitions             │      1488.10 ops/s │        18.60 ms │     0.00 ms │  100.0% │
+└─────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                         ESTATÍSTICAS AGREGADAS                                        │
+├─────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Tempo total do benchmark                 │ 1 min 15 s                                                                                    │
+│ Total de operações                       │ 23650                                                                                         │
+│ Throughput médio                         │ 790.93 ops/segundo                                                                            │
+│ Latência média                           │ 3.39 ms                                                                                       │
+└─────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+
+╔═══════════════════════════════════════════════════════════════════════════════╗
+║                      RECOMENDAÇÕES PARA O DBA                                 ║
+╚═══════════════════════════════════════════════════════════════════════════════╝
+
+┌─────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ 1. MELHOR E PIOR PERFORMANCE                                                                        │
+├─────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│    ✅ Melhor throughput: SELECT TicketPack by ID - 2259.89 ops/segundo
+│    ❌ Pior throughput: SELECT Tickets by User - 134.01 ops/segundo
+└─────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ 2. ÍNDICES RECOMENDADOS PARA TICKETING                                                               │
+├─────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│    CREATE INDEX CONCURRENTLY idx_title_user_id ON catchit.title(user_id);                             │
+│    CREATE INDEX CONCURRENTLY idx_title_state_name ON catchit.title(state_name);                       │
+│    CREATE INDEX CONCURRENTLY idx_title_valid_until ON catchit.title(valid_until);                     │
+│    CREATE INDEX CONCURRENTLY idx_title_created_at ON catchit.title(created_at DESC);                  │
+│    CREATE INDEX CONCURRENTLY idx_ticket_from_stop ON catchit.title(from_id) WHERE title_type='ticket';│
+│    CREATE INDEX CONCURRENTLY idx_ticket_to_stop ON catchit.title(to_id) WHERE title_type='ticket';    │
+│    CREATE INDEX CONCURRENTLY idx_card_zone ON catchit.title(zone_id) WHERE title_type='card';         │
+└─────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ 3. PRÓXIMOS PASSOS                                                                                  │
+├─────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│    1. O ficheiro CSV foi gerado com todos os resultados                                             │
+│    2. Pode abrir o CSV no Excel ou outra ferramenta para análise                                     │
+│    3. Compare os resultados com benchmarks anteriores                                               │
+│    4. Implemente os índices recomendados para melhorar a performance                                │
+└─────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+
+📊 CSV exportado com sucesso: benchmark_ticketing_20260613_163443.csv
+
+✅ Benchmark Ticketing concluído!
+2026-06-13T16:35:58.823+01:00  INFO 178996 --- [ionShutdownHook] o.s.m.s.b.SimpleBrokerMessageHandler     : Stopping...
+2026-06-13T16:35:58.824+01:00  INFO 178996 --- [ionShutdownHook] o.s.m.s.b.SimpleBrokerMessageHandler     : BrokerAvailabilityEvent[available=false, SimpleBrokerMessageHandler [org.springframework.messaging.simp.broker.DefaultSubscriptionRegistry@5e95b456]]
+2026-06-13T16:35:58.824+01:00  INFO 178996 --- [ionShutdownHook] o.s.m.s.b.SimpleBrokerMessageHandler     : Stopped.
+2026-06-13T16:35:58.843+01:00  INFO 178996 --- [ionShutdownHook] j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-06-13T16:35:58.845+01:00  INFO 178996 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown initiated...
+2026-06-13T16:35:58.852+01:00  INFO 178996 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown completed.
+[[1;34mINFO[m] [1m------------------------------------------------------------------------[m
+[[1;34mINFO[m] [1;32mBUILD SUCCESS[m
+[[1;34mINFO[m] [1m------------------------------------------------------------------------[m
+[[1;34mINFO[m] Total time:  01:25 min
+[[1;34mINFO[m] Finished at: 2026-06-13T16:35:58+01:00
+[[1;34mINFO[m] [1m------------------------------------------------------------------------[m
