@@ -300,7 +300,8 @@ public CheckoutSessionResponseDTO createSession(UUID userId) {
 			return stopRepository.findById(UUID.fromString(stopId)).orElse(null);
 		} catch (IllegalArgumentException e) {
 			String code = stopId.contains(":") ? stopId.substring(stopId.indexOf(":") + 1) : stopId;
-			return stopRepository.findByStopCode(code).orElse(null);
+			return stopRepository.findByStopCode(code)
+					.orElseGet(() -> stopRepository.findFirstByNameIgnoreCase(code).orElse(null));
 		}
 	}
 

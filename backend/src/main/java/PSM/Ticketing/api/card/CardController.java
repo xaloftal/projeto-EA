@@ -3,6 +3,8 @@ package PSM.Ticketing.api.card;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -47,4 +49,30 @@ public class CardController {
     public void delete(@PathVariable UUID id) {
         service.delete(id);
     }
+    
+@GetMapping("/{id}/qrcode")
+public ResponseEntity<byte[]> getCardQrCode(@PathVariable UUID id) {
+    try {
+        Card card = service.findById(id);
+        byte[] qrCode = card.getQrCode();
+        
+        if (qrCode == null || qrCode.length == 0) {
+            // Gerar QR code se não existir
+            String qrText = "CARD:" + id;
+            card.generateQrCode(qrText, 300);
+            service.update(id, card);
+            qrCode = card.getQrCode();
+        }
+        
+        if (qrCode == null || qrCode.length == 0) {
+            return ResponseEntity.notFound().build();
+        }
+        
+        return ResponseEntity.ok()
+                .contentType(MediaType.IMAGE_PNG)
+                .body(qrCode);
+    } catch (Exception e) {
+        return ResponseEntity.internalServerError().build();
+    }
+}
 }

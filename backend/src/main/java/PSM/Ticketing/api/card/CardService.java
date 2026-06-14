@@ -3,6 +3,8 @@ package PSM.Ticketing.api.card;
 import java.util.List;
 import java.util.UUID;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import PSM.Location.Zone;
@@ -11,6 +13,7 @@ import PSM.Ticketing.Card;
 
 @Service
 public class CardService {
+    private static final Logger logger = LoggerFactory.getLogger(CardService.class);
     private final CardRepository repository;
     private final ZoneRepository zoneRepository;
 
@@ -33,7 +36,9 @@ public class CardService {
                     .orElseThrow(() -> new RuntimeException("Zone not found"));
             entity.setZone(zone);
         }
-        return repository.save(entity);
+        Card saved = repository.save(entity);
+        saved.getQrCode();
+        return repository.save(saved);
     }
 
     public Card update(UUID id, Card entity) {
@@ -49,4 +54,14 @@ public class CardService {
     public void delete(UUID id) {
         repository.deleteById(id);
     }
+    
+public byte[] getQrCode(UUID id) {
+    Card card = findById(id);
+    if (card.getQrCode() == null || card.getQrCode().length == 0) {
+        String qrText = "CARD:" + id;
+        card.generateQrCode(qrText, 300);
+        return update(id, card).getQrCode();
+    }
+    return card.getQrCode();
+}
 }
