@@ -1,0 +1,14 @@
+---
+# Playbook to catchit-undeploy catchit and its components
+# TO DO
+- name: "Undeploy catchit Application on GKE"
+  hosts: localhost
+  gather_facts: false
+  roles:
+    
+    # catchit application deployment
+    - role: k8s_catchit_destroy
+      tags: ["catchit-service"]
+    # PostgreSQL deployment
+    - role: k8s_postgres_destroy
+      tags: ["postgres"]
