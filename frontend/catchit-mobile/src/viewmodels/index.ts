@@ -1,6 +1,7 @@
 import { ref, computed } from 'vue'
 import { catchitApi } from '../services/api/catchitApi'
 import type { User, Ticket, Card, CardTier, TravelCard, PaymentMethod, Stop, Vehicle, UserNotification } from '../models'
+import { TicketStatus } from '../models'
 import { requestJson } from 'src/services/api/http'
 
 const error = ref('')
@@ -381,6 +382,9 @@ export function useTransportViewModel(titleId?: string) {
       ticketFromStop.value = ticket.stopFrom ?? null
       ticketToStop.value = ticket.stopTo ?? null
       isTicketTitle.value = true
+      if (ticket.status === TicketStatus.Valid) {
+        checkInSuccess.value = true
+      }
       return
     }
 

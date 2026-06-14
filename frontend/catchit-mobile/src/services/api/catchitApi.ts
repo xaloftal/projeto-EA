@@ -510,6 +510,7 @@ export class CatchItApiClient {
   public async getUserHistory(userId: string): Promise<ApiResponse<any[]>> {
     return await requestJson<any[]>(`/api/exitrecords/user/${userId}`, {
       method: 'GET'
+
     });
   }
 
@@ -553,12 +554,80 @@ export class CatchItApiClient {
     }
   }
 
-  async getTicketQrCode(ticketId: string): Promise<string> {
-    const viteEnv = (import.meta as any).env ?? {}
-    const apiBaseUrl = (viteEnv.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
+  async getCardQrCode(cardId: string): Promise<string> {
+    try {
+      const authToken = localStorage.getItem('authToken')
+      const apiBaseUrl = (import.meta as any).env?.VITE_API_BASE_URL?.replace(/\/$/, '') ?? ''
+      const url = `${apiBaseUrl}/api/cards/${cardId}/qrcode`
 
-    // Retorna diretamente o URL do endpoint que cospe a imagem PNG do QR Code
-    return `${apiBaseUrl}/api/tickets/${ticketId}/qrcode`
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': authToken ? `Bearer ${authToken}` : '',
+          'Accept': 'image/png, image/jpeg, image/*'
+        },
+        credentials: 'include'
+      })
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Não autorizado - faça login novamente')
+        }
+        if (response.status === 404) {
+          throw new Error('QR Code não encontrado para este card')
+        }
+        throw new Error(`Erro ${response.status}: ${response.statusText}`)
+      }
+
+      const blob = await response.blob()
+      return URL.createObjectURL(blob)
+    } catch (error) {
+      console.error('Erro ao buscar QR Code do card:', error)
+      throw error
+    }
+  }
+
+  // Método unificado para buscar QR code
+  async getTitleQrCode(titleId: string, isTicket: boolean): Promise<string> {
+    if (isTicket) {
+      return this.getTicketQrCode(titleId)
+    } else {
+      return this.getCardQrCode(titleId)
+    }
+  }
+
+  async getTicketQrCode(ticketId: string): Promise<string> {
+    try {
+      const authToken = localStorage.getItem('authToken')
+      const apiBaseUrl = (import.meta as any).env?.VITE_API_BASE_URL?.replace(/\/$/, '') ?? ''
+      const url = `${apiBaseUrl}/api/tickets/${ticketId}/qrcode`
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': authToken ? `Bearer ${authToken}` : '',
+          'Accept': 'image/png, image/jpeg, image/*'
+        },
+        credentials: 'include'
+      })
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Não autorizado - faça login novamente')
+        }
+        if (response.status === 404) {
+          throw new Error('Ticket não encontrado')
+        }
+        throw new Error(`Erro ${response.status}: ${response.statusText}`)
+      }
+
+      const blob = await response.blob()
+      // Retorna uma URL local para a imagem
+      return URL.createObjectURL(blob)
+    } catch (error) {
+      console.error('Erro ao buscar QR Code:', error)
+      throw error
+    }
   }
 
   async purchaseTickets(data: {
@@ -905,10 +974,33 @@ export class CatchItApiClient {
     })
   }
 
-  async checkoutTransport(data: { titleId: string; tripId?: string }): Promise<ApiResponse<{ success: boolean; message: string }>> {
-    return requestJson<{ success: boolean; message: string }>('/api/checkout-transport', {
+  async checkoutTransport(data: { titleId: string; tripId?: string }): Promise<ApiResponse<{
+    success: boolean;
+    message: string;
+    situation?: string;
+    destinationStopName?: string;
+    currentStopName?: string;
+  }>> {
+    return requestJson<{
+      success: boolean;
+      message: string;
+      situation?: string;
+      destinationStopName?: string;
+      currentStopName?: string;
+    }>('/api/checkout-transport', {
       method: 'POST',
       body: JSON.stringify(data),
+    })
+  }
+
+  async getCheckoutSituation(titleId: string, tripId: string): Promise<ApiResponse<{
+    situation: string;
+    currentStopName: string;
+    destinationStopName: string;
+    message: string;
+  }>> {
+    return requestJson(`/api/checkout-transport/situation/${titleId}/${tripId}`, {
+      method: 'GET',
     })
   }
 

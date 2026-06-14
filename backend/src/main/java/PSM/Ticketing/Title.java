@@ -188,6 +188,17 @@ public abstract class Title {
 
 	public void setStateName(String stateName) {
 		this.stateName = stateName;
+		if (stateName == null) {
+			this.status = new UnusedState();
+			return;
+		}
+		switch (stateName) {
+			case "UNUSED" -> this.status = new UnusedState();
+			case "ACTIVE" -> this.status = new ActiveState();
+			case "VALIDATED" -> this.status = new ValidatedState();
+			case "EXPIRED" -> this.status = new ExpiredState();
+			case "USED" -> this.status = new UsedState();
+		}
 	}
 
 	@JsonIgnore
@@ -197,6 +208,7 @@ public abstract class Title {
 
 	public void setStatus(TitleState _status) {
 		this.status = _status;
+		this.stateName = _status != null ? _status.getStateName() : null;
 	}
 
 	public List<Trip> getTrips() {

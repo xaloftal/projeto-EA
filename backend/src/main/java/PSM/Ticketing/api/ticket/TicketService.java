@@ -9,6 +9,7 @@ import PSM.Ticketing.Ticket;
 
 @Service
 public class TicketService {
+
     private final TicketRepository repository;
 
     public TicketService(TicketRepository repository) {
@@ -37,12 +38,30 @@ public class TicketService {
     }
 
     public List<TicketDTO> findTicketsByUserId(UUID userId) {
-    return repository.findTicketsSummaryByUserId(userId);
+        return repository.findTicketsSummaryByUserId(userId);
     }
 
     public byte[] getQrCode(UUID id) {
-    Ticket ticket = repository.findById(id)
-        .orElseThrow(() -> new RuntimeException("Ticket not found"));
-    return ticket.getQrCode();
+        Ticket ticket = repository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Ticket not found"));
+
+        // Se não tiver QR code, gerar agora
+        if (ticket.getQrCode() == null) {
+            String qrContent = generateQrContent(ticket);
+            ticket.generateQrCode(qrContent, 300);
+            repository.save(ticket);
+        }
+
+        return ticket.getQrCode();
+    }
+
+    private String generateQrContent(Ticket ticket) {
+        return String.format(
+                "{\"ticketId\":\"%s\",\"validUntil\":\"%s\",\"from\":\"%s\",\"to\":\"%s\"}",
+                ticket.getId(),
+                ticket.getValidUntil(),
+                ticket.getFrom() != null ? ticket.getFrom().getId() : null,
+                ticket.getTo() != null ? ticket.getTo().getId() : null
+        );
     }
 }
