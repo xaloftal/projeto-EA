@@ -186,6 +186,7 @@ type BackendUser = {
   name?: string
   email?: string
   balance?: number
+  isAdmin?: boolean
   card?: BackendCard | null
   tickets?: BackendTicket[]
   notifications?: BackendNotification[]
@@ -396,6 +397,7 @@ const mapUser = (user: BackendUser): User => ({
   name: user.name ?? '',
   email: user.email ?? '',
   balance: Number(user.balance ?? 0),
+  isAdmin: !!user.isAdmin,
   tickets: (user.tickets ?? []).map((ticket) => mapTicket(ticket, user.id)),
   notifications: (user.notifications ?? []).map(mapNotification),
 })
@@ -833,6 +835,10 @@ async getTicketQrCode(ticketId: string): Promise<string> {
     return { success: true, data: response.data }
   }
 
+  async getVehicles(): Promise<ApiResponse<any[]>> {
+    return requestJson('/api/vehicles')
+  }
+
   async searchRoutes(data: {
     fromStopId: string
     toStopId: string
@@ -1068,6 +1074,28 @@ async getTicketQrCode(ticketId: string): Promise<string> {
 
   async getStopZone(stopId: string): Promise<ApiResponse<string>> {
     return requestJson(`/api/stops/${stopId}/zone`)
+  }
+
+  async getReportStats(vehicleId: string, month: string): Promise<ApiResponse<any>> {
+    return requestJson(`/api/reports/stats?vehicleId=${vehicleId}&month=${month}`)
+  }
+
+  async downloadReport(vehicleId: string, month: string, format: 'pdf' | 'csv'): Promise<Blob | null> {
+    try {
+      const authToken = localStorage.getItem('authToken')
+      const viteEnv = (import.meta as any).env ?? {}
+      const apiBaseUrl = (viteEnv.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
+      const response = await fetch(`${apiBaseUrl}/api/reports/download?vehicleId=${vehicleId}&month=${month}&format=${format}`, {
+        headers: {
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+        },
+      })
+      if (!response.ok) return null
+      return await response.blob()
+    } catch (e) {
+      console.error('Error downloading report:', e)
+      return null
+    }
   }
 }
 

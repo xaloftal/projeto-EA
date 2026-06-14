@@ -66,6 +66,17 @@
             </button>
           </div>
         </div>
+        <router-link v-slot="{ href, navigate }" v-if="profileViewModel.currentUser.value?.isAdmin" to="/admin/reports" custom>
+          <a :href="href" @click="navigate" class="menu-item">
+            <span class="menu-icon">
+              <BarChart3 class="icon-md" />
+            </span>
+            <span>Admin Reports</span>
+            <span class="chevron">
+              <ChevronRight class="icon-sm" />
+            </span>
+          </a>
+        </router-link>
         <router-link to="/history" class="menu-item">
           <span class="menu-icon">
             <Bus class="icon-md" />
@@ -117,7 +128,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { ArrowLeft, Bus, CalendarDays, ChevronRight, CircleHelp, House, LogOut, Pencil, Map, Settings, ShoppingCart, User, Ticket, Star, X } from 'lucide-vue-next'
+import { ArrowLeft, Bus, CalendarDays, ChevronRight, CircleHelp, House, LogOut, Pencil, Map, Settings, ShoppingCart, User, Ticket, Star, X, BarChart3 } from 'lucide-vue-next'
 import { useRouter } from 'vue-router'
 import { useAuthViewModel, useProfileViewModel } from '../viewmodels'
 import { catchitApi } from '../services/api/catchitApi'

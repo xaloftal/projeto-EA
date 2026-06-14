@@ -19,4 +19,11 @@ import PSM.ValidationManager.ValidationRecord;
 public interface ValidationRecordRepository extends JpaRepository<ValidationRecord, UUID> {
     @Query("SELECT vr FROM ValidationRecord vr JOIN vr.titles t WHERE t = :title AND vr.result = true ORDER BY vr.timestamp DESC")
     List<ValidationRecord> findSuccessfulValidationsByTitle(@Param("title") Title title);
+
+    @Query("SELECT vr FROM ValidationRecord vr WHERE vr.trip.vehicle.id = :vehicleId AND vr.timestamp >= :start AND vr.timestamp <= :end")
+    List<ValidationRecord> findByVehicleAndPeriod(
+        @Param("vehicleId") UUID vehicleId,
+        @Param("start") java.time.LocalDateTime start,
+        @Param("end") java.time.LocalDateTime end
+    );
 }

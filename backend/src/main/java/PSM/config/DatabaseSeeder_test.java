@@ -20,6 +20,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 import PSM.Location.Location;
 import PSM.Location.Route;
@@ -135,6 +136,18 @@ public class DatabaseSeeder_test implements CommandLineRunner {
         }
 
         seedSecondaryData();
+
+        // Ensure admin user exists in DB
+        if (userRepository.findByEmail("admin@catchit.pt").isEmpty()) {
+            User admin = new User();
+            admin.setName("Administrator");
+            admin.setEmail("admin@catchit.pt");
+            admin.setPasswordHash(new BCryptPasswordEncoder().encode("admin123"));
+            admin.setBalance(100000.0f);
+            admin.setAdmin(true);
+            userRepository.save(admin);
+            logger.info("Admin user created (admin@catchit.pt)");
+        }
     }
 
     // ------------------------------------------------------------------
@@ -235,6 +248,25 @@ public class DatabaseSeeder_test implements CommandLineRunner {
             user.setBalance(Float.parseFloat(row[3].trim()));
             users.add(user);
         }
+        
+        // Ensure admin user exists
+        boolean adminExists = false;
+        for (User u : users) {
+            if ("admin@catchit.pt".equals(u.getEmail())) {
+                u.setAdmin(true);
+                adminExists = true;
+            }
+        }
+        if (!adminExists) {
+            User admin = new User();
+            admin.setName("Administrator");
+            admin.setEmail("admin@catchit.pt");
+            admin.setPasswordHash(new BCryptPasswordEncoder().encode("admin123"));
+            admin.setBalance(100000.0f);
+            admin.setAdmin(true);
+            users.add(admin);
+        }
+
         if (users.isEmpty())
             throw new IllegalStateException("users.csv is empty");
         List<User> saved = userRepository.saveAll(users);

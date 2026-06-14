@@ -35,6 +35,7 @@ public class User implements Observer {
 	@JsonIgnore
 	private String passwordHash;
 	private float balance;
+	private boolean isAdmin = false;
 
 	@ManyToMany
 	@JsonIgnore
@@ -125,6 +126,14 @@ public class User implements Observer {
 
 	public void setBalance(float _balance) {
 		this.balance = _balance;
+	}
+
+	public boolean isAdmin() {
+		return this.isAdmin;
+	}
+
+	public void setAdmin(boolean isAdmin) {
+		this.isAdmin = isAdmin;
 	}
 
 	public Set<Trip> getTrips() {
