@@ -13,8 +13,8 @@
         <div class="success-icon">
           <CheckCircle class="success-icon-svg" />
         </div>
-        <h2>Check In successful!</h2>
-        <p>You are now on a trip. Present the QR Code below if requested.</p>
+        <h2>You are now on a trip!</h2>
+        <p>Present the QR Code below if requested.</p>
 
         <!-- Badge para identificar o tipo -->
         <div class="title-type-badge">
