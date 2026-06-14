@@ -31,8 +31,8 @@ public interface TripRepository extends JpaRepository<Trip, UUID> {
             "JOIN r.schedules s1 " +
             "JOIN r.schedules s2 " +
             "WHERE t.endTime IS NULL " +
-            "AND s1.stop.id = :fromStopId " +
-            "AND s2.stop.id = :toStopId " +
+            "AND s1.stop.name = (SELECT st1.name FROM Stop st1 WHERE st1.id = :fromStopId) " +
+            "AND s2.stop.name = (SELECT st2.name FROM Stop st2 WHERE st2.id = :toStopId) " +
             "ORDER BY t.startTime DESC")
     List<Trip> findActiveTripsForStops(@Param("fromStopId") UUID fromStopId, @Param("toStopId") UUID toStopId);
 

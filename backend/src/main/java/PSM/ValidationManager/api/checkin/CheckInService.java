@@ -121,9 +121,13 @@ public class CheckInService {
         if (from == null || to == null) return false;
         
         boolean hasFrom = trip.getRoute().schedules.stream()
-            .anyMatch(schedule -> schedule.stop != null && schedule.stop.equals(from));
+            .anyMatch(schedule -> schedule.stop != null && 
+                (schedule.stop.equals(from) || 
+                (schedule.stop.getName() != null && schedule.stop.getName().equalsIgnoreCase(from.getName()))));
         boolean hasTo = trip.getRoute().schedules.stream()
-            .anyMatch(schedule -> schedule.stop != null && schedule.stop.equals(to));
+            .anyMatch(schedule -> schedule.stop != null && 
+                (schedule.stop.equals(to) || 
+                (schedule.stop.getName() != null && schedule.stop.getName().equalsIgnoreCase(to.getName()))));
         return hasFrom && hasTo;
     }
 
