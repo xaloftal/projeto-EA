@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: catchit-frontend
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: catchit-frontend
+  template:
+    metadata:
+      labels:
+        app: catchit-frontend
+    spec:
+      containers:
+      - name: frontend
+        image: "{{ catchit_frontend_image }}"
+        ports:
+        - containerPort: 80

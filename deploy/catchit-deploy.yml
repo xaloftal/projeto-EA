@@ -1,0 +1,11 @@
+- name: "Deploy catchit Application on GKE"
+  hosts: localhost
+  gather_facts: false
+  roles:
+    # PostgreSQL deployment
+    - role: k8s_postgres
+      tags: ["postgres"]
+
+    # catchit application deployment
+    - role: k8s_catchit
+      tags: ["catchit"]

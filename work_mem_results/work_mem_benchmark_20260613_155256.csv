@@ -1,0 +1,6 @@
+work_mem,throughput_media,latencia_media,throughput_insert,throughput_select,execution_time
+4MB,759.24,3.18,448.63,899.28,1
+8MB,731.32,3.64,288.52,1084.01,1
+16MB,818.23,3.12,458.09,999.50,1
+32MB,815.41,3.11,440.33,1038.42,1
+64MB,838.02,2.94,452.28,1086.96,1

@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: catchit-backend
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: catchit-backend
+  template:
+    metadata:
+      labels:
+        app: catchit-backend
+    spec:
+      containers:
+      - name: backend
+        image: "{{ catchit_backend_image }}"
+        env:
+        - name: SPRING_DATASOURCE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: catchitdb-vault
+              key: DB_PASSWORD
+        - name: SPRING_DATASOURCE_URL
+          value: "jdbc:postgresql://postgres-service:5432/{{ db_name | default('catchitdb') }}?currentSchema=catchit"
+        - name: SPRING_DATASOURCE_USERNAME
+          value: "{{ db_username | default('postgres') }}"
+        - name: SPRING_DATA_REDIS_HOST
+          value: "redis-service"
+        - name: SPRING_DATA_REDIS_PORT
+          value: "6379"
+        - name: JWT_SECRET
+          value: "catchitsecret"
+        - name: JWT_EXPIRATION
+          value: "1800000"
+        - name: SCRIPT_MOCK_DATA_DIR
+          value: "/script_mock_data/data"     
+        - name: PAYMENT_SERVICE_BASE_URL
+          value: "http://payment-service:8081"
+        - name: OTP_BASE_URL
+          value: "http://catchit-otp-service:8080"       
+        ports:
+        - containerPort: 8080

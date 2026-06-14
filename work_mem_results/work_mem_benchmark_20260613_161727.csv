@@ -1,0 +1,2 @@
+work_mem,throughput_media,latencia_media,throughput_insert,throughput_select,execution_time
+4MB,,,458.30,1030.40,1
