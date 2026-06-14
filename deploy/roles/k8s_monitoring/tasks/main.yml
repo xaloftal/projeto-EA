@@ -1,0 +1,79 @@
+---
+# roles/k8s_monitoring/tasks/main.yml
+
+- name: Check if Helm is installed
+  ansible.builtin.command: "which helm"
+  register: helm_check
+  ignore_errors: true
+  changed_when: false
+
+- name: Set helm command fact to global helm
+  ansible.builtin.set_fact:
+    helm_cmd: "helm"
+  when: helm_check.rc == 0
+
+- name: Install Helm locally if not present
+  block:
+    - name: Create local bin directory
+      ansible.builtin.file:
+        path: "/tmp/helm_bin"
+        state: directory
+        mode: '0755'
+
+    - name: Download Helm binary archive
+      ansible.builtin.get_url:
+        url: "https://get.helm.sh/helm-v3.14.0-linux-amd64.tar.gz"
+        dest: "/tmp/helm.tar.gz"
+        mode: '0644'
+
+    - name: Unarchive Helm binary
+      ansible.builtin.unarchive:
+        src: "/tmp/helm.tar.gz"
+        dest: "/tmp/helm_bin"
+        remote_src: yes
+        extra_opts: ["--strip-components=1"]
+
+    - name: Set helm command fact to local helm
+      ansible.builtin.set_fact:
+        helm_cmd: "/tmp/helm_bin/helm"
+  when: helm_check.rc != 0
+
+- name: Ensure monitoring namespace exists
+  kubernetes.core.k8s:
+    name: monitoring
+    kind: Namespace
+    state: present
+
+- name: Generate Prometheus values file from template
+  ansible.builtin.template:
+    src: prometheus-values.yml.j2
+    dest: "/tmp/prometheus-values.yml"
+
+- name: Add Prometheus Community Helm repository
+  kubernetes.core.helm_repository:
+    binary_path: "{{ helm_cmd }}"
+    name: prometheus-community
+    repo_url: "https://prometheus-community.github.io/helm-charts"
+
+- name: Deploy kube-prometheus-stack Helm chart
+  kubernetes.core.helm:
+    binary_path: "{{ helm_cmd }}"
+    name: prometheus
+    chart_ref: prometheus-community/kube-prometheus-stack
+    release_namespace: monitoring
+    state: present
+    values_files:
+      - "/tmp/prometheus-values.yml"
+    wait: true
+    wait_timeout: "600s"
+
+- name: Print Grafana access instructions
+  ansible.builtin.debug:
+    msg:
+      - "------------------------------------------------------------"
+      - "PROMETHEUS & GRAFANA DEPLOYED SUCCESSFULLY!"
+      - "To access Grafana from your local machine, run:"
+      - "  kubectl port-forward -n monitoring svc/prometheus-grafana 3000:80"
+      - "Then open http://localhost:3000 in your browser."
+      - "Credentials: admin / admin"
+      - "------------------------------------------------------------"
