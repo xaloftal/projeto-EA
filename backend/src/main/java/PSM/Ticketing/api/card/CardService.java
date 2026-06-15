@@ -30,16 +30,20 @@ public class CardService {
         return repository.findById(id).orElseThrow(() -> new RuntimeException("Card not found"));
     }
 
-    public Card create(Card entity) {
-        if (entity.getZone() != null && entity.getZone().getId() != null) {
-            Zone zone = zoneRepository.findById(entity.getZone().getId())
-                    .orElseThrow(() -> new RuntimeException("Zone not found"));
-            entity.setZone(zone);
-        }
-        Card saved = repository.save(entity);
-        saved.getQrCode();
-        return repository.save(saved);
+public Card create(Card entity) {
+    
+    if (entity.getZone() != null && entity.getZone().getId() != null) {
+        Zone zone = zoneRepository.findById(entity.getZone().getId())
+                .orElseThrow(() -> new RuntimeException("Zone not found with id: " + entity.getZone().getId()));
+        entity.setZone(zone);
+        System.out.println("Zone found and assigned: " + zone.getName());
+    } else {
+        System.out.println("No zone associated with this card");
     }
+    
+    Card saved = repository.save(entity);
+    return saved;
+}
 
     public Card update(UUID id, Card entity) {
         findById(id);

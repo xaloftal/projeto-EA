@@ -30,25 +30,25 @@
               <!-- Badge de saída correta/incorreta -->
               <span v-if="record.correctExit !== null && record.correctExit !== undefined" 
                     :class="['exit-badge', record.correctExit ? 'exit-correct' : 'exit-warning']">
-                {{ record.correctExit ? '✓ Saída correta' : '⚠️ Saída após destino' }}
+                {{ record.correctExit ? '✓ Correct exit' : '⚠️ Exit after destination' }}
               </span>
               
               <!-- Badge de checkout automático -->
               <span v-if="record.automatedExit" class="exit-auto">
-                🤖 Automático
+                Auto checkout
               </span>
             </div>
             
             <!-- Paragem de saída -->
             <div class="stop-info" v-if="record.stop">
-              <span class="stop-label">Saída em:</span>
+              <span class="stop-label">Exit at:</span>
               <span class="stop-name">{{ record.stop.name }}</span>
               <span class="stop-code" v-if="record.stop.stopCode">({{ record.stop.stopCode }})</span>
             </div>
             
             <!-- Preço do bilhete -->
             <div class="price-info" v-if="getTicketPrice(record) !== null">
-              <span class="price-label">Preço:</span>
+              <span class="price-label">Price:</span>
               <span class="price-value">{{ formatPrice(getTicketPrice(record)!) }}</span>
             </div>
           </div>
@@ -116,9 +116,9 @@ const isLoading = ref(false)
 
 // Formatar data
 const formatDate = (timestamp: string) => {
-  if (!timestamp) return 'Data desconhecida'
+  if (!timestamp) return 'Unknown date'
   try {
-    return new Date(timestamp).toLocaleString('pt-PT', {
+    return new Date(timestamp).toLocaleString('en-EN', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
@@ -133,15 +133,15 @@ const formatDate = (timestamp: string) => {
 // Obter nome da paragem de origem
 const getFromStopName = (record: ExitRecordDTO) => {
   const ticket = record.titles?.[0]
-  if (!ticket) return 'Origem'
-  return ticket.fromStop?.name || 'Origem'
+  if (!ticket) return 'From'
+  return ticket.fromStop?.name || 'From'
 }
 
 // Obter nome da paragem de destino
 const getToStopName = (record: ExitRecordDTO) => {
   const ticket = record.titles?.[0]
-  if (!ticket) return 'Destino'
-  return ticket.toStop?.name || 'Destino'
+  if (!ticket) return 'Destination'
+  return ticket.toStop?.name || 'Destination'
 }
 
 // Obter preço do bilhete
@@ -152,7 +152,7 @@ const getTicketPrice = (record: ExitRecordDTO): number | null => {
 
 // Formatar preço
 const formatPrice = (price: number): string => {
-  return new Intl.NumberFormat('pt-PT', {
+  return new Intl.NumberFormat('en-EN', {
     style: 'currency',
     currency: 'EUR'
   }).format(price)
@@ -174,14 +174,14 @@ const getStatusClass = (record: ExitRecordDTO) => {
 // Obter texto do status
 const getStatusText = (record: ExitRecordDTO) => {
   const ticket = record.titles?.[0]
-  if (!ticket) return 'DESCONHECIDO'
+  if (!ticket) return 'UNKNOWN'
   
   switch (ticket.status?.toUpperCase()) {
-    case 'USED': return 'UTILIZADO'
-    case 'VALIDATED': return 'VALIDADO'
-    case 'ACTIVE': return 'ATIVO'
-    case 'EXPIRED': return 'EXPIRADO'
-    default: return ticket.status || 'DESCONHECIDO'
+    case 'USED': return 'USED'
+    case 'VALIDATED': return 'VALIDATED'
+    case 'ACTIVE': return 'ACTIVE'
+    case 'EXPIRED': return 'EXPIRED'
+    default: return ticket.status || 'UNKNOWN'
   }
 }
 

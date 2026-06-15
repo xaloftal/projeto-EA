@@ -106,8 +106,8 @@
       <div v-else-if="searched && hasNoData" class="no-data-card">
         <AlertTriangle class="warning-icon" />
         <h3>No Data Available</h3>
-        <p>Não existem dados disponíveis para o período e transporte selecionados.</p>
-        <p class="hint-text">Dica: O veículo com ID <strong>9c0f37c0-cddf-4a3a-ad33-bb03692be752</strong> tem validações registadas.</p>
+        <p>No data available for the selected period and transport.</p>
+        <p class="hint-text">Hint: The vehicle with ID <strong>9c0f37c0-cddf-4a3a-ad33-bb03692be752</strong> has validations registered.</p>
       </div>
 
       <!-- Report Content -->

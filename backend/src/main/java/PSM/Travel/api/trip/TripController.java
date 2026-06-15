@@ -14,11 +14,13 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import PSM.Location.api.route.RouteStopDTO;
+import PSM.Location.api.stop.StopDTO;
 import PSM.Travel.Trip;
 
 @RestController
 @RequestMapping("/api/trips")
 public class TripController {
+
     private final TripService service;
 
     public TripController(TripService service) {
@@ -28,6 +30,11 @@ public class TripController {
     @GetMapping
     public List<Trip> getAll() {
         return service.findAll();
+    }
+
+    @GetMapping("/{id}/stops-with-zones")
+    public List<StopDTO> getTripStopsWithZones(@PathVariable UUID id) {
+        return service.getTripStopsWithZones(id);
     }
 
     @GetMapping("/{id}")
@@ -61,10 +68,10 @@ public class TripController {
                 // .distinct()
                 // .toList() : java.util.List.of(),
                 t.getRoute() != null ? t.getRoute().getSchedules().stream()
-                        .map(sch -> sch.getStop().getZone() != null ? sch.getStop().getZone().getName() : null)
-                        .filter(java.util.Objects::nonNull)
-                        .findFirst()
-                        .orElse(null) : null);
+                .map(sch -> sch.getStop().getZone() != null ? sch.getStop().getZone().getName() : null)
+                .filter(java.util.Objects::nonNull)
+                .findFirst()
+                .orElse(null) : null);
     }
 
     @GetMapping("/{id}/stops")
