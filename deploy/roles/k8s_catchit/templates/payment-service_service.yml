@@ -4,6 +4,7 @@ metadata:
   name: payment-service
   namespace: default
 spec:
+  type: LoadBalancer
   selector:
     app: catchit-payment
   ports:

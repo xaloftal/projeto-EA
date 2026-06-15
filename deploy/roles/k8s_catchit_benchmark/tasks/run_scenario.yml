@@ -6,6 +6,16 @@
     src: dynamic_test.jmx.j2
     dest: "/tmp/{{ item.name }}.jmx"
 
+- name: " [JMeter] Remover resultados e relatórios anteriores para garantir um relatório limpo"
+  ansible.builtin.file:
+    path: "{{ item_path }}"
+    state: absent
+  loop:
+    - "./benchmark_results/{{ item.name }}.jtl"
+    - "./benchmark_results/report_{{ item.name }}"
+  loop_control:
+    loop_var: item_path
+
 - name: " [JMeter] A disparar contra o cenário gerado: {{ item.name }}"
   ansible.builtin.command: >
     jmeter -n -t /tmp/{{ item.name }}.jmx 
