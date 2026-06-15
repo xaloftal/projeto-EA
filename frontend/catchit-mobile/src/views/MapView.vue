@@ -804,12 +804,8 @@ watch(selectedStopId, () => {
 // Redesenha as paragens quando a lista filtrada de paragens muda
 watch(stopsToShow, () => { drawStopMarkers() }, { deep: true })
 
-<<<<<<< HEAD
-=======
 // Redesenha os autocarros quando a lista filtrada de autocarros muda
 watch(activeBuses, () => { drawBusMarkers() }, { deep: true })
-
->>>>>>> a37f67bec088bde76d39bd727dba1063d1ec38d4
 watch(selectedBusId, async () => {
   drawBusMarkers()
   updateSelectedBusArrow()
