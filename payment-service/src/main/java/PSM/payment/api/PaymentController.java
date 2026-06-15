@@ -22,6 +22,11 @@ public class PaymentController {
         this.paymentProcessorService = paymentProcessorService;
     }
 
+    @GetMapping("/health")
+    public String health() {
+        return "OK";
+    }
+
     @PostMapping("/authorize")
     public PaymentAuthorizationResponseDTO authorize(@Valid @RequestBody PaymentAuthorizationRequestDTO request) {
         return paymentProcessorService.authorize(request);

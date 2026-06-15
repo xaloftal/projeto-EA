@@ -69,6 +69,48 @@
     line: "    app_ip: {{ lb_ip }}" 
   delegate_to: localhost
 
+- name: Wait for Payment Service LoadBalancer IP to be assigned
+  kubernetes.core.k8s_info:
+    kind: Service
+    name: payment-service
+    namespace: default
+  register: payment_svc_result
+  until: payment_svc_result.resources[0].status.loadBalancer.ingress[0].ip is defined
+  retries: 30
+  delay: 10
+
+- name: Set Payment IP fact
+  set_fact:
+    payment_lb_ip: "{{ payment_svc_result.resources[0].status.loadBalancer.ingress[0].ip }}"
+
+- name: Persist payment_ip to inventory/gcp.yml
+  ansible.builtin.lineinfile:
+    path: inventory/gcp.yml
+    regexp: '^\s*payment_ip:.*'
+    line: "    payment_ip: {{ payment_lb_ip }}"
+  delegate_to: localhost
+
 - name: Display CatchIt connection info
   debug:
-    msg: "CatchIt pronto! Aceda ao Frontend em: http://{{ lb_ip }}:9000"
+    msg: "CatchIt pronto! Aceda ao Frontend em: http://{{ lb_ip }}:9000 e Payment em http://{{ payment_lb_ip }}:8081"
+
+# ==============================================================================
+# 4. HORIZONTAL POD AUTOSCALERS (HPA)
+# ==============================================================================
+- name: Ensure CatchIt Backend HPA is absent
+  kubernetes.core.k8s:
+    state: absent
+    api_version: autoscaling/v2
+    kind: HorizontalPodAutoscaler
+    name: catchit-backend-hpa
+    namespace: default
+
+- name: Create CatchIt OTP HPA
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'otp_hpa.yml') | from_yaml }}"
+
+- name: Create CatchIt Payment Service HPA
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'payment-service_hpa.yml') | from_yaml }}"

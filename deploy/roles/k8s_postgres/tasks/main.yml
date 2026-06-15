@@ -31,7 +31,6 @@
         resources:
           requests:
             storage: 20Gi
-        # MUDANÇA AQUI: Usa a nova StorageClass com Retain
         storageClassName: postgres-retain
 
 

@@ -19,12 +19,19 @@
         </elementProp>
         <stringProp name="ThreadGroup.num_threads">{{ item.threads }}</stringProp>
         <stringProp name="ThreadGroup.ramp_time">{{ item.rampup }}</stringProp>
-        <boolProp name="ThreadGroup.scheduler">false</boolProp>
-        <stringProp name="ThreadGroup.duration"></stringProp>
+        <boolProp name="ThreadGroup.scheduler">{% if item.duration is defined and item.duration != "" %}true{% else %}false{% endif %}</boolProp>
+        <stringProp name="ThreadGroup.duration">{% if item.duration is defined %}{{ item.duration }}{% endif %}</stringProp>
         <stringProp name="ThreadGroup.delay"></stringProp>
         <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
       </ThreadGroup>
       <hashTree>
+        {% if item.think_time is defined and item.think_time > 0 %}
+        <UniformRandomTimer guiclass="UniformRandomTimerGui" testclass="UniformRandomTimer" testname="Think Time Timer" enabled="true">
+          <stringProp name="ConstantTimer.delay">{{ item.think_time }}</stringProp>
+          <stringProp name="RandomTimer.range">{{ item.think_time_range | default(1000) }}</stringProp>
+        </UniformRandomTimer>
+        <hashTree/>
+        {% endif %}
         <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Request: {{ item.path | escape }}" enabled="true">
           {% if item.body is defined %}
           <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>

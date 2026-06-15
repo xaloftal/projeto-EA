@@ -9,3 +9,7 @@
     # catchit application deployment
     - role: k8s_catchit
       tags: ["catchit"]
+
+    # Prometheus & Grafana Monitoring
+    - role: k8s_monitoring
+      tags: ["monitoring"]

@@ -16,6 +16,7 @@ spec:
       containers:
       - name: payment-service
         image: "{{ catchit_payment_image | default('rodrigues17/catchit-payment:latest') }}"
+        imagePullPolicy: Always
         env:
         # Usa o nome de variável que o teu grupo definiu no docker-compose
         - name: PAYMENT_DB_URL
@@ -29,3 +30,25 @@ spec:
               key: DB_PASSWORD
         ports:
         - containerPort: 8081
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "150m"
+          limits:
+            memory: "768Mi"
+            cpu: "1000m"
+
+        livenessProbe:
+          httpGet:
+            path: /api/payments/health
+            port: 8081
+          initialDelaySeconds: 30
+          periodSeconds: 20
+          timeoutSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /api/payments/health
+            port: 8081
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5

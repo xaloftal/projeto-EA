@@ -1,11 +1,7 @@
 ---
 # roles/k8s_catchit_api_test/tasks/main.yml
 
-- name: "Task -1 - Abrir túnel seguro em background para o Microsserviço de Pagamentos"
-  ansible.builtin.shell: "kubectl port-forward svc/payment-service 8081:8081"
-  async: 3600        
-  poll: 0              
-  changed_when: false
+
 
 - name: Task 0 - Verificar se a Gateway/Frontend do CatchIt está online na GCP
   ansible.builtin.uri:
