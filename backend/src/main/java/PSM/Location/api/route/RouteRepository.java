@@ -20,13 +20,13 @@ public interface RouteRepository extends JpaRepository<Route, UUID> {
 	@EntityGraph(attributePaths = { "routeStops", "routeStops.stop", "routeStops.stop.location", "schedules", "schedules.stop", "schedules.stop.location" })
 	Optional<Route> findById(UUID id);
 
-	@Query("SELECT r FROM Route r LEFT JOIN FETCH r.schedules s LEFT JOIN FETCH s.stop st LEFT JOIN FETCH st.location ORDER BY r.id")
+	@Query("SELECT r FROM Route r LEFT JOIN FETCH r.schedules s LEFT JOIN FETCH s.stop st LEFT JOIN FETCH st.location")
 	List<Route> findAllWithSchedules();
 
-	@Query("SELECT r FROM Route r LEFT JOIN FETCH r.schedules s LEFT JOIN FETCH s.stop st LEFT JOIN FETCH st.location WHERE r.id = :routeId ORDER BY r.id")
+	@Query("SELECT r FROM Route r LEFT JOIN FETCH r.schedules s LEFT JOIN FETCH s.stop st LEFT JOIN FETCH st.location WHERE r.id = :routeId")
 	Optional<Route> findByIdWithSchedules(UUID routeId);
 
-	@Query("SELECT DISTINCT r FROM Route r JOIN FETCH r.schedules s JOIN FETCH s.stop st LEFT JOIN FETCH st.location WHERE st.id = :stopId ORDER BY r.id")
+	@Query("SELECT DISTINCT r FROM Route r JOIN FETCH r.schedules s JOIN FETCH s.stop st LEFT JOIN FETCH st.location WHERE st.id = :stopId")
 	List<Route> findAllWithSchedulesByStopId(UUID stopId);
 
 	@Query("SELECT DISTINCT r FROM Route r " +
