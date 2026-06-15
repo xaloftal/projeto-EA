@@ -1,7 +1,0 @@
-stop_code,name,stop_type,latitude,longitude
-CAIS_DO_SODRE,Cais do Sodre,BUS,38.7069,-9.1467
-ROSSIO,Rossio,BUS,38.7142,-9.1405
-CAMPO_GRANDE,Campo Grande,BUS,38.7603,-9.1608
-ORIENTE,Oriente,BUS,38.7687,-9.0949
-BELEM,Belem,BUS,38.6961,-9.2044
-PARQUE_DAS_NACOES,Parque das Nacoes,BUS,38.7684,-9.0891

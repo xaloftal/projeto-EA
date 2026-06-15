@@ -49,7 +49,7 @@ import PSM.UserManagement.api.user.UserRepository;
 @Component
 public class DatabaseSeeder_test implements CommandLineRunner {
 
-    private static final Logger logger = LoggerFactory.getLogger(DatabaseSeeder.class);
+    private static final Logger logger = LoggerFactory.getLogger(DatabaseSeeder_test.class);
 
     private static final Path DATA_DIR = resolveDataDir();
     private static final Path ROUTE_STOPS_CSV = DATA_DIR.resolve("stops_routes_zones_gtfs.csv");
