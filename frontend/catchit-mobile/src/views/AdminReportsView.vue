@@ -26,26 +26,62 @@
             @update:model-value="onTypeChange"
           />
 
-          <!-- Specific Vehicle Select -->
-          <q-select
-            filled
-            v-model="selectedVehicle"
-            :options="filteredVehicles"
-            label="Select Transport"
-            option-value="id"
-            option-label="label"
-            emit-value
-            map-options
-            :disable="!selectedType"
-            class="q-mb-md filter-input"
-          />
+          <!-- Vehicle Selection Method Toggle -->
+          <div class="selection-toggle">
+            <q-btn-toggle
+              v-model="selectionMode"
+              :options="selectionModeOptions"
+              toggle-color="primary"
+              rounded
+              unelevated
+              dense
+              class="toggle-buttons"
+            />
+          </div>
 
-          <!-- Month Selector -->
+          <!-- Dropdown Selection Mode -->
+          <div v-if="selectionMode === 'dropdown'">
+            <q-select
+              filled
+              v-model="selectedVehicle"
+              :options="filteredVehicles"
+              label="Select Transport"
+              option-value="id"
+              option-label="label"
+              emit-value
+              map-options
+              :disable="!selectedType"
+              class="q-mb-md filter-input"
+            />
+            <div v-if="selectedVehicle" class="vehicle-hint">
+              <small>Selected ID: {{ selectedVehicle }}</small>
+            </div>
+          </div>
+
+          <!-- Manual ID Input Mode -->
+          <div v-else>
+            <q-input
+              filled
+              v-model="manualVehicleId"
+              label="Vehicle ID (UUID)"
+              placeholder="Ex: 9c0f37c0-cddf-4a3a-ad33-bb03692be752"
+              class="q-mb-md filter-input"
+              :rules="[
+                val => !val || isValidUUID(val) || 'Invalid UUID format'
+              ]"
+            />
+            <div v-if="manualVehicleId && isValidUUID(manualVehicleId)" class="vehicle-hint">
+              <small>Using manual ID: {{ manualVehicleId.substring(0, 8) }}...</small>
+            </div>
+          </div>
+
+          <!-- Month Selector - Simple input -->
           <q-input
             filled
             v-model="selectedMonth"
-            :type="monthInputType"
-            label="Month"
+            label="Month (YYYY-MM)"
+            placeholder="2026-06"
+            hint="Format: Year-Month (e.g., 2026-06)"
             class="q-mb-md filter-input"
           />
         </div>
@@ -53,7 +89,7 @@
         <q-btn
           @click="fetchStats"
           :loading="isLoading"
-          :disabled="!selectedVehicle || !selectedMonth"
+          :disabled="!isValidVehicleSelected || !selectedMonth"
           class="submit-btn"
           unelevated
           label="Show Report"
@@ -66,18 +102,18 @@
         <p>Generating statistics...</p>
       </div>
 
-      <!-- No Data State (UC07 Flow Exc. 1) -->
+      <!-- No Data State -->
       <div v-else-if="searched && hasNoData" class="no-data-card">
         <AlertTriangle class="warning-icon" />
         <h3>No Data Available</h3>
         <p>Não existem dados disponíveis para o período e transporte selecionados.</p>
+        <p class="hint-text">Dica: O veículo com ID <strong>9c0f37c0-cddf-4a3a-ad33-bb03692be752</strong> tem validações registadas.</p>
       </div>
 
       <!-- Report Content -->
-      <div v-else-if="searched && stats" class="stats-report">
+      <div v-else-if="searched && stats && stats.totalValidations > 0" class="stats-report">
         <!-- Quick Stats Grid -->
         <div class="stats-grid">
-          <!-- Card: Total Validations -->
           <div class="stat-card total-card">
             <div class="stat-header">
               <span>Total Validations</span>
@@ -87,7 +123,6 @@
             <div class="stat-desc">Checked tickets and passes</div>
           </div>
 
-          <!-- Card: Success Rate -->
           <div class="stat-card success-card">
             <div class="stat-header">
               <span>Success Rate</span>
@@ -97,7 +132,6 @@
             <div class="stat-desc">{{ stats.successfulValidations }} successful</div>
           </div>
 
-          <!-- Card: Failed Validations -->
           <div class="stat-card failed-card">
             <div class="stat-header">
               <span>Failed Validations</span>
@@ -120,7 +154,7 @@
         </div>
 
         <!-- Stop Stats Section -->
-        <div class="report-section">
+        <div class="report-section" v-if="Object.keys(stats.validationsByStop || {}).length > 0">
           <h3 class="section-subtitle">
             <MapPin class="sub-icon" />
             Validations by Stop
@@ -136,7 +170,7 @@
           />
         </div>
 
-        <!-- Weekly Distribution CSS Chart -->
+        <!-- Weekly Distribution -->
         <div class="report-section">
           <h3 class="section-subtitle">
             <Calendar class="sub-icon" />
@@ -184,7 +218,7 @@
       </div>
     </div>
 
-    <!-- Download Options Dialog (UC07 Flow Alt. 1) -->
+    <!-- Download Options Dialog -->
     <q-dialog v-model="showDownloadDialog">
       <q-card class="download-dialog">
         <q-card-section class="dialog-header">
@@ -237,7 +271,6 @@ import { catchitApi } from '../services/api/catchitApi'
 
 const router = useRouter()
 const { logout } = useAuthViewModel()
-const monthInputType = 'month' as any
 
 // UI State
 const isLoading = ref(false)
@@ -250,8 +283,17 @@ const downloadFormat = ref<'pdf' | 'csv'>('pdf')
 const vehicles = ref<any[]>([])
 const selectedType = ref<string>('')
 const selectedVehicle = ref<string>('')
-const selectedMonth = ref<string>('')
+const manualVehicleId = ref<string>('')
+const selectedMonth = ref<string>('2026-06') // Default value
 const stats = ref<any>(null)
+
+// Selection mode: 'dropdown' or 'manual'
+const selectionMode = ref<'dropdown' | 'manual'>('manual')
+
+const selectionModeOptions = [
+  { label: 'Select from list', value: 'dropdown' },
+  { label: 'Enter ID manually', value: 'manual' },
+]
 
 // Type options
 const typeOptions = [
@@ -260,12 +302,44 @@ const typeOptions = [
   { label: 'Metro', value: 'METRO' },
 ]
 
+// Validate UUID format
+const isValidUUID = (uuid: string): boolean => {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  return uuidRegex.test(uuid)
+}
+
+// Check if a valid vehicle is selected
+const isValidVehicleSelected = computed(() => {
+  if (selectionMode.value === 'dropdown') {
+    return !!selectedVehicle.value
+  } else {
+    return !!manualVehicleId.value && isValidUUID(manualVehicleId.value)
+  }
+})
+
+// Get the current vehicle ID based on selection mode
+const getCurrentVehicleId = computed(() => {
+  if (selectionMode.value === 'dropdown') {
+    return selectedVehicle.value
+  } else {
+    return manualVehicleId.value
+  }
+})
+
 // Fetch all vehicles on mount
 const loadVehicles = async () => {
   try {
     const response = await catchitApi.getVehicles()
     if (response.success && response.data) {
       vehicles.value = response.data
+      console.log('=== VEHICLES LOADED ===')
+      console.log('Total vehicles:', vehicles.value.length)
+      vehicles.value.forEach(v => {
+        console.log(`ID: ${v.id}, Type: ${v.type}, Route: ${v.route?.name || 'No route'}`)
+      })
+      
+      console.log('=== VEHICLE WITH VALIDATIONS ===')
+      console.log('Use this ID for testing: 9c0f37c0-cddf-4a3a-ad33-bb03692be752')
     }
   } catch (error) {
     console.error('Error loading vehicles:', error)
@@ -283,11 +357,11 @@ const filteredVehicles = computed(() => {
   return vehicles.value
     .filter((v) => v.type === selectedType.value)
     .map((v) => {
-      const shortId = v.id.substring(0, 5).toUpperCase()
       const routeName = v.route?.name || 'No Route'
+      const shortId = v.id.substring(0, 8)
       return {
         id: v.id,
-        label: `${v.type}-${shortId} — ${routeName}`,
+        label: `${v.type} [${shortId}...] — ${routeName}`,
       }
     })
 })
@@ -348,16 +422,27 @@ const getHourWidth = (count: number) => {
 
 // Fetch stats for vehicle/month
 const fetchStats = async () => {
-  if (!selectedVehicle.value || !selectedMonth.value) return
+  const vehicleId = getCurrentVehicleId.value
+  if (!vehicleId || !selectedMonth.value) {
+    console.error('Missing vehicleId or month')
+    return
+  }
+
+  console.log('=== FETCHING STATS ===')
+  console.log('Selected Vehicle ID:', vehicleId)
+  console.log('Selected Month:', selectedMonth.value)
 
   isLoading.value = true
   searched.value = true
   try {
-    const response = await catchitApi.getReportStats(selectedVehicle.value, selectedMonth.value)
+    const response = await catchitApi.getReportStats(vehicleId, selectedMonth.value)
+    console.log('API Response:', response)
     if (response.success && response.data) {
       stats.value = response.data
+      console.log('Stats data:', stats.value)
     } else {
       stats.value = null
+      console.error('API error:', response.error)
     }
   } catch (error) {
     console.error('Error fetching statistics:', error)
@@ -369,12 +454,13 @@ const fetchStats = async () => {
 
 // Trigger download format
 const triggerDownload = async () => {
-  if (!selectedVehicle.value || !selectedMonth.value) return
+  const vehicleId = getCurrentVehicleId.value
+  if (!vehicleId || !selectedMonth.value) return
 
   isDownloading.value = true
   try {
     const blob = await catchitApi.downloadReport(
-      selectedVehicle.value,
+      vehicleId,
       selectedMonth.value,
       downloadFormat.value
     )
@@ -382,8 +468,8 @@ const triggerDownload = async () => {
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      const shortId = selectedVehicle.value.substring(0, 5).toUpperCase()
-      a.download = `relatorio_${selectedMonth.value}_${shortId}.${downloadFormat.value}`
+      const shortVehicleId = vehicleId.substring(0, 5).toUpperCase()
+      a.download = `relatorio_${selectedMonth.value}_${shortVehicleId}.${downloadFormat.value}`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
@@ -447,6 +533,18 @@ const handleLogout = async () => {
   border-radius: 12px;
 }
 
+.selection-toggle {
+  margin-bottom: 0.75rem;
+}
+
+.toggle-buttons {
+  width: 100%;
+}
+
+.toggle-buttons :deep(.q-btn) {
+  flex: 1;
+}
+
 .submit-btn {
   width: 100%;
   padding: 0.75rem;
@@ -486,6 +584,12 @@ const handleLogout = async () => {
   border: 1px solid #e5e7eb;
   color: #4b5563;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+
+.no-data-card .hint-text {
+  margin-top: 1rem;
+  font-size: 0.85rem;
+  color: #6b7280;
 }
 
 .warning-icon {
@@ -627,7 +731,6 @@ const handleLogout = async () => {
   background: transparent;
 }
 
-/* CSS Chart Styles */
 .chart-container {
   display: flex;
   justify-content: space-between;
@@ -677,7 +780,6 @@ const handleLogout = async () => {
   white-space: nowrap;
 }
 
-/* Hourly peak list styles */
 .hourly-list {
   display: flex;
   flex-direction: column;
@@ -720,7 +822,6 @@ const handleLogout = async () => {
   text-align: right;
 }
 
-/* Download dialog styles */
 .download-dialog {
   width: 100%;
   max-width: 360px;
@@ -789,5 +890,13 @@ const handleLogout = async () => {
 
 .dialog-actions {
   padding: 0.75rem 1.25rem 1.25rem 1.25rem;
+}
+
+.vehicle-hint {
+  margin-top: -0.5rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.7rem;
+  color: #6b7280;
+  word-break: break-all;
 }
 </style>

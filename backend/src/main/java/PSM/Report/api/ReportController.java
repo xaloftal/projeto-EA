@@ -14,8 +14,6 @@ import org.springframework.web.server.ResponseStatusException;
 
 import PSM.UserManagement.User;
 import PSM.UserManagement.api.auth.AuthService;
-import PSM.Report.ReportService;
-import PSM.Report.TransportReportStatsDTO;
 import jakarta.servlet.http.HttpServletRequest;
 
 @RestController

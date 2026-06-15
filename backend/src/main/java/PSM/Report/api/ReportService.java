@@ -1,4 +1,4 @@
-package PSM.Report;
+package PSM.Report.api;
 
 import java.io.ByteArrayOutputStream;
 import java.time.DayOfWeek;
@@ -37,7 +37,10 @@ public class ReportService {
     }
 
     public List<ValidationRecord> getValidationRecords(UUID vehicleId, String yearMonth) {
-        // Parse "YYYY-MM"
+        System.out.println("=== getValidationRecords called ===");
+        System.out.println("vehicleId: " + vehicleId);
+        System.out.println("yearMonth: " + yearMonth);
+
         String[] parts = yearMonth.split("-");
         int year = Integer.parseInt(parts[0]);
         int month = Integer.parseInt(parts[1]);
@@ -46,7 +49,20 @@ public class ReportService {
         LocalDateTime start = startDay.atStartOfDay();
         LocalDateTime end = startDay.plusMonths(1).atStartOfDay().minusNanos(1);
 
-        return validationRecordRepository.findByVehicleAndPeriod(vehicleId, start, end);
+        System.out.println("Start: " + start);
+        System.out.println("End: " + end);
+
+        List<ValidationRecord> records = validationRecordRepository.findByVehicleAndPeriod(vehicleId, start, end);
+
+        System.out.println("Records found: " + records.size());
+
+        if (records.isEmpty()) {
+            System.out.println("WARNING: No records found for vehicle " + vehicleId);
+        } else {
+            System.out.println("First record timestamp: " + records.get(0).getTimestamp());
+        }
+
+        return records;
     }
 
     public TransportReportStatsDTO getStats(UUID vehicleId, String yearMonth) {
@@ -58,14 +74,13 @@ public class ReportService {
 
         // Group by Day of Week
         Map<String, Long> byDay = new LinkedHashMap<>();
-        // Initialize days in order to guarantee nice display
         String[] daysPt = {"Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado", "Domingo"};
         for (int i = 0; i < 7; i++) {
             byDay.put(daysPt[i], 0L);
         }
         for (ValidationRecord vr : records) {
             DayOfWeek dow = vr.getTimestamp().getDayOfWeek();
-            int idx = dow.getValue() - 1; // Monday is 1, Sunday is 7
+            int idx = dow.getValue() - 1;
             String key = daysPt[idx];
             byDay.put(key, byDay.get(key) + 1);
         }
@@ -82,29 +97,31 @@ public class ReportService {
 
         // Group by Stop Name
         Map<String, Long> byStop = records.stream()
-            .collect(Collectors.groupingBy(
-                vr -> vr.getStop() != null ? vr.getStop().getName() : "Desconhecido",
-                Collectors.counting()
-            ));
+                .collect(Collectors.groupingBy(
+                        vr -> vr.getStop() != null ? vr.getStop().getName() : "Desconhecido",
+                        Collectors.counting()
+                ));
 
-        // Sort stops by validation count descending
         Map<String, Long> sortedStops = byStop.entrySet().stream()
-            .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
-            .collect(Collectors.toMap(
-                Map.Entry::getKey,
-                Map.Entry::getValue,
-                (e1, e2) -> e1,
-                LinkedHashMap::new
-            ));
+                .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        Map.Entry::getValue,
+                        (e1, e2) -> e1,
+                        LinkedHashMap::new
+                ));
 
         return new TransportReportStatsDTO(total, success, failed, byDay, byHour, sortedStops);
     }
 
     public String getVehicleInfo(UUID vehicleId) {
         Vehicle vehicle = vehicleRepository.findById(vehicleId).orElse(null);
-        if (vehicle == null) return "Desconhecido";
+        if (vehicle == null) {
+            return "Desconhecido";
+        }
         String type = vehicle.getType() != null ? vehicle.getType() : "Transporte";
-        String routeName = (vehicle.getRoute() != null) ? vehicle.getRoute().getName() : "";
+        String routeName = (vehicle.getRoute() != null && vehicle.getRoute().getName() != null) 
+            ? vehicle.getRoute().getName() : "";
         return type + " (" + (routeName.isEmpty() ? vehicleId.toString().substring(0, 8) : routeName) + ")";
     }
 
@@ -131,26 +148,22 @@ public class ReportService {
             PdfWriter.getInstance(document, out);
             document.open();
 
-            // Font Definitions
             Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 20, Font.BOLD, new java.awt.Color(70, 75, 162));
             Font subtitleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12, Font.BOLD, java.awt.Color.DARK_GRAY);
             Font sectionFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 14, Font.BOLD, new java.awt.Color(70, 75, 162));
             Font bodyFont = FontFactory.getFont(FontFactory.HELVETICA, 10);
             Font bodyFontBold = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10);
 
-            // Title
             Paragraph title = new Paragraph("CATCHIT - RELATORIO ESTATISTICO", titleFont);
             title.setAlignment(Element.ALIGN_CENTER);
             title.setSpacingAfter(10);
             document.add(title);
 
-            // Subtitle
             Paragraph subtitle = new Paragraph("Transporte: " + vehicleInfo + "  |  Periodo: " + yearMonth, subtitleFont);
             subtitle.setAlignment(Element.ALIGN_CENTER);
             subtitle.setSpacingAfter(25);
             document.add(subtitle);
 
-            // Section: Resumo das Validações
             Paragraph s1 = new Paragraph("1. Resumo Geral de Validacoes", sectionFont);
             s1.setSpacingAfter(10);
             document.add(s1);
@@ -168,14 +181,13 @@ public class ReportService {
             addTableCell(summaryTable, "Validacoes com Falha:", bodyFontBold);
             addTableCell(summaryTable, String.valueOf(stats.getFailedValidations()), bodyFont);
 
-            double rate = stats.getTotalValidations() > 0 ? 
-                (double) stats.getSuccessfulValidations() / stats.getTotalValidations() * 100 : 0.0;
+            double rate = stats.getTotalValidations() > 0 
+                ? (double) stats.getSuccessfulValidations() / stats.getTotalValidations() * 100 : 0.0;
             addTableCell(summaryTable, "Taxa de Sucesso:", bodyFontBold);
             addTableCell(summaryTable, String.format("%.2f%%", rate), bodyFont);
 
             document.add(summaryTable);
 
-            // Section: Validações por Paragem
             Paragraph s2 = new Paragraph("2. Validacoes por Paragem (Top 10)", sectionFont);
             s2.setSpacingAfter(10);
             document.add(s2);
@@ -208,7 +220,6 @@ public class ReportService {
             }
             document.add(stopTable);
 
-            // Section: Distribuição Semanal
             Paragraph s3 = new Paragraph("3. Distribuicao por Dia da Semana", sectionFont);
             s3.setSpacingAfter(10);
             document.add(s3);

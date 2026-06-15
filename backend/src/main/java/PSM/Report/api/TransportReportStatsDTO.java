@@ -1,4 +1,4 @@
-package PSM.Report;
+package PSM.Report.api;
 
 import java.util.Map;
 
