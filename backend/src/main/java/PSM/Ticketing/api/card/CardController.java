@@ -19,6 +19,7 @@ import PSM.Ticketing.Card;
 @RestController
 @RequestMapping("/api/cards")
 public class CardController {
+
     private final CardService service;
 
     public CardController(CardService service) {
@@ -37,6 +38,10 @@ public class CardController {
 
     @PostMapping
     public Card create(@RequestBody Card entity) {
+        System.out.println("=== CREATE CARD ===");
+        System.out.println("Zone ID: " + (entity.getZone() != null ? entity.getZone().getId() : "null"));
+        System.out.println("Zone Name: " + (entity.getZone() != null ? entity.getZone().getName() : "null"));
+        System.out.println("Price: " + entity.getPrice());
         return service.create(entity);
     }
 
@@ -49,30 +54,30 @@ public class CardController {
     public void delete(@PathVariable UUID id) {
         service.delete(id);
     }
-    
-@GetMapping("/{id}/qrcode")
-public ResponseEntity<byte[]> getCardQrCode(@PathVariable UUID id) {
-    try {
-        Card card = service.findById(id);
-        byte[] qrCode = card.getQrCode();
-        
-        if (qrCode == null || qrCode.length == 0) {
-            // Gerar QR code se não existir
-            String qrText = "CARD:" + id;
-            card.generateQrCode(qrText, 300);
-            service.update(id, card);
-            qrCode = card.getQrCode();
+
+    @GetMapping("/{id}/qrcode")
+    public ResponseEntity<byte[]> getCardQrCode(@PathVariable UUID id) {
+        try {
+            Card card = service.findById(id);
+            byte[] qrCode = card.getQrCode();
+
+            if (qrCode == null || qrCode.length == 0) {
+                // Gerar QR code se não existir
+                String qrText = "CARD:" + id;
+                card.generateQrCode(qrText, 300);
+                service.update(id, card);
+                qrCode = card.getQrCode();
+            }
+
+            if (qrCode == null || qrCode.length == 0) {
+                return ResponseEntity.notFound().build();
+            }
+
+            return ResponseEntity.ok()
+                    .contentType(MediaType.IMAGE_PNG)
+                    .body(qrCode);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().build();
         }
-        
-        if (qrCode == null || qrCode.length == 0) {
-            return ResponseEntity.notFound().build();
-        }
-        
-        return ResponseEntity.ok()
-                .contentType(MediaType.IMAGE_PNG)
-                .body(qrCode);
-    } catch (Exception e) {
-        return ResponseEntity.internalServerError().build();
     }
-}
 }

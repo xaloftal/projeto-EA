@@ -4,6 +4,7 @@ export interface User {
   name: string
   email: string
   balance: number
+  isAdmin: boolean
   tickets: Ticket[]
   notifications?: UserNotification[]
 }

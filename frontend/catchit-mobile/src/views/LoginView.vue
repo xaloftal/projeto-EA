@@ -79,7 +79,7 @@ import { useRouter } from 'vue-router'
 import { useAuthViewModel } from '../viewmodels'
 
 const router = useRouter()
-const { login, isLoading, error } = useAuthViewModel()
+const { login, isLoading, error, currentUser } = useAuthViewModel()
 
 const form = ref({
   email: '',
@@ -89,7 +89,11 @@ const form = ref({
 const handleLogin = async () => {
   const success = await login(form.value.email, form.value.password)
   if (success) {
-    void router.push('/home')
+    if (currentUser.value?.isAdmin) {
+      void router.push('/admin/reports')
+    } else {
+      void router.push('/home')
+    }
   }
 }
 </script>

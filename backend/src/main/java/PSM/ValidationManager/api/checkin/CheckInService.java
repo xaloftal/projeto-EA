@@ -1,6 +1,8 @@
 package PSM.ValidationManager.api.checkin;
 
 import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -9,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import PSM.Location.Stop;
+import PSM.Location.StopSchedule;
 import PSM.Location.Zone;
 import PSM.Ticketing.Card;
 import PSM.Ticketing.Ticket;
@@ -87,28 +90,57 @@ public class CheckInService {
             return new CheckInResponseDTO(false, "Card is not active or expired");
         }
         
-        if (!validateCardZone(trip, card.getZone())) {
-            logger.warn("Card zone validation failed - Zone: {}", card.getZone() != null ? card.getZone().getName() : "null");
-            saveValidationRecord(card, trip, false);
-            return new CheckInResponseDTO(false, "Trip is not within the card's zone");
+        // Se o cartão não tem zona, é válido para qualquer viagem
+        if (card.getZone() == null) {
+            logger.info("Card has no zone restriction - valid for any trip");
+            
+            // Ativar o card se necessário
+            String currentState = card.getStateName();
+            if ("UNUSED".equals(currentState)) {
+                card.activate();
+                logger.info("Card activated - New State: {}", card.getStateName());
+                titleRepository.save(card);
+            } else if ("ACTIVE".equals(currentState)) {
+                logger.info("Card already active - keeping state");
+            }
+            
+            saveValidationRecord(card, trip, true);
+            return new CheckInResponseDTO(true, "Card checked in successfully (no zone restriction)");
         }
         
-        // IMPORTANTE: Ativar/Validar o card para que o checkout funcione
-        // O card precisa estar no estado VALIDATED ou ACTIVE para permitir checkout
+        // Validar zona do cartão
+        if (!validateCardZone(trip, card.getZone())) {
+            // Mensagem mais útil sobre quais zonas a trip cobre
+            Set<String> tripZones = new HashSet<>();
+            if (trip.getRoute() != null && trip.getRoute().getSchedules() != null) {
+                for (StopSchedule schedule : trip.getRoute().getSchedules()) {
+                    if (schedule.getStop() != null && schedule.getStop().getZone() != null) {
+                        tripZones.add(schedule.getStop().getZone().getName());
+                    }
+                }
+            }
+            
+            String message = String.format(
+                "Card is only valid for zone '%s'. This trip serves zones: %s",
+                card.getZone().getName(),
+                tripZones.isEmpty() ? "none" : String.join(", ", tripZones)
+            );
+            
+            logger.warn("Card zone validation failed - {}", message);
+            saveValidationRecord(card, trip, false);
+            return new CheckInResponseDTO(false, message);
+        }
+        
+        // Ativar/Validar o card
         String currentState = card.getStateName();
         
         if ("UNUSED".equals(currentState)) {
-            // Card novo - ativar
             card.activate();
             logger.info("Card activated - New State: {}", card.getStateName());
         } else if ("ACTIVE".equals(currentState)) {
-            // Card já ativo - precisa ser validado para esta viagem
-            // Podemos usar o método validate() se existir, ou manter como ACTIVE
             logger.info("Card already active - keeping state");
         }
         
-        // Garantir que o card fica num estado que o checkout reconhece
-        // O CheckOutService verifica "VALIDATED" para tickets, mas para cards pode verificar "ACTIVE"
         titleRepository.save(card);
         
         logger.info("Card checked in - Final State: {}", card.getStateName());
@@ -131,12 +163,31 @@ public class CheckInService {
         return hasFrom && hasTo;
     }
 
-    private boolean validateCardZone(Trip trip, Zone zone) {
-        if (zone == null) return true; // Card sem zona específica pode viajar em qualquer lugar
-        
-        return trip.getRoute().schedules.stream()
-                .anyMatch(schedule -> schedule.stop != null && zone.getStops().contains(schedule.stop));
+private boolean validateCardZone(Trip trip, Zone cardZone) {
+    if (cardZone == null) return true; // Card sem zona específica pode viajar em qualquer lugar
+    
+    // Verificar se algum stop da trip pertence à zona do cartão
+    for (StopSchedule schedule : trip.getRoute().getSchedules()) {
+        if (schedule.getStop() != null) {
+            Zone stopZone = schedule.getStop().getZone();
+            if (stopZone != null && stopZone.getId().equals(cardZone.getId())) {
+                logger.info("Found matching zone: {} - Stop: {}", cardZone.getName(), schedule.getStop().getName());
+                return true;
+            }
+        }
     }
+    
+    // Log das zonas disponíveis na trip para debug
+    Set<String> availableZones = new HashSet<>();
+    for (StopSchedule schedule : trip.getRoute().getSchedules()) {
+        if (schedule.getStop() != null && schedule.getStop().getZone() != null) {
+            availableZones.add(schedule.getStop().getZone().getName());
+        }
+    }
+    logger.warn("Card zone {} not found in trip zones: {}", cardZone.getName(), availableZones);
+    
+    return false;
+}
 
     private void saveValidationRecord(Title title, Trip trip, boolean success) {
         ValidationRecord validationRecord = new ValidationRecord();

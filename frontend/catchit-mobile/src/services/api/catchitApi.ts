@@ -186,6 +186,7 @@ type BackendUser = {
   name?: string
   email?: string
   balance?: number
+  isAdmin?: boolean
   card?: BackendCard | null
   tickets?: BackendTicket[]
   notifications?: BackendNotification[]
@@ -396,6 +397,7 @@ const mapUser = (user: BackendUser): User => ({
   name: user.name ?? '',
   email: user.email ?? '',
   balance: Number(user.balance ?? 0),
+  isAdmin: !!user.isAdmin,
   tickets: (user.tickets ?? []).map((ticket) => mapTicket(ticket, user.id)),
   notifications: (user.notifications ?? []).map(mapNotification),
 })
@@ -745,26 +747,34 @@ export class CatchItApiClient {
   }
 
   async purchaseCard(data: { userId: string; cardId: string }): Promise<ApiResponse<Card>> {
+    console.log("=== PURCHASE CARD DEBUG ===");
+    console.log("userId:", data.userId);
+    console.log("cardId (zoneId):", data.cardId);
+
     const availableCards = await this.getAvailableCards()
     const selectedCard = availableCards.success && availableCards.data?.find((card) => card.id === data.cardId)
 
-    const selectedCardPayload = selectedCard
-      ? {
-        price: selectedCard.price,
-        validFrom: selectedCard.validFrom.toISOString(),
-        validUntil: selectedCard.validUntil.toISOString(),
-        zone: {
-          id: selectedCard.id,
-          name: selectedCard.name,
-          colorHexCode: selectedCard.zoneColorHexCode ?? null,
-        },
-      }
-      : {
-        price: defaultZoneCardPrice,
-        validFrom: new Date().toISOString(),
-        validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-        zone: null,
-      }
+    if (!selectedCard) {
+      console.error("Selected card not found!");
+      return { success: false, error: "Card not found" };
+    }
+
+    console.log("Selected card:", selectedCard);
+
+    const selectedCardPayload = {
+      price: selectedCard.price,
+      validFrom: new Date().toISOString(),
+      validUntil: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
+      stateName: "UNUSED",
+      zone: {
+        id: selectedCard.id,  // Isto é o ID da zona, não do cartão
+        name: selectedCard.name,
+        colorHexCode: selectedCard.zoneColorHexCode ?? null,
+      },
+    }
+
+
+    console.log("Payload being sent:", selectedCardPayload);
 
     const createResponse = await requestJson<BackendCard>('/api/cards', {
       method: 'POST',
@@ -772,18 +782,20 @@ export class CatchItApiClient {
     })
 
     if (!createResponse.success || !createResponse.data) {
+      console.error("Create card failed:", createResponse.error);
       return { success: false, error: createResponse.error }
     }
 
     const createdCard = mapCard(createResponse.data, data.userId)
 
+    // Associar o cartão ao utilizador
     await requestJson<BackendUser>(`/api/users/${data.userId}/card`, {
       method: 'POST',
       body: JSON.stringify({ id: createResponse.data.id }),
     })
 
+    console.log("Card created and associated:", createdCard);
     return { success: true, data: createdCard }
-
   }
 
   async getStops(): Promise<ApiResponse<Stop[]>> {
@@ -876,6 +888,10 @@ export class CatchItApiClient {
     return { success: true, data: response.data }
   }
 
+  async getVehicles(): Promise<ApiResponse<any[]>> {
+    return requestJson('/api/vehicles')
+  }
+
   async searchRoutes(data: {
     fromStopId: string
     toStopId: string
@@ -903,6 +919,10 @@ export class CatchItApiClient {
     }))
 
     return { success: true, data: mappedResults }
+  }
+
+  async getTripStopsWithZones(tripId: string): Promise<ApiResponse<any[]>> {
+    return requestJson(`/api/trips/${tripId}/stops-with-zones`)
   }
 
   async bookTravel(data: { userId: string; routeId: string; tripId: string }): Promise<ApiResponse<Trip>> {
@@ -1130,6 +1150,28 @@ export class CatchItApiClient {
 
   async getStopZone(stopId: string): Promise<ApiResponse<string>> {
     return requestJson(`/api/stops/${stopId}/zone`)
+  }
+
+  async getReportStats(vehicleId: string, month: string): Promise<ApiResponse<any>> {
+    return requestJson(`/api/reports/stats?vehicleId=${vehicleId}&month=${month}`)
+  }
+
+  async downloadReport(vehicleId: string, month: string, format: 'pdf' | 'csv'): Promise<Blob | null> {
+    try {
+      const authToken = localStorage.getItem('authToken')
+      const viteEnv = (import.meta as any).env ?? {}
+      const apiBaseUrl = (viteEnv.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
+      const response = await fetch(`${apiBaseUrl}/api/reports/download?vehicleId=${vehicleId}&month=${month}&format=${format}`, {
+        headers: {
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+        },
+      })
+      if (!response.ok) return null
+      return await response.blob()
+    } catch (e) {
+      console.error('Error downloading report:', e)
+      return null
+    }
   }
 }
 

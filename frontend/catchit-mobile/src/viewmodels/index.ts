@@ -97,6 +97,8 @@ export function useAuthViewModel() {
     }
   }
 
+  
+
   const login = async (email: string, password: string) => {
     isLoading.value = true
     error.value = ''
@@ -752,6 +754,36 @@ export function useProfileViewModel() {
     error,
     updateProfile,
     currentUser,
+  }
+}
+
+
+// Adicionar esta função após as declarações iniciais
+export async function initializeAuth() {
+  const storedUser = localStorage.getItem('user')
+  const storedToken = localStorage.getItem('authToken')
+  
+  if (storedUser && storedToken) {
+    try {
+      currentUser.value = JSON.parse(storedUser)
+      authToken.value = storedToken
+      
+      // Opcional: validar o token com o backend
+      const sessionResponse = await catchitApi.getCurrentSessionUser()
+      if (!sessionResponse.success) {
+        // Token inválido, limpar sessão
+        currentUser.value = null
+        authToken.value = ''
+        localStorage.removeItem('authToken')
+        localStorage.removeItem('user')
+      }
+    } catch (e) {
+      console.error('Error restoring session:', e)
+      currentUser.value = null
+      authToken.value = ''
+      localStorage.removeItem('authToken')
+      localStorage.removeItem('user')
+    }
   }
 }
 

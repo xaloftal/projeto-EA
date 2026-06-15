@@ -121,6 +121,13 @@
             <p><strong>Route:</strong> {{ selectedTripDetails?.routeName || 'N/A' }}</p>
             <p><strong>Departure:</strong> {{ selectedTripDetails?.startTime || 'N/A' }}</p>
           </div>
+          <div v-if="!isTicketTitle && cardInfo?.zoneName" class="zone-warning">
+            <p><strong>Card Zone:</strong> {{ cardInfo.zoneName }}</p>
+            <p v-if="tripZones.length > 0" :class="isZoneValid ? 'zone-valid' : 'zone-invalid'">
+              <span v-if="isZoneValid">✅ This trip passes through your card's zone</span>
+              <span v-else>⚠️ This trip does NOT pass through zone {{ cardInfo.zoneName }}</span>
+            </p>
+          </div>
           <p class="warning-text">After the check-in, your title will be validated and cannot be canceled.</p>
         </div>
         <div class="modal-footer">
@@ -185,7 +192,6 @@ import { useRoute, useRouter } from 'vue-router'
 import {
   ArrowLeft,
   House,
-  Map,
   ShoppingCart,
   Ticket,
   User,
@@ -196,10 +202,10 @@ import {
   AlertCircle,
   InfoIcon
 } from 'lucide-vue-next'
-import { useTransportViewModel } from '../viewmodels'
+import { useTransportViewModel } from '../viewmodels/index'
 import { catchitApi } from '../services/api/catchitApi'
 
-// Definir a interface para o tipo CheckoutSituation
+// Definir interfaces
 interface CheckoutSituation {
   situation: string
   currentStopName: string | null
@@ -210,6 +216,17 @@ interface CheckoutSituation {
 interface CardInfo {
   zoneName: string | null
   validUntil: string
+}
+
+interface TripStop {
+  id: string
+  name: string
+  stopCode: string
+  sequence: number
+  zoneName: string
+  zoneId: string
+  latitude: number
+  longitude: number
 }
 
 const route = useRoute()
@@ -229,7 +246,6 @@ const {
   titleLabel,
   isTicketTitle,
   loadTitleInfo,
-  loadActiveTrips,
   handleCheckIn: originalHandleCheckIn,
   handleCheckOut: originalHandleCheckOut
 } = transport
@@ -239,6 +255,7 @@ const isLoadingQr = ref<boolean>(false)
 const qrCodeUrl = ref<string | null>(null)
 const checkoutSituation = ref<CheckoutSituation | null>(null)
 const cardInfo = ref<CardInfo | null>(null)
+const cardZoneName = ref<string | null>(null)
 const isLoadingMore = ref<boolean>(false)
 const currentPage = ref<number>(1)
 const scrollContainer = ref<HTMLElement | null>(null)
@@ -251,6 +268,12 @@ const showCheckoutModal = ref<boolean>(false)
 // Estado do toast
 const toastMessage = ref<string>('')
 const toastType = ref<'success' | 'error'>('success')
+
+// Estado para stops da trip e validação de zona
+const tripStops = ref<TripStop[]>([])
+const isLoadingStops = ref(false)
+const tripZones = ref<string[]>([])
+const isZoneValid = ref(false)
 
 // Trip selecionada detalhes
 const selectedTripDetails = computed(() => {
@@ -279,42 +302,163 @@ const formatDate = (dateString: string) => {
   }
 }
 
+const formatTime = (date?: string) => (date ? new Date(date).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' }) : '')
+
 const getSituationClass = (situation: string) => {
   switch (situation) {
-    case 'BEFORE_DESTINATION':
-      return 'situation-info'
-    case 'AT_DESTINATION':
-      return 'situation-success'
-    case 'AFTER_DESTINATION':
-      return 'situation-warning'
-    default:
-      return ''
+    case 'BEFORE_DESTINATION': return 'situation-info'
+    case 'AT_DESTINATION': return 'situation-success'
+    case 'AFTER_DESTINATION': return 'situation-warning'
+    default: return ''
   }
 }
 
 const getSituationTitle = (situation: string) => {
   switch (situation) {
-    case 'BEFORE_DESTINATION':
-      return 'You are on the way to the destination'
-    case 'AT_DESTINATION':
-      return 'You are at the destination'
-    case 'AFTER_DESTINATION':
-      return 'Attention: Passed the destination!'
-    default:
-      return 'Checkout Situation'
+    case 'BEFORE_DESTINATION': return 'You are on the way to the destination'
+    case 'AT_DESTINATION': return 'You are at the destination'
+    case 'AFTER_DESTINATION': return 'Attention: Passed the destination!'
+    default: return 'Checkout Situation'
   }
 }
 
-// Função para mostrar toast
 const showToast = (message: string, type: 'success' | 'error') => {
   toastMessage.value = message
   toastType.value = type
-  setTimeout(() => {
-    toastMessage.value = ''
-  }, 3000)
+  setTimeout(() => { toastMessage.value = '' }, 3000)
 }
 
-// Funções dos modais
+// Buscar stops da trip
+const fetchTripStops = async (tripId: string) => {
+  isLoadingStops.value = true
+  try {
+    const response = await catchitApi.getTripStopsWithZones(tripId)
+    if (response.success && response.data) {
+      // Remover duplicados por sequence - usando objeto simples
+      const uniqueStopsMap: { [key: number]: TripStop } = {}
+      for (const stop of response.data) {
+        if (!uniqueStopsMap[stop.sequence]) {
+          uniqueStopsMap[stop.sequence] = stop
+        }
+      }
+      tripStops.value = Object.values(uniqueStopsMap)
+      const zones: string[] = []
+      for (const stop of tripStops.value) {
+        if (stop.zoneName && !zones.includes(stop.zoneName)) {
+          zones.push(stop.zoneName)
+        }
+      }
+      tripZones.value = zones
+      
+      if (!isTicketTitle.value && cardZoneName.value) {
+        isZoneValid.value = zones.includes(cardZoneName.value)
+      }
+      return true
+    }
+    return false
+  } catch (error) {
+    console.error('Error fetching trip stops:', error)
+    return false
+  } finally {
+    isLoadingStops.value = false
+  }
+}
+
+// Filtrar trips por zona do cartão
+const filterTripsByZone = async (trips: any[]): Promise<any[]> => {
+  if (isTicketTitle.value || !cardZoneName.value) {
+    return trips
+  }
+  
+  const filtered: any[] = []
+  for (const trip of trips) {
+    try {
+      const response = await catchitApi.getTripStopsWithZones(trip.id)
+      if (response.success && response.data) {
+        // Remover duplicados por sequence - usando objeto simples
+        const uniqueStopsMap: { [key: number]: any } = {}
+        for (const stop of response.data) {
+          if (!uniqueStopsMap[stop.sequence]) {
+            uniqueStopsMap[stop.sequence] = stop
+          }
+        }
+        const stops = Object.values(uniqueStopsMap)
+        const tripZonesSet: string[] = []
+        for (const s of stops) {
+          if (s.zoneName && !tripZonesSet.includes(s.zoneName)) {
+            tripZonesSet.push(s.zoneName)
+          }
+        }
+        
+        if (tripZonesSet.includes(cardZoneName.value)) {
+          filtered.push(trip)
+        }
+      }
+    } catch (error) {
+      console.error('Error filtering trip:', trip.id, error)
+    }
+  }
+  return filtered
+}
+
+// Load active trips com filtro por zona
+const loadActiveTripsFiltered = async () => {
+  isLoadingTrips.value = true
+  try {
+    const response = titleId
+      ? await catchitApi.getActiveTripsForTitle(titleId)
+      : await catchitApi.getActiveTrips()
+
+    if (response.success && response.data) {
+      const now = new Date().getTime()
+      const routeBestTrip = new Map<string, { trip: any; diff: number }>()
+
+      for (const t of response.data) {
+        const rName = t.routeName ?? 'Unknown route'
+        const tTime = new Date(t.startTime || '').getTime()
+        const diff = isNaN(tTime) ? Number.MAX_VALUE : Math.abs(tTime - now)
+
+        if (!routeBestTrip.has(rName)) {
+          routeBestTrip.set(rName, { trip: t, diff })
+        } else {
+          const currentBest = routeBestTrip.get(rName)!
+          if (diff < currentBest.diff) {
+            routeBestTrip.set(rName, { trip: t, diff })
+          }
+        }
+      }
+
+      const uniqueTrips = Array.from(routeBestTrip.values()).map(({ trip: t }) => ({
+        id: t.id,
+        routeName: t.routeName ?? 'Unknown route',
+        startTime: formatTime(t.startTime),
+        zoneName: t.zoneName
+      }))
+      
+      const filtered = await filterTripsByZone(uniqueTrips)
+      activeTrips.value = filtered
+      
+      if (filtered.length === 0 && cardZoneName.value) {
+        showToast(`No trips available for your card's zone: ${cardZoneName.value}`, 'error')
+      }
+    }
+  } finally {
+    isLoadingTrips.value = false
+  }
+}
+
+const validateCardBeforeCheckin = (): boolean => {
+  if (isTicketTitle.value) return true
+  if (!cardZoneName.value) return true
+  
+  if (!isZoneValid.value) {
+    const availableZones = tripZones.value.length > 0 ? tripZones.value.join(', ') : 'unknown'
+    showToast(`Card zone mismatch! Your card is for zone ${cardZoneName.value}. This trip serves: ${availableZones}`, 'error')
+    return false
+  }
+  return true
+}
+
 const openCheckinModal = () => {
   if (!selectedTripId.value) {
     showToast('Please select a trip first', 'error')
@@ -336,7 +480,6 @@ const closeModals = () => {
   showCheckoutModal.value = false
 }
 
-// Buscar informações do card (para mostrar detalhes)
 const fetchCardInfo = async () => {
   if (!titleId || isTicketTitle.value) return
   
@@ -352,6 +495,13 @@ const fetchCardInfo = async () => {
         zoneName: card.zone?.name || null,
         validUntil: card.validUntil
       }
+      cardZoneName.value = card.zone?.name || null
+      
+      if (cardZoneName.value) {
+        await loadActiveTripsFiltered()
+      } else {
+        await loadActiveTripsFiltered()
+      }
     }
   } catch (err) {
     console.error('Error fetching card info:', err)
@@ -360,15 +510,11 @@ const fetchCardInfo = async () => {
 
 const fetchQrCode = async () => {
   if (!titleId) return
-  
   isLoadingQr.value = true
   try {
-    let imageUrl: string
-    if (isTicketTitle.value) {
-      imageUrl = await catchitApi.getTicketQrCode(titleId)
-    } else {
-      imageUrl = await catchitApi.getCardQrCode(titleId)  // ← USAR MÉTODO DO CARD
-    }
+    const imageUrl = isTicketTitle.value 
+      ? await catchitApi.getTicketQrCode(titleId)
+      : await catchitApi.getCardQrCode(titleId)
     qrCodeUrl.value = imageUrl
   } catch (err) {
     console.error('Error fetching QR Code:', err)
@@ -377,10 +523,8 @@ const fetchQrCode = async () => {
   }
 }
 
-// Buscar situação do checkout (apenas para tickets)
 const fetchCheckoutSituation = async () => {
   if (!titleId || !selectedTripId.value || !isTicketTitle.value) return
-
   try {
     const response = await catchitApi.getCheckoutSituation(titleId, selectedTripId.value)
     if (response.success && response.data) {
@@ -391,37 +535,34 @@ const fetchCheckoutSituation = async () => {
   }
 }
 
-// Confirmar Check-in
 const confirmCheckIn = async () => {
+  if (!selectedTripId.value) return
   closeModals()
+  
+  await fetchTripStops(selectedTripId.value)
+  if (!validateCardBeforeCheckin()) return
+  
   await originalHandleCheckIn()
   
   if (checkInSuccess.value) {
     showToast('Check-in completed successfully!', 'success')
-    // Busca QR code para ambos (ticket e card)
     await fetchQrCode()
     if (isTicketTitle.value) {
       await fetchCheckoutSituation()
-    } else {
-      await fetchCardInfo()
     }
   } else if (errorMessage.value) {
     showToast(errorMessage.value, 'error')
   }
 }
 
-// Confirmar Check-out
 const confirmCheckOut = async () => {
   closeModals()
   await originalHandleCheckOut()
-  
   setTimeout(() => {
     if (checkOutMessage.value) {
       if (checkOutMessage.value.success) {
         showToast(checkOutMessage.value.text, 'success')
-        setTimeout(() => {
-          router.push('/profile?tab=tickets')
-        }, 1500)
+        setTimeout(() => router.push('/profile?tab=tickets'), 1500)
       } else {
         showToast(checkOutMessage.value.text, 'error')
       }
@@ -435,36 +576,62 @@ const handleScroll = () => {
   const target = scrollContainer.value
   if (!target) return
   
-  const scrollTop = target.scrollTop
-  const scrollHeight = target.scrollHeight
-  const clientHeight = target.clientHeight
-
-  if (scrollTop + clientHeight >= scrollHeight * 0.8) {
-    // Implementar load more se necessário
+  if (target.scrollTop + target.clientHeight >= target.scrollHeight * 0.8) {
+    if (hasMoreTrips.value && !isLoadingMore.value) {
+      isLoadingMore.value = true
+      setTimeout(() => {
+        currentPage.value++
+        isLoadingMore.value = false
+      }, 500)
+    }
   }
 }
 
-// Limpar URL do QR code quando o componente for destruído
 onUnmounted(() => {
-  if (qrCodeUrl.value) {
-    URL.revokeObjectURL(qrCodeUrl.value)
-  }
+  if (qrCodeUrl.value) URL.revokeObjectURL(qrCodeUrl.value)
 })
 
-// Monitorizar mudanças de trip selecionada
-watch(selectedTripId, () => {
+watch(selectedTripId, async () => {
   if (selectedTripId.value && checkInSuccess.value && isTicketTitle.value) {
-    fetchCheckoutSituation()
+    await fetchCheckoutSituation()
   }
+  tripStops.value = []
+  tripZones.value = []
+  isZoneValid.value = false
 })
 
-onMounted(() => {
-  loadTitleInfo()
-  loadActiveTrips()
+onMounted(async () => {
+  await loadTitleInfo()
+  await fetchCardInfo()
+  if (!cardZoneName.value) {
+    await loadActiveTripsFiltered()
+  }
 })
 </script>
 
 <style scoped>
+/* ... manter todos os estilos existentes ... */
+
+/* Adicionar estilos para validação de zona */
+.zone-warning {
+  background: #f3f4f6;
+  border-radius: 8px;
+  padding: 0.75rem;
+  margin: 0.75rem 0;
+  text-align: left;
+}
+
+.zone-valid {
+  color: #10b981;
+  font-weight: 500;
+}
+
+.zone-invalid {
+  color: #ef4444;
+  font-weight: 500;
+}
+
+/* Adicionar qualquer estilo existente que possa faltar */
 .content {
   flex: 1;
   overflow-y: auto;
@@ -590,7 +757,6 @@ onMounted(() => {
   font-size: 0.95rem;
 }
 
-/* Badge de tipo */
 .title-type-badge {
   margin-top: -0.5rem;
 }
@@ -613,7 +779,6 @@ onMounted(() => {
   color: #92400e;
 }
 
-/* QR Code container */
 .qr-container {
   background: white;
   border: 2px dashed #e5e7eb;
@@ -664,7 +829,6 @@ onMounted(() => {
   font-weight: 500;
 }
 
-/* Informação do card */
 .card-info {
   background: #f3f4f6;
   border-radius: 12px;
@@ -709,18 +873,6 @@ onMounted(() => {
   width: 1.5rem;
   height: 1.5rem;
   flex-shrink: 0;
-}
-
-.situation-info .banner-icon {
-  color: #0284c7;
-}
-
-.situation-success .banner-icon {
-  color: #059669;
-}
-
-.situation-warning .banner-icon {
-  color: #d97706;
 }
 
 .banner-content {
@@ -857,7 +1009,6 @@ onMounted(() => {
   height: 1.5rem;
 }
 
-/* Estilos do Modal */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -972,7 +1123,6 @@ onMounted(() => {
   cursor: not-allowed;
 }
 
-/* Estilos do Toast */
 .toast {
   position: fixed;
   bottom: 80px;

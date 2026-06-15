@@ -10,14 +10,16 @@ public record AuthenticatedUserDTO(
     UUID id,
     String name,
     String email,
-    float balance
+    float balance,
+    boolean isAdmin
 ) {
     public AuthenticatedUserDTO(PSM.UserManagement.User user) {
         this(
             user.getId(),
             user.getName(),
             user.getEmail(),
-            user.getBalance()
+            user.getBalance(),
+            user.isAdmin()
         );
     }
 }

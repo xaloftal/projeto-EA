@@ -5,6 +5,7 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -12,13 +13,15 @@ import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 
+import PSM.Location.Stop;
 import PSM.Location.StopSchedule;
 import PSM.Location.api.route.RouteStopDTO;
-import PSM.Travel.Trip;
-import PSM.Ticketing.api.title.TitleRepository;
-import PSM.Ticketing.Title;
-import PSM.Ticketing.Ticket;
+import PSM.Location.api.stop.StopDTO;
 import PSM.Ticketing.Card;
+import PSM.Ticketing.Ticket;
+import PSM.Ticketing.Title;
+import PSM.Ticketing.api.title.TitleRepository;
+import PSM.Travel.Trip;
 
 @Service
 public class TripService {
@@ -164,4 +167,39 @@ public class TripService {
             return s.getArrivalTime().toLocalTime();
         return null;
     }
+
+public List<StopDTO> getTripStopsWithZones(UUID tripId) {
+    Trip trip = findById(tripId);
+    if (trip.getRoute() == null) {
+        return List.of();
+    }
+    
+    // Usar LinkedHashMap para garantir stops únicos por sequence
+    Map<Integer, StopDTO> uniqueStops = new LinkedHashMap<>();
+    
+    for (StopSchedule schedule : trip.getRoute().getSchedules()) {
+        if (schedule.getStop() != null) {
+            int sequence = schedule.getSequence();
+            if (!uniqueStops.containsKey(sequence)) {
+                Stop stop = schedule.getStop();
+                StopDTO dto = new StopDTO();
+                dto.setId(stop.getId());
+                dto.setName(stop.getName());
+                dto.setStopCode(stop.getStopCode());
+                dto.setSequence(sequence);
+                if (stop.getZone() != null) {
+                    dto.setZoneName(stop.getZone().getName());
+                    dto.setZoneId(stop.getZone().getId());
+                }
+                if (stop.getLocation() != null) {
+                    dto.setLatitude(stop.getLocation().getLatitude());
+                    dto.setLongitude(stop.getLocation().getLongitude());
+                }
+                uniqueStops.put(sequence, dto);
+            }
+        }
+    }
+    
+    return new ArrayList<>(uniqueStops.values());
+}
 }

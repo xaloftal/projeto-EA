@@ -1,5 +1,17 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { isAuthenticated } from '../viewmodels'
+import { isAuthenticated, currentUser, initializeAuth } from '../viewmodels'
+
+let authInitialized = false
+
+// Função para garantir que a autenticação está inicializada
+const ensureAuthInitialized = async () => {
+  if (!authInitialized) {
+    await initializeAuth()
+    authInitialized = true
+  }
+}
+
+
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -111,7 +123,8 @@ const router = createRouter({
     {
       path: '/',
       redirect: () => {
-        return isAuthenticated.value ? '/home' : '/login'
+        if (!isAuthenticated.value) return '/login'
+        return currentUser.value?.isAdmin ? '/admin/reports' : '/home'
       },
     },
 
@@ -125,20 +138,52 @@ const router = createRouter({
       name: 'history',
       component: () => import('../views/HistoryView.vue'),
       meta: { requiresAuth: true },
-
+    },
+    {
+      path: '/admin/reports',
+      name: 'admin-reports',
+      component: () => import('../views/AdminReportsView.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true },
     }
-
   ],
 })
+
+
+router.beforeEach(async (to, from, next) => {
+  // Garantir que a autenticação está inicializada
+  await ensureAuthInitialized()
+  
+  const requiresAuth = to.matched.some((record) => record.meta.requiresAuth)
+  const requiresAdmin = to.matched.some((record) => record.meta.requiresAdmin)
+
+  if (requiresAuth && !isAuthenticated.value) {
+    next('/login')
+  } else if (isAuthenticated.value && currentUser.value?.isAdmin && !requiresAdmin && to.path !== '/admin/reports') {
+    next('/admin/reports')
+  } else if (requiresAdmin && (!currentUser.value || !currentUser.value.isAdmin)) {
+    next('/home')
+  } else if ((to.path === '/login' || to.path === '/signup') && isAuthenticated.value) {
+    next(currentUser.value?.isAdmin ? '/admin/reports' : '/home')
+  } else {
+    next()
+  }
+})
+
+
 
 // ========== NAVIGATION GUARDS ==========
 router.beforeEach((to, from, next) => {
   const requiresAuth = to.matched.some((record) => record.meta.requiresAuth)
+  const requiresAdmin = to.matched.some((record) => record.meta.requiresAdmin)
 
   if (requiresAuth && !isAuthenticated.value) {
     next('/login')
-  } else if ((to.path === '/login' || to.path === '/signup') && isAuthenticated.value) {
+  } else if (isAuthenticated.value && currentUser.value?.isAdmin && !requiresAdmin) {
+    next('/admin/reports')
+  } else if (requiresAdmin && (!currentUser.value || !currentUser.value.isAdmin)) {
     next('/home')
+  } else if ((to.path === '/login' || to.path === '/signup') && isAuthenticated.value) {
+    next(currentUser.value?.isAdmin ? '/admin/reports' : '/home')
   } else {
     next()
   }
